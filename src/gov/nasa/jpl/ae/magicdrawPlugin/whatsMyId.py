@@ -26,7 +26,7 @@ def getSelectedElementsInDiagram():
     if project != None: diagram = project.getActiveDiagram()
     if diagram != None: selectedList = diagram.getSelected()
     if selectedList != None: selectedElements = [ x.getElement() for x in selectedList ] 
-    return selectedList
+    return selectedElements
 
 def getSelectedElementsInBrowser(complain):
     elements = []
