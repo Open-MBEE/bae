@@ -3,24 +3,22 @@
  */
 package gov.nasa.jpl.ae.util;
 
-import gov.nasa.jpl.ae.event.ElaborationRule;
-import gov.nasa.jpl.ae.event.Event;
 import gov.nasa.jpl.ae.event.Expression;
 import gov.nasa.jpl.ae.event.Timepoint;
-import gov.nasa.jpl.ae.solver.Constraint;
 import gov.nasa.jpl.ae.solver.Random;
-
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Formatter;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.Vector;
 
 //import org.apache.commons.lang.StringUtils;
 
@@ -35,7 +33,7 @@ public class Utils {
   
   // empty collection constants
   @SuppressWarnings( "rawtypes" )
-  public static final List<?> emptyList = new ArrayList( 0 );
+  public static final List<?> emptyList = Collections.EMPTY_LIST;//new ArrayList( 0 );
   @SuppressWarnings( "unchecked" )
   public static <T> List<T> getEmptyList() {
     return (List< T >)emptyList;
@@ -45,13 +43,13 @@ public class Utils {
     return (List< T >)emptyList;
   }  
   @SuppressWarnings( "rawtypes" )
-  public static final Set<?> emptySet = new TreeSet();
+  public static final Set<?> emptySet = Collections.EMPTY_SET;//new TreeSet();
   @SuppressWarnings( "unchecked" )
   public static <T> Set<T> getEmptySet() {
     return (Set< T >)emptySet;
   }  
   @SuppressWarnings( "rawtypes" )
-  public static final Map<?,?> emptyMap = new TreeMap();
+  public static final Map<?,?> emptyMap = Collections.EMPTY_MAP;//new TreeMap();
   @SuppressWarnings( "unchecked" )
   public static <T1,T2> Map<T1,T2> getEmptyMap() {
     return (Map< T1, T2 >)emptyMap;
@@ -85,7 +83,6 @@ public class Utils {
     return sb.toString();
   }
 
-  // Translate a string to an integer.  Return null if not an integer. 
   /**
    * Translate a string s to an Integer.
    * 
@@ -102,6 +99,24 @@ public class Utils {
       // leave i = null
     }
     return i;
+  }
+
+  /**
+   * Translate a string s to an Long.
+   * 
+   * @param s
+   *          is the string to parse as an Long
+   * @return the long translation of string s, or return null if s is not a
+   *         long.
+   */
+  public static Long toLong( String s ) {
+    Long l = null;
+    try {
+      l = Long.parseLong( s );
+    } catch ( NumberFormatException e ) {
+      // leave i = null
+    }
+    return l;
   }
 
   /**
@@ -227,6 +242,34 @@ public class Utils {
     return null;
   }
 
+  /**
+   * Manages a "seen" set for avoiding infinite recursion.
+   * @param o is the object visited
+   * @param recursive is whether infinite recursion is possible 
+   * @param seen is the set of objects already visited
+   * @return whether the object has already been visited
+   */
+  public static < T > Pair< Boolean, Seen< T > > seen( T o, boolean recursive,
+                                                      Seen< T > seen ) {
+//    boolean hadSeen = false;
+//    if ( seen == null && recursive ) {
+//      seen = new SeenHashSet< T >();
+//      seen.add( o );
+//    }
+//    seen.see( o, recursive );
+    if ( seen != null && seen.contains( o ) ) {
+//    ++seenCt;
+      return new Pair< Boolean, Seen<T> >( seen.see( o, recursive ), seen );
+    }
+//  ++notSeenCt;
+    if ( seen == null && recursive == true ) {
+      seen = new SeenHashSet< T >(); // ok to use hash here since we never iterate
+                                 // over the contents
+    }
+    if ( seen != null ) seen.add( o );
+    return new Pair< Boolean, Seen< T > >( false, seen );
+  }
+  
 //  private static long notSeenCt = 0;
 //  private static long seenCt = 0;
   
@@ -239,6 +282,10 @@ public class Utils {
    */
   public static < T > Pair< Boolean, Set< T > > seen( T o, boolean recursive,
                                                       Set< T > seen ) {
+    if ( seen instanceof Seen ) {
+      Pair< Boolean, Seen< T > > p = seen( o, recursive, (Seen< T >)seen );
+      return new Pair< Boolean, Set<T> >( p );
+    }
     if ( seen != null && seen.contains( o ) ) {
 //      ++seenCt;
       return new Pair< Boolean, Set< T > >( true, seen );
@@ -266,20 +313,79 @@ public class Utils {
            + s.substring( pos + substring.length() );
   }
   
-  
+  public static String spewObjectPrefix = "* * * * *";
+  public static String spewObjectSuffix = spewObjectPrefix;
 
-  
+  public static String spewObject( Object o, String indent ) {
+    return spewObject( o, indent, spewObjectPrefix, spewObjectSuffix );
+  }
 
-  
+  // TODO -- bring over spewContents from EMFUtils, but apply it to Objects
+  // instead of EObjects.
+  // TODO -- write out fields and their values. don't forget about setting
+  // things to be accessible, if desired.
+  public static String spewObject(Object o, String indent,
+                                  String prefix, String suffix ) {
+    StringBuffer sb = new StringBuffer();
+    sb.append(indent + prefix + "\n");
+    Class<?> c = o.getClass();
+    Method[] methods = c.getMethods();
+    for (Method m : methods) {
+      if (m.getReturnType() == void.class || m.getReturnType() == null
+          || m.getName().startsWith("wait")
+          || m.getName().startsWith("notify")
+          || m.getName().startsWith("remove")
+          || m.getName().startsWith("delete")) {
+        continue;
+      }
+      if (m.getParameterTypes().length == 0) {
+          sb.append(indent + m.getDeclaringClass() + ", "
+              + m.toGenericString() + " --> "
+              + ClassUtils.runMethod(true, o, m).second + "\n");
+      }
+    }
+    sb.append(indent + suffix + "\n");
+    return sb.toString();
+  }
 
-//  public static Constructor< ? >
-//      getConstructorForArgTypes( Class< ? > cls, String packageName,
-//                                 Class< ? >... argTypes ) {
-//    // Pair< Constructor< ? >, Object[] > p =
-//    return getConstructorForArgTypes( cls, argTypes );
-//    // if ( p == null ) return null;
-//    // return p.first;
-//  }
+  /**
+   * @param c
+   * @return a c if c is a {@link List} or, otherwise, an ArrayList containing
+   *         the elements of c
+   */
+  public static <T> List<T> toList( Collection<T> c ) {
+    return asList( c );
+  }
+  /**
+   * @param c
+   * @return a c if c is a {@link List} or, otherwise, a new ArrayList containing
+   *         the elements of c
+   */
+  public static <T> List<T> asList( Collection<T> c ) {
+    if ( c instanceof List ) return (List<T>)c;
+    List<T> list = new ArrayList< T >( c );
+    return list;
+  }
+  
+  /**
+   * @param c
+   * @return a c if c is a {@link Set} or, otherwise, a {@link LinkedHashSet} containing
+   *         the elements of c
+   */
+  public static <T> Set<T> toSet( Collection<T> c ) {
+    return asSet( c );
+  }
+
+  /**
+   * @param c
+   * @return a c if c is a {@link Set} or, otherwise, a {@link LinkedHashSet} containing
+   *         the elements of c
+   */
+  public static <T> Set<T> asSet( Collection<T> c ) {
+    if ( c instanceof Set ) return (Set<T>)c;
+    LinkedHashSet<T> set = new LinkedHashSet< T >( c );
+    return set;
+  }
 
   public static <T1, T2> boolean toArrayOfType( T1[] source, T2[] target,
                                                 Class< T2 > newType ) {
@@ -293,6 +399,12 @@ public class Utils {
       }
     }
     return succ;
+  }
+
+  public static <T1, T2> boolean toArrayOfType( Collection<T1> source,
+                                                T2[] target,
+                                                Class< T2 > newType ) {
+    return toArrayOfType( source.toArray(), target, newType );
   }
 
   public static <T> String join( Collection<T> things, String delim ) {
@@ -342,18 +454,35 @@ public class Utils {
   }
   
   /**
-   * A potentially more efficient addAll() for Collections.
+   * A potentially more efficient addAll() for unordered Collections.
    * @param coll1
    * @param coll2
    * @return the longer of the two collections after adding the shorter to the longer.  
    */
-  public static < T, C extends Collection<T> > C addAll( Collection<T> coll1, Collection<T> coll2 ) {
+  public static < T, C extends Collection<T> > C addAll( Collection<T> coll1,
+                                                         Collection<T> coll2 ) {
+    if ( coll1 == null ) return (C)coll2;
+    if ( coll2 == null ) return (C)coll1;
+    
+    Collection<T> cSmaller, cBigger;
     if ( coll1.size() < coll2.size() ) {
-      coll2.addAll( coll1 );
-      return (C)coll2;
+      cSmaller = coll1;
+      cBigger = coll2;
+    } else {
+      cSmaller = coll2;
+      cBigger = coll1;
     }
-    coll1.addAll( coll2 );
-    return (C)coll1;
+    try {
+      cBigger.addAll( cSmaller );
+      return (C)cBigger;
+    } catch (UnsupportedOperationException e) {}
+    try {
+      cSmaller.addAll( cBigger );
+      return (C)cSmaller;
+    } catch (UnsupportedOperationException e) {}
+    ArrayList<T> newList = new ArrayList< T >( cBigger );
+    newList.addAll( cSmaller );
+    return (C)newList;
   }
   
   public static String addTimestampToFilename( String fileName ) {
@@ -384,6 +513,143 @@ public class Utils {
 //      e.printStackTrace();
 //    }
     return o.toString().replace( Integer.toHexString(o.hashCode()), "" );
+  }
+
+  
+  /**
+   * @param s1
+   * @param s2
+   * @return the length of the longest common substring which is also a prefix of one of the strings.
+   */
+  public static int longestPrefixSubstring( String subcontext, String subc ) {
+    int numMatch = 0;
+    if ( subcontext.contains( subc ) ) {
+      if ( numMatch < subc.length() ) {
+        //subcontextKey = subc;
+        numMatch = subc.length();
+        //numDontMatch = subcontext.length() - subc.length(); 
+//      } else if ( numMatch == subc.length() ) {
+//        if ( subcontext.length() - subc.length() < numDontMatch ) {
+//          subcontextKey = subc;
+//          numDontMatch = subcontext.length() - subc.length(); 
+//        }
+      }
+    } else if ( subc.contains( subcontext ) ) {
+      if ( numMatch < subcontext.length() ) {
+        //subcontextKey = subcontext;
+        numMatch = subcontext.length();
+        //numDontMatch = subc.length() - subcontext.length(); 
+//      } else if ( numMatch == subcontext.length() ) {
+//        if ( subc.length() - subcontext.length() < numDontMatch ) {
+//          subcontextKey = subcontext;
+//          numDontMatch = subc.length() - subcontext.length(); 
+//        }
+      }
+    }
+    return numMatch;
+  }
+
+  
+  /**
+   * This implementation appears {@code O(n^2)}. This is slower than a suffix
+   * trie implementation, which is {@code O(n+m)}. The code below is copied from
+   * wikipedia.
+   * 
+   * @param s1
+   * @param s2
+   * @return the length of the longest common substring
+   * 
+   * 
+   */
+  public static int longestCommonSubstr( String s1, String s2 ) {
+    if ( s1.isEmpty() || s2.isEmpty() ) {
+      return 0;
+    }
+
+    int m = s1.length();
+    int n = s2.length();
+    int cost = 0;
+    int maxLen = 0;
+    int[] p = new int[ n ];
+    int[] d = new int[ n ];
+
+    for ( int i = 0; i < m; ++i ) {
+      for ( int j = 0; j < n; ++j ) {
+        if ( s1.charAt( i ) != s2.charAt( j ) ) {
+          cost = 0;
+        } else {
+          if ( ( i == 0 ) || ( j == 0 ) ) {
+            cost = 1;
+          } else {
+            cost = p[ j - 1 ] + 1;
+          }
+        }
+        d[ j ] = cost;
+
+        if ( cost > maxLen ) {
+          maxLen = cost;
+        }
+      } // for {}
+
+      int[] swap = p;
+      p = d;
+      d = swap;
+    }
+
+    return maxLen;
+  }
+
+  /**
+   * @param word
+   * @return the word with the first character capitalized, if applicable
+   */
+  public static String capitalize( String word ) {
+    String capitalizedWord = word;
+    if ( Character.isLowerCase( word.charAt( 0 ) ) ) {
+      capitalizedWord =
+          "" + Character.toUpperCase( word.charAt( 0 ) )
+              + word.substring( 1 );
+    }
+    return capitalizedWord;
+  }
+
+  /**
+   * Creates a new {@link ArrayList} and inserts the arguments, {@code ts}.
+   * @param ts
+   * @return the new {@link ArrayList}
+   */
+  public static < T > ArrayList< T > newList( T... ts ) {
+    ArrayList< T > newList = new ArrayList< T >();
+    newList.addAll( Arrays.asList( ts ) );
+    return newList;
+  }
+  public static Integer parseInt(String intStr) {
+    try {
+      int i = Integer.parseInt(intStr);
+      return i;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+  public static boolean isInt(String intStr) {
+    try {
+      int i = Integer.parseInt(intStr);
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+  public static boolean isNumber(String s) {
+    if (isNullOrEmpty(s))
+      return false;
+    try {
+      Double.parseDouble(s);
+    } catch (NumberFormatException e) {
+      return false;
+    } catch (NullPointerException e) {
+      return false;
+    }
+    return true;
   }
   
 }
