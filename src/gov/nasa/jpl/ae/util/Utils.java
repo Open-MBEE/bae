@@ -19,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 //import org.apache.commons.lang.StringUtils;
 
@@ -429,7 +431,7 @@ public class Utils {
     return array;
   }
   public static <T> T[] scramble( Collection< T > collection ) {
-    if ( Utils.isNullOrEmpty( collection ) ) return (T[])new Object[]{};
+    if ( isNullOrEmpty( collection ) ) return (T[])new Object[]{};
     T[] a = (T[])new Object[collection.size()];
     collection.toArray( a );
     return scramble( a );
@@ -650,6 +652,27 @@ public class Utils {
       return false;
     }
     return true;
+  }
+  /**
+   * Count the number of occurrences of the regular expression in the string. 
+   * @param regex
+   * @param string
+   * @return the number of occurrences of regex in string
+   */
+  public static int count( String regex, String string ) {
+    int count = 0;
+    int pos = 0;
+    Pattern pattern = Pattern.compile( regex );
+    Matcher matcher = pattern.matcher(string);
+//    boolean found = false;
+    while ( matcher.find() ) {
+//      System.out.format( "I found the text" + " \"%s\" starting at "
+//                             + "index %d and ending at index %d.%n",
+//                         matcher.group(), matcher.start(), matcher.end() );
+//      found = true;
+      count++;
+    }
+    return count;
   }
   
 }
