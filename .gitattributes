@@ -5,6 +5,8 @@
 /.pydevproject -text
 .settings/org.eclipse.jdt.core.prefs -text
 /AE.jar -text
+/CyberSecSG-AESetupInstructions-17Sep13-0508PM-4.pdf -text svneol=unset#unset
+/README.txt -text
 /build.xml -text
 data/DR_attempt_1/test_gen_dr.csv -text
 data/DR_attempt_1/test_gen_res_dr.csv -text
