@@ -36,6 +36,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   protected Object object = null; // object from which constructor is invoked
   protected Vector< Object > arguments = null; // arguments to constructor
   protected Vector< Object > evaluatedArguments = null; // arguments to constructor
+  protected boolean evaluationSucceeded = false;
 
   abstract public Class< ? > getReturnType();
   abstract public Class<?>[] getParameterTypes();
@@ -145,6 +146,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   
   // TODO -- consider an abstract Call class
   public Object evaluate( boolean propagate ) { // throws IllegalArgumentException,
+    evaluationSucceeded = false;
     // IllegalAccessException, InvocationTargetException {
     if ( propagate ) {
       if ( !ground( propagate, null ) ) {
@@ -219,15 +221,19 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       result = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
       //newObject = constructor.newInstance( evaluatedArgs );// arguments.toArray() );
     } catch ( IllegalAccessException e ) {
+      evaluationSucceeded = false;
       // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( IllegalArgumentException e ) {
+      evaluationSucceeded = false;
       // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( InvocationTargetException e ) {
+      evaluationSucceeded = false;
       // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( InstantiationException e ) {
+      evaluationSucceeded = false;
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
@@ -252,6 +258,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
                                        Class< ? >[] paramTypes,
                                        Vector< Object > args,
                                        boolean isVarArgs ) {
+    if( args == null ) {
+      Debug.error("Error! args is null!");
+      return null;
+    }
     boolean wasDebugOn = Debug.isOn();
     //Debug.turnOff();
     assert ( args.size() == paramTypes.length
@@ -266,8 +276,29 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         break;
       }
       Class< ? > c = paramTypes[ Math.min(i,paramTypes.length-1) ];
+      if ( c != null ) {
+          Class< ? > np = ClassUtils.classForPrimitive( c );
+          if ( np != null ) c = np;
+      }
+      if ( c != null && c.equals( Object.class ) ) c = null;
+      if ( c != null && i >= paramTypes.length-1 && isVarArgs ) {
+        if ( !c.isArray() ) {
+          Debug.error( true, true, "class " + c.getSimpleName() + " should be a var arg array!" );
+        } else {
+          c = c.getComponentType();
+        }
+      }
       argObjects[i] = Expression.evaluate( unevaluatedArg, c, propagate, true );
-      assert( argObjects[i] == null || c.isInstance( argObjects[i] ) );
+      if (!( argObjects[i] == null || c == null || c.isInstance( argObjects[i] ) )) {
+        Debug.error( true, argObjects[ i ] +
+                           ( argObjects[ i ] == null ?
+                             "" : " of type " + argObjects[ i ].getClass().getCanonicalName() )
+                           + " is not an instance of " + c.getSimpleName() );
+//      } else if ( argObjects[i] != null && c != null && !c.equals( argObjects[i].getClass() ) ) {
+//          Object x = null;
+//          x = ClassUtils.coerce( argObjects[ i ], c, true );
+//          if ( x != null ) argObjects[ i ] = x;
+      }
     }
     if ( wasDebugOn ) Debug.turnOn();
     if ( Debug.isOn() ) Debug.outln( "Call.evaluateArgs(" + args + ") = "
@@ -313,6 +344,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Debug.error( false, "Error! Call.setValue() is not yeet supported!" );
   }
   
+  /**
+   * @return the evaluationSucceeded
+   */
+  public boolean didEvaluationSucceed() {
+    return evaluationSucceeded;
+  }
+
   @Override
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2, boolean deep,
                              Set<HasParameters> seen ) {

@@ -20,12 +20,7 @@ import junit.framework.Assert;
 
 /**
  * 
- */
-
-/**
- * @author bclement
- * 
- *         TODO -- REVIEW -- This is a little awkward. What about an Expression
+ *         TODO -- REVIEW -- What about an Expression
  *         interface with implementations of Value, Parameter, MethodExpression,
  *         and Function? Would it make sense to put constructors in an
  *         expression factory?
@@ -37,7 +32,7 @@ import junit.framework.Assert;
  * 
  */
 public class Expression< ResultType > extends HasIdImpl
-                                    implements HasParameters, Groundable,
+                                    implements Cloneable, HasParameters, Groundable,
                                                LazyUpdate, Satisfiable,
                                                HasDomain, HasTimeVaryingObjects,
                                                MoreToString, Wraps< ResultType > {//, Comparable< Expression< ? > > {
@@ -47,6 +42,7 @@ public class Expression< ResultType > extends HasIdImpl
   // freeParameters if not null specifies which parameters can be reassigned
   // values for satisfy().
   protected Set< Parameter< ? > > freeParameters = null;
+  protected boolean evaluationSucceeded = false;
 
 
 	public enum Form {
@@ -67,42 +63,92 @@ public class Expression< ResultType > extends HasIdImpl
 
 
   /**
-   * @param value
+   * Create an Expression by parsing a String in a specified language.
+   * 
+   * @param expressionString the String to parse
+   * @param expressionLanguage the language to parse
    */
-  public Expression( String expressionString, String expressionLanguage ) {
+  public Expression( String expressionString, String expressionLanguage,
+                     Class<ResultType> cls ) {
+    resultType = cls;
     // TODO -- javaparser?
     System.err.println("Error! Expression( String ) constructor not yet supported! See EventXmlToJava.javaToEventExpression()");
+    // REVIEW -- Should Expression be sub-classed for different languages?
   }
 
 	/**
-	 * @param value
+	 * @param object
 	 */
-	public Expression( ResultType value ) {
+	public Expression( Object object ) {
+	  this( object, null );
+	  if ( object != null && resultType == null ) {
+		resultType = (Class< ? extends ResultType >)object.getClass();
+	  }
+	}
+
+  /**
+	 * @param value
+   * @param cls
+	 */
+  public <T> Expression( T value, Class< ResultType > cls ) {
+    resultType = cls;
+    if ( cls == null ) {
+        Expression<ResultType> e = null;
+        if ( value instanceof Expression ) {
+            e = new Expression<ResultType>( (Expression<ResultType>)value );
+        } else if ( value instanceof Parameter ) {
+            e = new Expression<ResultType>( (Parameter<ResultType>)value );
+        } else if ( value instanceof Call ) {
+            e = new Expression<ResultType>( (Call)value );
+        }
+        if ( e != null ) {
+            copyMembers( e );
+            return;            
+        }
+    }
 		this.expression = value;
-		if ( value != null ) {
+    if ( cls != null && value != null && !cls.isInstance( value ) ) {
+      Debug.error( true,
+                   "Expression initialized with incompatible value arg in Expression("
+                       + value.getClass().getCanonicalName() + " "
+                       + MoreToString.Helper.toShortString( value ) + ", "
+                       + cls.getCanonicalName() );
+    }
+    form = Form.Value;
+  }
+
+	/**
+	 * @param parameter
+	 */
+	public Expression( Parameter< ResultType > parameter, Class< ResultType > cls ) {
+		this.expression = parameter;
+    ResultType value = ( parameter == null ? null : parameter.getValue() );
+    if ( value != null && cls == null ) {
+      try {
 		  resultType = (Class< ? extends ResultType >)value.getClass();
+      } catch ( ClassCastException e ) {}
 		}
-		form = Form.Value;
+    if ( cls != null ) { 
+      resultType = cls;
+      if ( value != null && !cls.isInstance( value ) ) {
+        Debug.error( true,
+                     "Expression initialized with incompatible parameter arg in Expression(Parameter<"
+                         + value.getClass().getCanonicalName() + "> "
+                         + parameter + ", " + cls.getCanonicalName() );
+      }
+    }
+		form = Form.Parameter;
 	}
 
 	/**
 	 * @param parameter
 	 */
 	public Expression( Parameter< ResultType > parameter ) {
-		this.expression = parameter;
+    this( parameter, null );
 		if ( parameter != null && parameter.getValueNoPropagate() != null ) {
 		  resultType = (Class< ? extends ResultType >)parameter.getValueNoPropagate().getClass();
 		}
-		form = Form.Parameter;
 	}
-
-//	/**
-//	 * @param function
-//	 */
-//	public Expression( Method method ) {
-//		this.expression = method;
-//		type = Type.Method;
-//	}
 
 	/**
 	 * @param function
@@ -110,10 +156,21 @@ public class Expression< ResultType > extends HasIdImpl
 	public Expression( FunctionCall function ) {
     init(function);
   }
+  public Expression( FunctionCall function, Class<ResultType> resultType ) {
+    init(function);
+    if ( getResultType() == null || resultType != null ) {
+      if ( getResultType() != null && resultType != null ) {
+        if ( resultType.isAssignableFrom( this.resultType ) ) {
+          
+        }
+      }
+      setResultType( resultType );
+    }
+  }
   public void init( FunctionCall function ) {
 		this.expression = function;
 		if ( function != null && function.method != null ) {
-		  resultType = (Class< ? extends ResultType >)function.method.getReturnType();
+		  resultType = (Class< ? extends ResultType >)function.getReturnType();
 		}
 		form = Form.Function;
 	}
@@ -183,6 +240,13 @@ public class Expression< ResultType > extends HasIdImpl
     this(e, false);
   }
 
+  
+  @Override
+  public Expression<ResultType> clone() throws CloneNotSupportedException {
+    Expression<ResultType> e = new Expression< ResultType >( this );
+    return e;
+  }
+
   @Override
   public void deconstruct() {
     if ( expression instanceof Deconstructable ) {
@@ -194,10 +258,36 @@ public class Expression< ResultType > extends HasIdImpl
     //expression = null;
   }
 
+  public void copyMembers( Expression< ResultType > expr ) {
+    this.expression = expr.expression;
+    this.form = expr.form;
+    this.resultType = expr.resultType;
+    this.freeParameters = expr.freeParameters;
+    this.evaluationSucceeded = expr.evaluationSucceeded;
+  }
 
+  public Boolean isResultType( Object o ) {
+    try {
+      ResultType t = (ResultType)o;
+    } catch ( ClassCastException e ) {
+      return false;
+    }
+    return true;
+  }
   
   // REVIEW -- What if resultType == Expression.class?
+  /**
+   * Evaluate the expression and return the resulting value. For example, if the
+   * expression is Math.min(4,6), evaluate() returns 4. If the expression is of
+   * Type Value and is just the String "foo", then "foo" is returned.
+   * 
+   * @param propagate
+   *          whether to try and update potentially stale values before
+   *          evaluating.
+   * @return the resulting value
+   */
 	public ResultType evaluate( boolean propagate ) {//throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+	  evaluationSucceeded = false;
 	  if ( form == null || ( form != Form.None && expression == null ) ) {
 	    return null;
 	  }
@@ -222,62 +312,72 @@ public class Expression< ResultType > extends HasIdImpl
             try {
               if ( resultType != null ) {
                 if ( resultType.isInstance( o ) ) {
+                  evaluationSucceeded = true;
                   return (ResultType)o;
                 } else {
                   if ( resultType == Integer.class && Double.class.isAssignableFrom(o.getClass()) ) {
                     Double d = (Double)o;
+                    evaluationSucceeded = true;
                     return (ResultType)(Integer)d.intValue();
                   }
+                  evaluationSucceeded = false;
                   throw new ClassCastException();
                 }
               }
               if ( o instanceof Parameter ) {
                 p = (Parameter< ? >)o;
               } else if ( o instanceof Expression ) {
-                return ( (Expression<ResultType>)o ).evaluate( propagate );
+                ResultType rt = ( (Expression<ResultType>)o ).evaluate( propagate );
+                evaluationSucceeded = ( (Expression<ResultType>)o ).didEvaluationSucceed();
+                return rt;
               } else {
                 r = (ResultType)o;
+                evaluationSucceeded = true;
                 return r;
               }
             } catch ( ClassCastException cce ) {
+              evaluationSucceeded = false;
               try {
                 if ( Double.class.isAssignableFrom(o.getClass()) ) {
                   Double d = (Double)o;
+                  evaluationSucceeded = true;
                   return (ResultType)(Integer)d.intValue();
                 }
               } catch ( Exception e ) {
+                evaluationSucceeded = false;
                 // ignore
               }
               if ( o instanceof Parameter ) {
                 p = (Parameter< ? >)o;
               } else if ( o instanceof Expression ) {
-                return ( (Expression<ResultType>)o ).evaluate( propagate );
+                ResultType rt = ( (Expression<ResultType>)o ).evaluate( propagate );
+                evaluationSucceeded = ( (Expression<ResultType>)o ).didEvaluationSucceed();
+                return rt;
               } else {
                 Debug.error( false,
                              "Could not cast result of expression evaluation to ResultType: "
                                  + ( resultType != null ? "" : "(" + resultType
                                                                + ") " ) + this );
                 //cce.printStackTrace();
+                evaluationSucceeded = false;
                 return (ResultType)o;
               }
             }
           }
-//		    return ((Parameter<ResultType>)expression).getValueNoPropagate();
-////		case Method:
-////			return (ResultType)((Method)expression).invoke(null, (Object[])null);
 		case Constructor:
     case Function:
-			return (ResultType)((Call)expression).evaluate( propagate );
+      //HERE!!!;
+			ResultType r = (ResultType)((Call)expression).evaluate( propagate );
+			evaluationSucceeded = ((Call)expression).didEvaluationSucceed();
+			return r;
 		default:
+		  evaluationSucceeded = false;
 			return null;
 		}
 		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
-//		} catch (IllegalAccessException e) {
-//			e.printStackTrace();
-//		} catch (InvocationTargetException e) {
-//			e.printStackTrace();
 		}
+		evaluationSucceeded = false;
 		return null;  // TODO -- REVIEW -- shouldn't get here -- die?
 	}
 	
@@ -414,6 +514,41 @@ public class Expression< ResultType > extends HasIdImpl
     setFreeParameters( freeParams );
   }
   
+	/**
+   * @return the expression
+   */
+  public Object getExpression() {
+    return expression;
+  }
+
+  /**
+   * @param expression the expression to set
+   */
+  public void setExpression( Object expression ) {
+    this.expression = expression;
+  }
+
+  /**
+   * @return the form
+   */
+  public Form getForm() {
+    return form;
+  }
+
+  /**
+   * @param form the form to set
+   */
+  public void setForm( Form form ) {
+    this.form = form;
+  }
+
+  /**
+   * @param resultType the resultType to set
+   */
+  public void setResultType( Class< ? extends ResultType > resultType ) {
+    this.resultType = resultType;
+  }
+
 	@Override
 	public boolean isGrounded(boolean deep, Set< Groundable > seen) {
 		if (expression instanceof Groundable) {
@@ -441,6 +576,9 @@ public class Expression< ResultType > extends HasIdImpl
 		}
 	}
 
+	/* (non-Javadoc)
+	 * @see gov.nasa.jpl.ae.event.Groundable#ground(boolean, java.util.Set)
+	 */
 	@Override
 	public boolean ground(boolean deep, Set< Groundable > seen) {
 		if (expression instanceof Groundable) {
@@ -612,28 +750,12 @@ public class Expression< ResultType > extends HasIdImpl
       value = ( (Call)object ).evaluate( propagate );
       return evaluate( value, cls, propagate, allowWrapping );  
     }
-    else if ( cls != null 
-        && ClassUtils.isNumber( cls )
-        && ClassUtils.isNumber( object.getClass() ) ) {
+    else if ( cls != null && ClassUtils.isNumber( cls ) && 
+              ClassUtils.isNumber( object.getClass() ) ) {
       try {
-        int f = 5;
-        Integer t = 3;
-        f = (int)(Integer)t.intValue();
         Number n = (Number)object;
-        Class<?> c = ClassUtils.classForPrimitive( cls );
-        if ( c == null ) c = cls;
-        if ( c == Long.class ) return (TT)(Long)n.longValue(); 
-        if ( c == Short.class ) return (TT)(Short)n.shortValue(); 
-        if ( c == Double.class ) return (TT)(Double)n.doubleValue(); 
-        if ( c == Integer.class ) return (TT)(Integer)n.intValue(); 
-        if ( c == Float.class ) return (TT)(Float)n.floatValue(); 
-//        if ( c == Character.class ) return (TT)(Character)n.shortValue();
-//      if ( c == Long.class ) return cls.cast( n.longValue() ); 
-//      if ( c == Short.class ) return cls.cast( n.shortValue() ); 
-//      if ( c == Double.class ) return cls.cast( n.doubleValue() ); 
-//      if ( c == Integer.class ) return cls.cast( n.intValue() ); 
-//      if ( c == Float.class ) return cls.cast( n.floatValue() ); 
-//      if ( c == Character.class ) return cls.cast( n );
+        TT r = (TT)ClassUtils.castNumber( n, (Class< ? extends Number >)cls );
+        return r;
       } catch ( Exception e ) {
         // ignore
       }
@@ -772,6 +894,13 @@ public class Expression< ResultType > extends HasIdImpl
   public void setValue( ResultType value ) {
     // TODO Auto-generated method stub
     
+  }
+
+  /**
+   * @return the evaluationSucceeded
+   */
+  public boolean didEvaluationSucceed() {
+    return evaluationSucceeded;
   }
 
 }

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.event;
 
+import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.util.ClassUtils;
 import gov.nasa.jpl.ae.util.MoreToString;
 import gov.nasa.jpl.ae.util.Pair;
@@ -183,6 +184,7 @@ public class ConstructorCall extends Call {
   public ConstructorCall( Object object, Class<?> cls,
                           Object argumentsA[] ) {
     this.object = object;
+    this.thisClass = cls;
     this.arguments = new Vector<Object>();
     if ( argumentsA != null ) {
       for ( Object o : argumentsA ) {
@@ -257,15 +259,35 @@ public class ConstructorCall extends Call {
   
   @Override
   public Object invoke( Object evaluatedObject, Object[] evaluatedArgs ) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+    evaluationSucceeded = false;
     newObject = constructor.newInstance( evaluatedArgs ); 
+    evaluationSucceeded = true;
     return newObject;
   }
+
+  protected static boolean possiblyStale( Object obj ) {
+    if ( obj == null || obj instanceof TimeVarying ) return true;
+    if ( obj instanceof LazyUpdate && ((LazyUpdate)obj).isStale() ) return true;
+    if ( obj instanceof Variable ) {
+      Object v = ((Variable<?>)obj).getValue( false );
+      if ( possiblyStale( v ) ) return true;
+    }
+    return false;
+  }
   
+  @Override
+  public boolean isStale() {
+    if ( super.isStale() ) return true;
+    if ( possiblyStale( newObject ) ) return true;
+    return false;
+  }
+
   @Override
   public Object evaluate( boolean propagate ) { // throws IllegalArgumentException,
     // REVIEW -- if this is buggy, consider making this a dependency.
     // Nested call can also be a dependency.
     if ( newObject != null && !isStale() && isGrounded( propagate, null ) ) {
+      evaluationSucceeded = true;
       return newObject;
     }
     newObject = null;

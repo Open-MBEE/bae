@@ -205,6 +205,7 @@ src/gov/nasa/jpl/ae/util/ClassUtils.java -text
 src/gov/nasa/jpl/ae/util/CompareUtils.java -text
 src/gov/nasa/jpl/ae/util/Debug.java -text
 src/gov/nasa/jpl/ae/util/FileUtils.java -text
+src/gov/nasa/jpl/ae/util/MdDebug.java -text
 src/gov/nasa/jpl/ae/util/MoreToString.java -text
 src/gov/nasa/jpl/ae/util/Pair.java -text
 src/gov/nasa/jpl/ae/util/RunAspen.java -text
@@ -233,6 +234,7 @@ src/gov/nasa/jpl/ae/xml/Scenario_smallest.xml -text
 src/gov/nasa/jpl/ae/xml/XmlToJson.java -text
 src/gov/nasa/jpl/ae/xml/XmlUtils.java -text
 src/gov/nasa/jpl/ae/xml/anotherStateChartExample.xml -text
+src/gov/nasa/jpl/ae/xml/camera.xml -text
 src/gov/nasa/jpl/ae/xml/eventSchema.xsd -text
 src/gov/nasa/jpl/ae/xml/exampleDRScenario.xml -text
 src/gov/nasa/jpl/ae/xml/exampleDRScenarioMultipleCustomers.xml -text

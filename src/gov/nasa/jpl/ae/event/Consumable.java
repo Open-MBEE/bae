@@ -3,6 +3,7 @@
  */
 package gov.nasa.jpl.ae.event;
 
+import gov.nasa.jpl.ae.util.ClassUtils;
 import gov.nasa.jpl.ae.util.Debug;
 
 import java.lang.reflect.InvocationTargetException;
@@ -63,17 +64,13 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
       double lastValue = initialValue; 
       if ( Debug.isOn() ) Debug.errln("minCap=" + minCap + "; maxCap=" + maxCap );
       for ( int t = samplePeriod; t < horizonDuration; t += samplePeriod ) {
-        double value = (Double)deltaValueFunction.invoke( o, lastT, lastValue, t );
+      double value =
+          (Double)ClassUtils.runMethod( false, o, deltaValueFunction, lastT,
+                                        lastValue, t ).second;
         lastValue = add( makeTempTimepoint( t, false ), value );
         lastT = t;
       }
-    } catch ( IllegalAccessException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
     } catch ( IllegalArgumentException e ) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch ( InvocationTargetException e ) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }

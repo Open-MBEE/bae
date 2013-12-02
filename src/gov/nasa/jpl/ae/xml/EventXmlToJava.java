@@ -77,7 +77,6 @@ import java.util.jar.JarInputStream;
 
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
@@ -88,16 +87,12 @@ import javax.xml.parsers.ParserConfigurationException;
 import junit.framework.Assert;
 // import javax.xml.xpath.XPathExpression;
 
-import org.junit.experimental.theories.internal.Assignments;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import gov.nasa.jpl.ae.event.Dependency;
 import gov.nasa.jpl.ae.event.DurativeEvent;
-import gov.nasa.jpl.ae.event.FunctionCall;
-import gov.nasa.jpl.ae.event.Parameter;
 import gov.nasa.jpl.ae.event.Timepoint;
 import gov.nasa.jpl.ae.event.Timepoint.Units;
 import gov.nasa.jpl.ae.util.ClassUtils;
@@ -106,7 +101,6 @@ import gov.nasa.jpl.ae.util.Debug;
 import gov.nasa.jpl.ae.util.Pair;
 import gov.nasa.jpl.ae.util.Timer;
 import gov.nasa.jpl.ae.util.Utils;
-import gov.nasa.jpl.ae.xml.EventXmlToJava.Param;
 
 // Keep these for resolving class references. 
 import gov.nasa.jpl.ae.event.*;
@@ -2343,6 +2337,11 @@ public class EventXmlToJava {
         result =
             operatorResultType( ue.getOperator(),
                                 astToAeExprType( ue.getExpr(), lookOutsideXml, complainIfNotFound ) );
+    } else if ( expr.getClass() == ConditionalExpr.class ) {
+      ConditionalExpr be = ( (ConditionalExpr)expr );
+      result =
+          dominantType( astToAeExprType( be.getThenExpr(), lookOutsideXml, complainIfNotFound ),
+                        astToAeExprType( be.getElseExpr(), lookOutsideXml, complainIfNotFound ) );
     } else if ( expr.getClass() == EnclosedExpr.class ) {
         result = astToAeExprType( ( (EnclosedExpr)expr ).getInner(), lookOutsideXml, complainIfNotFound );
     } else if ( expr.getClass() == MethodCallExpr.class ) {
@@ -2722,6 +2721,17 @@ public class EventXmlToJava {
           middle = "(" + middle + ").evaluate(true)"; 
         }
     } else
+    /*** ConditionalExpr ***/
+    if ( expr.getClass() == ConditionalExpr.class ) {
+      ConditionalExpr be = ( (ConditionalExpr)expr );
+      middle = "new Functions.Conditional(" + 
+               astToAeExpr( be.getCondition(), true, lookOutsideXmlForTypes, complainIfDeclNotFound ) + ", " + 
+               astToAeExpr( be.getThenExpr(), true, lookOutsideXmlForTypes, complainIfDeclNotFound ) + ", " +
+               astToAeExpr( be.getElseExpr(), true, lookOutsideXmlForTypes, complainIfDeclNotFound ) + " ) ";
+      if ( evaluateCall ) {
+        middle = "(" + middle + ").evaluate(true)"; 
+      }
+    } else
     /*** EnclosedExpr ***/
     if ( expr.getClass() == EnclosedExpr.class ) {
         middle =
@@ -2798,8 +2808,7 @@ public class EventXmlToJava {
       } else {
         middle = expr.toString(); 
       }
-    } else  { //if ( expr.getClass() == ConditionalCallExpr.class ) {
-      //case "ConditionalExpr": // TODO
+    } else  {
         middle = expr.toString();
     }
     if ( !convertFcnCallArgsToExprs ) {

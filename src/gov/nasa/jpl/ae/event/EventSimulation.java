@@ -47,7 +47,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
   //private static final String enthoughtPythonPath = "/usr/local/epd_free-7.3-2-rh5-x86_64/";
   //private static final String enthoughtPython = "/usr/local/epd_free-7.3-2-rh5-x86_64/bin/python";
   private static final String enthoughtPythonPath = "c:\\Users\\bclement\\workspace\\CS\\src\\gov\\nasa\\jpl\\ae\\magicdrawPlugin;c:\\Python27\\Lib";
-  private static final String enthoughtPython = "C:\\Program Files\\Enthought\\Canopy\\App\\python.exe";
+  private static final String enthoughtPython = "C:\\Program Files\\Enthought\\Canopy\\App\\appdata\\canopy-1.0.3.1262.win-x86_64\\python.exe";
   private static final String enthoughtTempDir = "c:\\temp";
   public static double maxSecondsToNextEvent = 43200;
   
@@ -59,10 +59,17 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
    * Whether or not the external plotter should be launched and connected to by
    * socket.
    */
-  boolean tryToPlot = true;
+  public boolean tryToPlot = true;
+  
+  /**
+   * Whether to limit the simulation to the horizon bounds and include an event
+   * for the horizon.
+   */
+  public boolean simulatingHorizon = false;
+
   Timepoint.Units plotAxisTimeUnits = Timepoint.Units.seconds;
   public boolean usingSamplePeriod = true;
-  public double plotSamplePeriod = 15.0 / Units.conversionFactor( Units.minutes ); // 15 min
+  public double plotSamplePeriod = 0.5; //15.0 / Units.conversionFactor( Units.minutes ); // 15 min
   protected String hostOfPlotter = "127.0.0.1";
   // Trying to pick a port that would not have been used by another running instance. 
   protected int port = 
@@ -130,7 +137,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
   // New Constructors
   
   public EventSimulation( Collection<Event> events, double timeScale ) {
-    super();
+    this();
     for ( Event e : events ) {
       add( e );
     }
@@ -156,6 +163,15 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
   
   // Methods
   
+  // TODO -- would like to use an alternative name, such as that for a parameter, especially for TimeVaryingMaps, whose name is overwritten by the value.
+//  public boolean add( Parameter<Event> p ) {
+//    String name =
+//        Utils.isNullOrEmpty( p.getName() ) ? p.getValue().getName()
+//                                           : p.getName();
+//    return add( p.getValue(), name );
+//
+//  }
+
   // Returns whether the event was added properly. If the event was not added or
   // its start or stop were already added, the function returns false.
   public boolean add( Event event ) {
@@ -204,6 +220,12 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
     return !existingEntry;
   }
   
+//  public < V > boolean add( Parameter<TimeVaryingMap< V > > p, String category ) {
+//    String name =
+//        Utils.isNullOrEmpty( p.getName() ) ? p.getValue().getName()
+//                                           : p.getName();
+//    return add( p.getValue(), category, name );
+//  }
   public < V > boolean add( TimeVaryingMap< V > tv, String category ) {
     if ( tv == null ) {
       Assert.fail("Trying to add null event to simulation.");
@@ -286,18 +308,21 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
           firstLoop = false;
           simTimer.reset();
         } else {
-          // Update the plot based on the sample period.
           try {
             while ( true ) {
               int simTimeToSleepUntil =
                   (int)Math.min( nextEventSimTime, nextSampleSimTime );
               simTimer.sleepUntilSimTime( simTimeToSleepUntil );
               int simTime = simTimer.getSimTimePassed();
-              while ( tryToPlot && usingSamplePeriod
+              // Update the plot based on the sample period.
+              boolean doneOnce = false;
+              while ( tryToPlot && (!doneOnce || usingSamplePeriod
                       && nextSampleSimTime <= simTime
-                      && nextSampleSimTime <= Timepoint.getHorizonDuration() 
+                      && nextSampleSimTime <= nextEventSimTime
+                      && (!simulatingHorizon || nextSampleSimTime <= Timepoint.getHorizonDuration())) 
                       //&& nextPlotSimTime <= 500.0
                       ) {
+                doneOnce = true;
                 plotValues( lastSampleSimTime, nextSampleSimTime );
                 lastSampleSimTime = nextSampleSimTime;
                 // Recompute this in case the time scale changes during
@@ -305,7 +330,10 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
                 assert this.plotSamplePeriod > 0.0;
                 nextSampleSimTime += this.plotSamplePeriod;
               }
-              if ( nextEventSimTime <= simTime) break;
+              if ( nextEventSimTime <= simTime ) break;
+              if ( simulatingHorizon && simTimer.passedHorizon() ) {
+                break;
+              }
             }
           } catch ( InterruptedException e ) {
             System.err.println("Simulation sleep interrupted unexpectedly.");
@@ -345,7 +373,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
           options.put( "withOwner", false );
           value = ( (MoreToString)value ).toString( false, false, null, options );
         }
-        // todo -- printing should be an Executor
+        // TODO -- printing should be an Executor
         String formatString = null;
         if ( t == lastT ) {
           String padding = Utils.spaces( 47 );
@@ -367,7 +395,9 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
                     classNames );
         }
         lastT = t;
+        if ( simulatingHorizon && simTimer.passedHorizon() ) break;
       }
+      if ( simulatingHorizon && simTimer.passedHorizon() ) break;
     }
     w.println("--- simulation end ---");
     closePlotSocket();
@@ -459,15 +489,8 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
       try {
         plotProcess = rt.exec( pythonExe + " animatePlot.py " + port, newEnv, f );
                              //new String[] { pythonPath, mplPath }, f );
-      }
-      catch (Exception x) {
-        try {
-          plotProcess = rt.exec( "\"" + pythonExe + "\" animatePlot.py " + port, newEnv, f );
-                               //new String[] { pythonPath, mplPath }, f );
-        }
-        catch (Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
-        }
       }
       if ( plotProcess == null ) {
         tryToPlot = false;
@@ -820,7 +843,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
    */
   public EventSimulation() {
     super();
-    // TODO Auto-generated constructor stub
+    if ( simulatingHorizon  ) addHorizonEvent();
   }
 
   /**
@@ -828,7 +851,14 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
    */
   public EventSimulation( Comparator< ? super Integer > comparator ) {
     super( comparator );
-    // TODO Auto-generated constructor stub
+    if ( simulatingHorizon ) addHorizonEvent();
+  }
+
+  private void addHorizonEvent() {
+    DurativeEvent event = new DurativeEvent( "horizon" );
+    event.startTime.setValue( 0 );
+    event.duration.setValue( Timepoint.getHorizonDuration() );
+    add( event );
   }
 
   public int numEvents() {

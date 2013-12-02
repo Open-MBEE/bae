@@ -227,11 +227,12 @@ public class JavaForFunctionCall {
         }
         if ( matchingMethod != null && matchingMethod.getParameterTypes() != null ) {
           for ( Class< ? > type : matchingMethod.getParameterTypes() ) {
-            methodJavaSb.append( ", " );
-            String typeName = type.getName();
-            if ( typeName != null ) typeName = typeName.replace( '$', '.' );
-            methodJavaSb.append( ClassUtils.noParameterName( typeName )
-                                 + ".class" );
+            methodJavaSb.append( ", " + ClassUtils.toString( type ) );
+//            methodJavaSb.append( ", " );
+//            String typeName = type.getName();
+//            if ( typeName != null ) typeName = typeName.replace( '$', '.' );
+//            methodJavaSb.append( ClassUtils.noParameterName( typeName )
+//                                 + ".class" );
           }
         }
       }

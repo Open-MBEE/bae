@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,7 +35,6 @@ public class Utils {
   public static ClassLoader loader = null;
   
   // empty collection constants
-  @SuppressWarnings( "rawtypes" )
   public static final List<?> emptyList = Collections.EMPTY_LIST;//new ArrayList( 0 );
   @SuppressWarnings( "unchecked" )
   public static <T> List<T> getEmptyList() {
@@ -44,13 +44,11 @@ public class Utils {
   public static <T> List<T> getEmptyList(Class<T> cls) {
     return (List< T >)emptyList;
   }  
-  @SuppressWarnings( "rawtypes" )
   public static final Set<?> emptySet = Collections.EMPTY_SET;//new TreeSet();
   @SuppressWarnings( "unchecked" )
   public static <T> Set<T> getEmptySet() {
     return (Set< T >)emptySet;
   }  
-  @SuppressWarnings( "rawtypes" )
   public static final Map<?,?> emptyMap = Collections.EMPTY_MAP;//new TreeMap();
   @SuppressWarnings( "unchecked" )
   public static <T1,T2> Map<T1,T2> getEmptyMap() {
@@ -352,20 +350,37 @@ public class Utils {
 
   /**
    * @param c
-   * @return a c if c is a {@link List} or, otherwise, an ArrayList containing
+   * @return c if c is a {@link List} or, otherwise, an ArrayList containing
    *         the elements of c
    */
-  public static <T> List<T> toList( Collection<T> c ) {
+  public static <V, T extends V> List<V> toList( Collection<T> c ) {
     return asList( c );
   }
   /**
    * @param c
-   * @return a c if c is a {@link List} or, otherwise, a new ArrayList containing
+   * @return c if c is a {@link List} or, otherwise, a new List containing
    *         the elements of c
    */
-  public static <T> List<T> asList( Collection<T> c ) {
-    if ( c instanceof List ) return (List<T>)c;
-    List<T> list = new ArrayList< T >( c );
+  public static <V, T extends V> List<V> asList( Collection<T> c ) {
+    if ( c instanceof List ) return (List<V>)c;
+    List<V> list = new ArrayList< V >( c );
+    return list;
+  }
+
+  /**
+   * @param c
+   * @param cls
+   * @return a new {@link List} containing
+   *         the elements of c cast to type V
+   */
+  public static <V, T> List<V> asList( Collection<T> c, Class<V> cls ) {
+      List<V> list = new ArrayList< V >();
+      for ( T t : c ) {
+          if (t == null || cls == null || cls.isAssignableFrom( t.getClass() ) ) {
+              V v = cls.cast( t );
+              list.add( v );
+          }
+      }
     return list;
   }
   
@@ -375,6 +390,7 @@ public class Utils {
    *         the elements of c
    */
   public static <T> Set<T> toSet( Collection<T> c ) {
+      // TODO -- make this and other toX methods use <V, T extends V> like in toList()
     return asSet( c );
   }
 
@@ -613,6 +629,17 @@ public class Utils {
               + word.substring( 1 );
     }
     return capitalizedWord;
+  }
+
+  /**
+   * Creates a new {@link TreeSet} and inserts the arguments, {@code ts}.
+   * @param ts
+   * @return the new {@link Set}
+   */
+  public static < T > Set< T > newSet( T... ts ) {
+    Set< T > newSet = new TreeSet< T >(CompareUtils.GenericComparator.instance());
+    newSet.addAll( Arrays.asList( ts ) );
+    return newSet;
   }
 
   /**
