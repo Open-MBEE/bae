@@ -1,10 +1,10 @@
 package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -260,11 +260,12 @@ public class ConstructorCall extends Call {
   @Override
   public Object invoke( Object evaluatedObject, Object[] evaluatedArgs ) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
     evaluationSucceeded = false;
-    newObject = constructor.newInstance( evaluatedArgs ); 
+    Object[] args = isVarArgs() ? new Object[]{evaluatedArgs} : evaluatedArgs;
+    newObject = constructor.newInstance( args );
     evaluationSucceeded = true;
     return newObject;
   }
-
+  
   protected static boolean possiblyStale( Object obj ) {
     if ( obj == null || obj instanceof TimeVarying ) return true;
     if ( obj instanceof LazyUpdate && ((LazyUpdate)obj).isStale() ) return true;

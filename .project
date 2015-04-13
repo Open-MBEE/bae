@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>CS</name>
+	<name>bae</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -25,15 +25,21 @@
 				</dictionary>
 			</arguments>
 		</buildCommand>
+		<buildCommand>
+			<name>org.zeroturnaround.eclipse.rebelXmlBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
 	</buildSpec>
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>org.python.pydev.pythonNature</nature>
+		<nature>org.zeroturnaround.eclipse.jrebelNature</nature>
 	</natures>
 	<variableList>
 		<variable>
 			<name>MAGIC_DRAW_INSTALL</name>
-			<value>file:/C:/Program%20Files/MagicDraw</value>
+			<value>file:/C:/MD</value>
 		</variable>
 	</variableList>
 </projectDescription>

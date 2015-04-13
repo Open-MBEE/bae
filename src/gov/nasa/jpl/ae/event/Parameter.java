@@ -9,7 +9,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import gov.nasa.jpl.ae.event.Functions.NotEquals;
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.CollectionTree;
 import gov.nasa.jpl.ae.solver.Constraint;
@@ -17,17 +16,17 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasConstraints;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.solver.Random;
+import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.ae.solver.RangeDomain;
 import gov.nasa.jpl.ae.solver.Satisfiable;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.solver.Wraps;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.CompareUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 /**
  * 
@@ -43,7 +42,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
    * Can values be selected or changed for Parameters when not grounded or in
    * order to satisfy a constraint.
    */
-  public static boolean allowPickValue = false;
+  public static boolean allowPickValue = true;
   
   // These are for debug validation.
   public static boolean mayPropagate = true;
@@ -249,9 +248,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   }
   
   public Object getMember( String fieldName ) {
+    return getMember( fieldName, false );
+  }
+  public Object getMember( String fieldName, boolean suppressExceptions ) {
     T v = getValueNoPropagate();
     if ( v == null ) return null;
-    Object f = ClassUtils.getFieldValue( v, fieldName );
+    Object f = ClassUtils.getFieldValue( v, fieldName, suppressExceptions );
     return f;
   }
   
@@ -268,7 +270,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     }
     return null;
   }
-  
+
+  public Parameter< T > assignValue( T value ) {
+    setValue( value ); // TODO -- REVIEW -- use a global usingLazyUpdate?
+    return this;
+  }
+
   @Override
   public void setValue( T value ) {
     setValue( value, true ); // TODO -- REVIEW -- use a global usingLazyUpdate?
@@ -397,11 +404,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( refresh() ) return true;
     if ( isDependent()) return false;
     if (Parameter.allowPickValue ){
-    	T newValue = pickRandomValue();
-    	if ( newValue != null ) {
-    		setValue( newValue );
-    		return true;
-    	}
+      T newValue = pickRandomValue();
+      if ( newValue != null ) {
+        setValue( newValue );
+        return true;
+      }
     }
    
     if ( deep && value instanceof Groundable ) {

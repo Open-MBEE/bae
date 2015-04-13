@@ -3,10 +3,15 @@ Created on Sep 5, 2012
 
 '''
 import os
-workspacePath = 'C:\\Users\\bclement\\workspaceFresh'
-#mdPath = 'C:\\Program Files\\MagicDraw\\IMCE-GENPROF-17.0sp5-build99-20120615'
-mdPath = 'C:\\Program Files\\MagicDraw\\OpsRevMD1702-20120912'
-projectPath = workspacePath + os.sep + 'CS'
+from os.path import expanduser
+homeDir = expanduser("~")
+#homeDir = '/home/bclement'
+gitDir = homeDir + os.sep + 'git'
+#workspacePath = homeDir + os.sep + 'workspace' + 'Indigo' 
+workspacePath = gitDir + os.sep + 'bae'
+projectPath = workspacePath
+#mdPath = 'C:\\Program Files\\MagicDraw\\OpsRevMD1702-20120912'
+mdPath = homeDir + os.sep + 'apps' + os.sep + 'MD'
 pluginSrcPath = projectPath + os.sep + 'src' + os.sep + 'gov' + os.sep + \
                 'nasa' + os.sep + 'jpl' + os.sep + 'ae' + os.sep + 'magicdrawPlugin'
 workspaceXmlPath = projectPath + os.sep + 'src' + os.sep + 'gov' + os.sep + \
@@ -82,8 +87,8 @@ from gov.nasa.jpl.ae.event import EventSimulation
 reload(EventSimulation)
 ##TestEventXmlToJava as TestEventXmlToJava
 #from generated import TestEventXmlToJava as TestEventXmlToJava
-from gov.nasa.jpl.ae.util import Utils
-reload(Utils)
+from gov.nasa.jpl.ae.util import CompareUtils
+reload(CompareUtils)
 
 #for testing jython link to java
 from java.util import TreeSet as TreeSet
@@ -217,7 +222,7 @@ def testJava():
     foo.add(hello)
     foo.add("world")
     print foo
-    print Utils.intCompare(3, 4)
+    print CompareUtils.compare(3, 4)
     print "Goodbye world!"
     print "sys.path = " + str(sys.path)
 

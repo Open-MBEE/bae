@@ -4,16 +4,19 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Wraps;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.CompareUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.MethodCall;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +40,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   protected Vector< Object > arguments = null; // arguments to constructor
   protected Vector< Object > evaluatedArguments = null; // arguments to constructor
   protected boolean evaluationSucceeded = false;
-
+  
   abstract public Class< ? > getReturnType();
   abstract public Class<?>[] getParameterTypes();
   abstract public Member getMember();
@@ -78,18 +81,32 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
   public Boolean hasTypeErrors( Object[] evaluatedArgs ) {
     boolean gotErrors = hasTypeErrors();
-    for ( int i = 0; !gotErrors && i < getParameterTypes().length; i++ ) {
-      Class< ? > c = getParameterTypes()[ i ];
+    int numEvalArgs = 0;
+    if ( evaluatedArgs != null ) {
+      numEvalArgs = evaluatedArgs.length;
+    }
+    if ( gotErrors || evaluatedArgs == null || numEvalArgs == 0 ) return gotErrors;
+    for ( int i = 0; !gotErrors && i < evaluatedArgs.length; i++ ) {
+      //Class< ? > c = getParameterTypes()[ i ];
+      Class< ? > c = getParameterTypes()[ Math.min(i,getParameterTypes().length-1) ];
+      if ( c != null ) {
+          Class< ? > np = ClassUtils.classForPrimitive( c );
+          if ( np != null ) c = np;
+      }
+      if ( c == null || c.equals( Object.class ) ) continue;
+      if ( i >= getParameterTypes().length-1 && isVarArgs() ) {
+        if ( !c.isArray() ) {
+          Debug.error( true, true, "class " + c.getSimpleName() + " should be a var arg array!" );
+        } else {
+          c = c.getComponentType();
+        }
+      }
       if ( evaluatedArgs[ i ] == null ) {
         if ( c.isPrimitive() ) {
           gotErrors = true; 
         }
       } else if ( !c.isAssignableFrom( evaluatedArgs[ i ].getClass() ) ) {
-        if ( !c.isPrimitive()
-             || !ClassUtils.classForPrimitive( c )
-                           .isAssignableFrom( evaluatedArgs[ i ].getClass() ) ) {
-          gotErrors = true;
-        }
+        gotErrors = true;
       }
     }
     return gotErrors;
@@ -104,7 +121,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         return true;
       }
     } else if ( arguments.size() < paramTypes.length - 1 ) {
-      this.compareTo( this );
+      //this.compareTo( this );  // why was this here? to see if any exceptions would be raised?
       return true;
     }
     // Code below is not right! The arguments may be expressions, the results of
@@ -144,8 +161,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return compare;
   }
   
-  // TODO -- consider an abstract Call class
   public Object evaluate( boolean propagate ) { // throws IllegalArgumentException,
+    return evaluate(propagate, true);
+  }
+  
+  // TODO -- consider an abstract Call class
+  public Object evaluate( boolean propagate, boolean doEvalArgs) { // throws IllegalArgumentException,
     evaluationSucceeded = false;
     // IllegalAccessException, InvocationTargetException {
     if ( propagate ) {
@@ -161,7 +182,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Object result = null;
     
     // evaluate the arguments before invoking the method on them
-    Object evaluatedArgs[] = evaluateArgs( propagate );
+    Object evaluatedArgs[] = null;
+    
+    if (doEvalArgs) {
+      evaluatedArgs = evaluateArgs( propagate );
+    }
+    else {
+      evaluatedArgs = arguments.toArray();
+    }
     
     // evaluate the object, whose method will be invoked from a nested call
     if ( nestedCall != null && nestedCall.getValue( propagate ) != null ) {
@@ -242,6 +270,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 //      result = nestedCall.getValue().evaluate( propagate );
 //    }
     if ( Debug.isOn() ) Debug.outln( "evaluate() returning " + result );
+    
     return result;
   }
 
@@ -354,6 +383,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   @Override
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2, boolean deep,
                              Set<HasParameters> seen ) {
+    return substitute( p1, (Object)p2, deep, seen );
+  }
+  @Override
+  public boolean substitute( Parameter< ? > p1, Object p2, boolean deep,
+                             Set<HasParameters> seen ) {
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return false;
     seen = pair.second;
@@ -364,14 +398,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       object = p2;
       subbed = true;
     }
-    if ( HasParameters.Helper.substitute( object, p1, p2, deep, seen, true )) {
+    if ( !subbed && HasParameters.Helper.substitute( object, p1, p2, deep, seen, true )) {
       subbed = true;
     }
     if ( HasParameters.Helper.substitute( arguments, p1, p2, deep, seen, true )) {
       subbed = true;
     }
-    if ( p1 == nestedCall ) {
-      nestedCall = (Parameter< Call >)p2;
+    if ( p1 == nestedCall && p2 instanceof Parameter ) {
+      nestedCall = (Parameter< Call >)p2; // REVIEW -- If p2 is set to something other than a Call, then this is trouble!
       subbed = true;
     }
     if ( HasParameters.Helper.substitute( nestedCall, p1, p2, deep, seen, true ) ) {
@@ -640,5 +674,61 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // TODO Auto-generated method stub
     return null;
   }
+  
+  // The following code was re-factored from MethodCall:
+  /**
+   * @param objects
+   * @param call the Call to invoke on each object in the Collection
+   * @param indexOfObjectArgument
+   *            where in the list of arguments an Object from the Collection
+   *            is substituted (1 to total number of args or 0 to indicate
+   *            that the objects are each substituted for
+   *            methodCall.objectOfCall).
+   * @return the results of the Call on each of the objects
+   */
+  public static Collection< Object > map( Collection< ? > objects,
+                                             Call call,
+                                             int indexOfObjectArgument ) {
+      return call.map( objects, indexOfObjectArgument );
+  }
+  /**
+   * @param objects
+   * @param indexOfObjectArgument
+   *            where in the list of arguments an object from the Collection
+   *            is substituted (1 to total number of args or 0 to indicate
+   *            that the objects are each substituted for
+   *            methodCall.objectOfCall).
+   * @return the results of the Call on each of the objects
+   */
+  public Collection< Object > map( Collection< ? > objects,
+                                       int indexOfObjectArgument ) {
+      Collection< Object > coll = new ArrayList<Object>();
+      for ( Object o : objects ) {
+          sub( indexOfObjectArgument, o );
+          Object result = evaluate(true);
+          coll.add( result );
+      }
+      return coll;
+  }
+  
+  /**
+   * Substitute an object for a specified argument in this Call.
+   * 
+   * @param indexOfArg
+   *            the index of the argument to be replaced
+   * @param obj
+   *            the replacement for the argument
+   */
+  protected void sub( int indexOfArg, Object obj ) {
+      if ( indexOfArg < 0 ) Debug.error("bad indexOfArg " + indexOfArg );
+      else if ( indexOfArg == 0 ) object = obj;
+      else if ( indexOfArg > arguments.size() ) Debug.error( "bad index "
+                                                             + indexOfArg
+                                                             + "; only "
+                                                             + arguments.size()
+                                                             + " arguments!" );
+      else arguments.set(indexOfArg-1,obj);
+  }
+  ////////
 
 }

@@ -7,8 +7,8 @@ import gov.nasa.jpl.ae.solver.Constraint;
 import gov.nasa.jpl.ae.solver.HasConstraints;
 import gov.nasa.jpl.ae.solver.Satisfiable;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -228,4 +228,12 @@ public abstract class AbstractParameterConstraint implements ParameterConstraint
     return false;
   }
 
+  @Override
+  public boolean substitute( Parameter< ? > p1, Object exp, boolean deep,
+                             Set< HasParameters > seen ) {
+    Assert.assertTrue( "This method is not yet supported!", false );
+    // TODO Auto-generated method stub
+    return false;
+  }
+  
 }

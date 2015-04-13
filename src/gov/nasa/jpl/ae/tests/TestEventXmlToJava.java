@@ -3,12 +3,12 @@
  */
 package gov.nasa.jpl.ae.tests;
 
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.FileUtils;
-import gov.nasa.jpl.ae.util.Timer;
-import gov.nasa.jpl.ae.util.Utils;
 import gov.nasa.jpl.ae.xml.EventXmlToJava;
 import gov.nasa.jpl.ae.xml.XmlUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.FileUtils;
+import gov.nasa.jpl.mbee.util.Timer;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -83,7 +83,7 @@ public class TestEventXmlToJava {
     if ( directory == null ) directory = "";
     if ( Debug.isOn() ) Debug.outln( "initialize( ): 6 directory = " + directory );
     if ( Debug.isOn() ) Debug.outln( "initialize( ): 7 directory = " + directory );
-    int pos = directory.indexOf("CS");
+    int pos = directory.indexOf("bae");
     if ( pos == -1 ) {
       pos = 1;
     } else {

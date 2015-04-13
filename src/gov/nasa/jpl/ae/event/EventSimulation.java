@@ -3,14 +3,15 @@
  */
 package gov.nasa.jpl.ae.event;
 
-import gov.nasa.jpl.ae.event.Timepoint.Units;
-import gov.nasa.jpl.ae.util.CompareUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
+import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.ae.util.SimulatedTime;
-import gov.nasa.jpl.ae.util.SocketClient;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.SocketClient;
+import gov.nasa.jpl.mbee.util.TimeUtils;
+import gov.nasa.jpl.mbee.util.TimeUtils.Units;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -46,9 +47,17 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
   //private static final String enthoughtPython = "/Library/Frameworks/Python.framework/Versions/7.3/bin/Python";
   //private static final String enthoughtPythonPath = "/usr/local/epd_free-7.3-2-rh5-x86_64/";
   //private static final String enthoughtPython = "/usr/local/epd_free-7.3-2-rh5-x86_64/bin/python";
-  private static final String enthoughtPythonPath = "c:\\Users\\bclement\\workspace\\CS\\src\\gov\\nasa\\jpl\\ae\\magicdrawPlugin;c:\\Python27\\Lib";
-  private static final String enthoughtPython = "C:\\Program Files\\Enthought\\Canopy\\App\\appdata\\canopy-1.0.3.1262.win-x86_64\\python.exe";
-  private static final String enthoughtTempDir = "c:\\temp";
+  public static final String homeDir = "/home/bclement";
+  public static final String gitDir = homeDir + "/git";
+  public static final String enthoughtDir = "/opt/Canopy/appdata/canopy-1.0.3.1262.rh5-x86_64";
+  public static final String enthoughtPythonPath = gitDir + "/bae/src/gov/nasa/jpl/ae/magicdrawPlugin;" + enthoughtDir + "/lib";
+  //private static final String enthoughtPythonPath = "C:\\Users\\bclement\\git\\bae\\src\\gov\\nasa\\jpl\\ae\\magicdrawPlugin;C:\\Program Files\\Enthought\\Canopy\\App\\appdata\\canopy-1.0.3.1262.win-x86_64\\Lib;C:\\Program Files\\Enthought\\Canopy\\App\\Lib";
+  public static final String enthoughtPython = enthoughtDir + "/bin/python";
+  //private static final String enthoughtPython = "C:\\Program Files\\Enthought\\Canopy\\App\\appdata\\canopy-1.0.3.1262.win-x86_64\\python.exe";
+  //private static final String enthoughtPython = "c:\\Python27\\python.exe";
+  public static final String enthoughtTempDir = "/tmp";
+  //private static final String enthoughtTempDir = "c:\\temp";
+
   public static double maxSecondsToNextEvent = 43200;
   
   // Members
@@ -67,9 +76,9 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
    */
   public boolean simulatingHorizon = false;
 
-  Timepoint.Units plotAxisTimeUnits = Timepoint.Units.seconds;
+  TimeUtils.Units plotAxisTimeUnits = TimeUtils.Units.seconds;
   public boolean usingSamplePeriod = true;
-  public double plotSamplePeriod = 0.5; //15.0 / Units.conversionFactor( Units.minutes ); // 15 min
+  public double plotSamplePeriod = 15.0 / Timepoint.conversionFactor( TimeUtils.Units.minutes ); // 15 min
   protected String hostOfPlotter = "127.0.0.1";
   // Trying to pick a port that would not have been used by another running instance. 
   protected int port = 
@@ -163,15 +172,6 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
   
   // Methods
   
-  // TODO -- would like to use an alternative name, such as that for a parameter, especially for TimeVaryingMaps, whose name is overwritten by the value.
-//  public boolean add( Parameter<Event> p ) {
-//    String name =
-//        Utils.isNullOrEmpty( p.getName() ) ? p.getValue().getName()
-//                                           : p.getName();
-//    return add( p.getValue(), name );
-//
-//  }
-
   // Returns whether the event was added properly. If the event was not added or
   // its start or stop were already added, the function returns false.
   public boolean add( Event event ) {
@@ -220,12 +220,6 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
     return !existingEntry;
   }
   
-//  public < V > boolean add( Parameter<TimeVaryingMap< V > > p, String category ) {
-//    String name =
-//        Utils.isNullOrEmpty( p.getName() ) ? p.getValue().getName()
-//                                           : p.getName();
-//    return add( p.getValue(), category, name );
-//  }
   public < V > boolean add( TimeVaryingMap< V > tv, String category ) {
     if ( tv == null ) {
       Assert.fail("Trying to add null event to simulation.");
@@ -330,7 +324,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
                 assert this.plotSamplePeriod > 0.0;
                 nextSampleSimTime += this.plotSamplePeriod;
               }
-              if ( nextEventSimTime <= simTime ) break;
+              if ( nextEventSimTime <= simTime) break;
               if ( simulatingHorizon && simTimer.passedHorizon() ) {
                 break;
               }
@@ -706,7 +700,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
         if ( timeInteger <= lastTime ) continue;
         lastTime = timeInteger.intValue();
         Double time =
-            Timepoint.Units.conversionFactor( this.plotAxisTimeUnits )
+            Timepoint.conversionFactor( this.plotAxisTimeUnits )
                 * timeInteger.doubleValue();
         Object v = Expression.evaluate( map.getValue( timeInteger ), null, false );
         assert v instanceof Double || v instanceof Integer || v instanceof Float
@@ -779,7 +773,7 @@ public class EventSimulation extends java.util.TreeMap< Integer, Set< Pair< Obje
       return;
     }
     double doubleArray[] = new double[currentPlottableValues.size()+1];
-    doubleArray[0] = Timepoint.Units.conversionFactor( this.plotAxisTimeUnits ) * time;
+    doubleArray[0] = Timepoint.conversionFactor( this.plotAxisTimeUnits ) * time;
     int cnt = 1;
     //for ( Object v : currentPlottableValues.values() ) {
     for ( java.util.Map.Entry< Object, Object > e : currentPlottableValues.entrySet() ) {

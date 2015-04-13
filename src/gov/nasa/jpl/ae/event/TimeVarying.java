@@ -1,13 +1,10 @@
 package gov.nasa.jpl.ae.event;
 
-import gov.nasa.jpl.ae.solver.HasId;
 import gov.nasa.jpl.ae.solver.Wraps;
-
-import java.util.Iterator;
-import java.util.Map;
+import gov.nasa.jpl.mbee.util.HasId;
 
 /**
- * 
+ *
  */
 
 /**
@@ -16,7 +13,7 @@ import java.util.Map;
  * TODO -- REVIEW -- Should this implement Map<Timepoint, T>?
  * TODO -- REVIEW -- Look at seqr tms to see if can leverage Timeline infrastructure.
  */
-public interface TimeVarying< V > extends Comparable< TimeVarying< V > >, HasId, Wraps< V > { //extends Map< Timepoint, T > {
+public interface TimeVarying< V > extends Comparable< TimeVarying< V > >, HasId<Integer>, Wraps< V > { //extends Map< Timepoint, T > {
   public V getValue( Parameter< Integer > t );
   public V getValue( Integer t );
   public V setValue( Parameter< Integer > t, V value );

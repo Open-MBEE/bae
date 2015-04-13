@@ -1,19 +1,18 @@
 package gov.nasa.jpl.ae.event;
 
-import gov.nasa.jpl.ae.solver.HasId;
 import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.HasId;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
 
-public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
+public interface HasParameters extends LazyUpdate, HasId<Integer>, Deconstructable,
                                        MoreToString {
   public Set< Parameter< ? > > getParameters( boolean deep,
                                               Set< HasParameters > seen );
@@ -29,17 +28,19 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
 
   public boolean hasParameter( Parameter< ? > parameter, boolean deep,
                                Set< HasParameters > seen );
-  
+
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2,
                              boolean deep, Set< HasParameters > seen );
-  
+  public boolean substitute( Parameter< ? > p1, Object exp,
+                             boolean deep, Set< HasParameters > seen );
+
   /**
    * This helper class provides static methods for making calls on Objects and
    * Collections (from other objects) that may or may not implement HasParameter
    * or contain objects that do.
    */
   public static class Helper {
-    
+
     // static implementations on Object
 
     // WARNING! don't call this from o.isStale() -- infinite loop
@@ -70,7 +71,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
     // WARNING! don't call this from o.setStale() -- infinite loop
     public static void setStale( Object o, boolean staleness ) {
       if ( o == null ) return;
@@ -88,7 +89,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
 //        }
       }
     }
-    
+
     // WARNING! don't call this from o.hasParameter() -- infinite loop
     public static boolean hasParameter( Object o, Parameter< ? > p,
                                         boolean deep, Set< HasParameters > seen,
@@ -113,11 +114,11 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
     static int dbgCt = 0;
-    
+
     // WARNING! Do not call from o.getParameters() -- infinite loop
-    public static Set< Parameter< ? > > getParameters( Object o, 
+    public static Set< Parameter< ? > > getParameters( Object o,
                                                        boolean deep,
                                                        Set< HasParameters > seen,
                                                        boolean checkIfHasParameters ) {
@@ -153,9 +154,9 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return set;
     }
-    
+
     // WARNING! Do not call from o.getFreeParameters() -- infinite loop
-    public static Set< Parameter< ? > > getFreeParameters( Object o, 
+    public static Set< Parameter< ? > > getFreeParameters( Object o,
                                                            boolean deep,
                                                            Set< HasParameters > seen,
                                                            boolean checkIfHasParameters ) {
@@ -211,11 +212,11 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
     // WARNING! Do not call from o.isFreeParameter() -- infinite loop
     public static boolean substitute( Object o,
                                       Parameter< ? > p1,
-                                      Parameter< ? > p2,
+                                      Object p2,
                                       boolean deep,
                                       Set< HasParameters > seen,
                                       boolean checkIfHasParameters ) {
@@ -224,6 +225,9 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       if ( o == null ) return false;
       if ( checkIfHasParameters && o instanceof HasParameters ) {
 //        if ( Utils.seen( (HasParameters)o, deep, seen ) ) return false;
+        if ( p2 instanceof Parameter ) {
+          return ((HasParameters)o).substitute( p1, (Parameter< ? >)p2, deep, seen );
+        }
         return ((HasParameters)o).substitute( p1, p2, deep, seen );
       } else {
         if ( o instanceof Object[] ) {
@@ -238,9 +242,9 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
     // static implementations on Map
-    
+
     public static < K, V > boolean isStale( Map< K, V > map,
                                             boolean deep,
                                             Set< HasParameters > seen,
@@ -254,7 +258,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
 //    // Warning! It should be unusual to set all the keys and values stale!
 //    public static < K, V > void setStale( Map< K, V > map, boolean staleness ) {
 //      for ( Map.Entry< K, V > me : map.entrySet() ) {
@@ -262,7 +266,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
 //        setStale( me.getValue(), staleness );
 //      }
 //    }
-    
+
     public static < K, V > boolean hasParameter( Map< K, V > map,
                                                  Parameter< ? > parameter,
                                                  boolean deep,
@@ -276,10 +280,10 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
              hasParameter( me.getValue(), parameter, deep, seen, true ) ) {
           return true;
         }
-      }      
+      }
       return false;
     }
-    
+
     public static < K, V > Set< Parameter< ? > > getParameters( Map< K, V > map,
                                                                 boolean deep,
                                                                 Set< HasParameters > seen,
@@ -295,7 +299,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return set;
     }
-    
+
     public static < K, V > boolean isFreeParameter( Map< K, V > map,
                                                     Parameter< ? > parameter,
                                                     boolean deep,
@@ -309,18 +313,21 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
              isFreeParameter( me.getValue(), parameter, deep, seen, true ) ) {
           return true;
         }
-      }      
+      }
       return false;
     }
-    
-    
+
+
     public static < K, V > boolean substitute( Map< K, V > map,
                                                Parameter< ? > p1,
-                                               Parameter< ? > p2,
+                                               Object p2,
                                                boolean deep,
                                                Set< HasParameters > seen,
                                                boolean checkIfHasParameters ) {
       if ( checkIfHasParameters && map instanceof HasParameters ) {
+        if ( p2 instanceof Parameter ) {
+          return ((HasParameters)map).substitute( p1, (Parameter<?>)p2, deep, seen );
+        }
         return ((HasParameters)map).substitute( p1, p2, deep, seen );
       }
       if ( p1 == null ) return false;
@@ -351,7 +358,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
     }
 
     // static implementations on Collection
-    
+
     public static < T > boolean isStale( Collection< T > c, boolean deep,
                                          Set< HasParameters > seen,
                                          boolean checkIfLazyUpdate ) {
@@ -363,7 +370,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
 //    // Warning! It should be unusual to set all the keys and values stale!
 //    public static < K, V > void setStale( Map< K, V > map, boolean staleness ) {
 //      for ( Map.Entry< K, V > me : map.entrySet() ) {
@@ -371,7 +378,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
 //        setStale( me.getValue(), staleness );
 //      }
 //    }
-    
+
     public static < T > boolean hasParameter( Collection< T > c,
                                               Parameter< ? > parameter,
                                               boolean deep,
@@ -384,10 +391,10 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( hasParameter( t, parameter, deep, seen, deep ) ) {
           return true;
         }
-      }      
+      }
       return false;
     }
-    
+
     public static < T > Set< Parameter< ? > > getParameters( Collection< T > c,
                                                              boolean deep,
                                                              Set< HasParameters > seen,
@@ -402,7 +409,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return set;
     }
-    
+
     // getFreeParameters( Object ) suffices for Map
 
     public static < T > boolean isFreeParameter( Collection< T > c,
@@ -417,17 +424,20 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( isFreeParameter( t, parameter, deep, seen, true ) ) {
           return true;
         }
-      }      
+      }
       return false;
     }
-    
-    
+
+
     public static < T > boolean substitute( Collection< T > c,
                                             Parameter< ? > p1,
-                                            Parameter< ? > p2,
+                                            Object p2,
                                             boolean deep,
                                             Set< HasParameters > seen ) {
       if ( c instanceof HasParameters ) {
+        if ( p2 instanceof Parameter ) {
+          return ((HasParameters)c).substitute( p1, (Parameter<?>)p2, deep, seen );
+        }
         return ((HasParameters)c).substitute( p1, p2, deep, seen );
       }
       if ( p1 == null ) return false;
@@ -437,12 +447,12 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( substitute( t, p1, p2, deep, seen, true ) ) {
           subbed = true;
         }
-      }      
+      }
       return subbed;
     }
-   
+
     // static implementations on array
-    
+
     public static boolean isStale( Object[] c, boolean deep,
                                    Set< HasParameters > seen ) {
       for ( Object t : c ) {
@@ -450,7 +460,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return false;
     }
-    
+
 //    // Warning! It should be unusual to set all the keys and values stale!
 //    public static < K, V > void setStale( Map< K, V > map, boolean staleness ) {
 //      for ( Map.Entry< K, V > me : map.entrySet() ) {
@@ -458,7 +468,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
 //        setStale( me.getValue(), staleness );
 //      }
 //    }
-    
+
     /**
      * @param c
      * @param parameter
@@ -474,10 +484,10 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( hasParameter( t, parameter, deep, seen, true ) ) {
           return true;
         }
-      }      
+      }
       return false;
     }
-    
+
     public static Set< Parameter< ? > > getParameters( Object[] c,
                                                        boolean deep,
                                                        Set< HasParameters > seen ) {
@@ -487,7 +497,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return set;
     }
-    
+
     // getFreeParameters( Object ) suffices for Map
 
     public static boolean isFreeParameter( Object[] c,
@@ -498,12 +508,12 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( isFreeParameter( t, parameter, deep, seen, true ) ) {
           return true;
         }
-      }      
+      }
       return false;
-    }    
-    
+    }
+
     public static boolean substitute( Object[] c, Parameter< ? > p1,
-                                      Parameter< ? > p2,
+                                      Object p2,
                                       boolean deep,
                                       Set< HasParameters > seen ) {
       if ( p1 == null ) return false;
@@ -513,12 +523,31 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
         if ( substitute( t, p1, p2, deep, seen, true ) ) {
           subbed = true;
         }
-      }      
+      }
       return subbed;
     }
-   
+
+    public static boolean substitute( Collection<?> o,
+                                      Parameter< ? > p1,
+                                      Object p2,
+                                      boolean deep,
+                                      Set< HasParameters > seen,
+                                      boolean checkIfHasParameters ) {
+
+      if ( p1 == null ) return false;
+      if ( p1 == p2 ) return true;
+      boolean subbed = false;
+      for ( Object t : o ) {
+        if ( substitute( t, p1, p2, deep, seen, checkIfHasParameters ) ) {
+          subbed = true;
+        }
+      }
+      return subbed;
+
+    }
+
     // static implementations on Pair
-    
+
     public static < T1, T2 > boolean isStale( Pair< T1, T2 > p, boolean deep,
                                               Set< HasParameters > seen,
                                               boolean checkIfLazyUpdate ) {
@@ -529,7 +558,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       if ( isStale( p.second, deep, seen, true ) ) return true;
       return false;
     }
-    
+
     public static < T1, T2 > boolean hasParameter( Pair< T1, T2 > p,
                                                    Parameter< ? > parameter,
                                                    boolean deep,
@@ -542,7 +571,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       if ( hasParameter( p.second, parameter, deep, seen, true ) ) return true;
       return false;
     }
-    
+
     public static < T1, T2 > Set< Parameter< ? > > getParameters( Pair< T1, T2 > p,
                                                                   boolean deep,
                                                                   Set< HasParameters > seen,
@@ -556,7 +585,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       }
       return set;
     }
-    
+
     // getFreeParameters( Object ) suffices for Map
 
     public static < T1, T2 > boolean isFreeParameter( Pair< T1, T2 > p,
@@ -571,15 +600,18 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       if ( isFreeParameter( p.second, parameter, deep, seen, true ) ) return true;
       return false;
     }
-    
-    
+
+
     public static < T1, T2 > boolean substitute( Pair< T1, T2 > p,
                                                  Parameter< ? > p1,
-                                                 Parameter< ? > p2,
+                                                 Object p2,
                                                  boolean deep,
                                                  Set< HasParameters > seen,
                                                  boolean checkIfHasParameters ) {
       if ( checkIfHasParameters && p instanceof HasParameters ) {
+        if ( p2 instanceof Parameter ) {
+          return ((HasParameters)p).substitute( p1, (Parameter<?>)p2, deep, seen );
+        }
         return ((HasParameters)p).substitute( p1, p2, deep, seen );
       }
       if ( p1 == null ) return false;
@@ -589,7 +621,7 @@ public interface HasParameters extends LazyUpdate, HasId, Deconstructable,
       if ( substitute( p.second, p1, p2, deep, seen, true ) ) subbed = true;
       return subbed;
     }
-    
+
     public static boolean isSatisfied( Object o, boolean deep,
                                        Set< Satisfiable > seen ) {
       boolean sat = true;

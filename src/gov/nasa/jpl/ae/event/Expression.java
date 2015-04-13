@@ -5,17 +5,18 @@ import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Satisfiable;
 import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.Wraps;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.CompareUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import junit.framework.Assert;
 
 /**
@@ -36,30 +37,30 @@ public class Expression< ResultType > extends HasIdImpl
                                                LazyUpdate, Satisfiable,
                                                HasDomain, HasTimeVaryingObjects,
                                                MoreToString, Wraps< ResultType > {//, Comparable< Expression< ? > > {
-	public Object expression = null;
+  public Object expression = null;
   public Form form = Form.None;
-	public Class<? extends ResultType> resultType = null;//Type.None;
+  public Class<? extends ResultType> resultType = null;//Type.None;
   // freeParameters if not null specifies which parameters can be reassigned
   // values for satisfy().
   protected Set< Parameter< ? > > freeParameters = null;
   protected boolean evaluationSucceeded = false;
 
 
-	public enum Form {
-		None(null), Value(Object.class),
-		Parameter(Parameter.class),
-		//Method(Method.class),
-		Function(FunctionCall.class),
+  public enum Form {
+    None(null), Value(Object.class),
+    Parameter(Parameter.class),
+    //Method(Method.class),
+    Function(FunctionCall.class),
     Constructor(ConstructorCall.class);
-		
-		private Class<?> myClass;
-		Form( Class<?> c ) {
-			myClass = c;
-		}
-		public Class<?> getFormClass() {
-			return myClass;
-		}
-	}
+    
+    private Class<?> myClass;
+    Form( Class<?> c ) {
+      myClass = c;
+    }
+    public Class<?> getFormClass() {
+      return myClass;
+    }
+  }
 
 
   /**
@@ -76,20 +77,20 @@ public class Expression< ResultType > extends HasIdImpl
     // REVIEW -- Should Expression be sub-classed for different languages?
   }
 
-	/**
-	 * @param object
-	 */
-	public Expression( Object object ) {
-	  this( object, null );
-	  if ( object != null && resultType == null ) {
-		resultType = (Class< ? extends ResultType >)object.getClass();
-	  }
-	}
+  /**
+   * @param object
+   */
+  public Expression( Object object ) {
+    this( object, null );
+    if ( object != null && resultType == null ) {
+    resultType = (Class< ? extends ResultType >)object.getClass();
+    }
+  }
 
   /**
-	 * @param value
+   * @param value
    * @param cls
-	 */
+   */
   public <T> Expression( T value, Class< ResultType > cls ) {
     resultType = cls;
     if ( cls == null ) {
@@ -106,7 +107,7 @@ public class Expression< ResultType > extends HasIdImpl
             return;            
         }
     }
-		this.expression = value;
+    this.expression = value;
     if ( cls != null && value != null && !cls.isInstance( value ) ) {
       Debug.error( true,
                    "Expression initialized with incompatible value arg in Expression("
@@ -117,17 +118,18 @@ public class Expression< ResultType > extends HasIdImpl
     form = Form.Value;
   }
 
-	/**
-	 * @param parameter
-	 */
-	public Expression( Parameter< ResultType > parameter, Class< ResultType > cls ) {
-		this.expression = parameter;
+  /**
+   * @param parameter
+   */
+  public Expression( Parameter< ResultType > parameter, Class< ResultType > cls ) {
+    // REVIEW -- why not use parameter.getType()????
+    this.expression = parameter;
     ResultType value = ( parameter == null ? null : parameter.getValue() );
     if ( value != null && cls == null ) {
       try {
-		  resultType = (Class< ? extends ResultType >)value.getClass();
+        resultType = (Class< ? extends ResultType >)value.getClass();
       } catch ( ClassCastException e ) {}
-		}
+    }
     if ( cls != null ) { 
       resultType = cls;
       if ( value != null && !cls.isInstance( value ) ) {
@@ -137,23 +139,23 @@ public class Expression< ResultType > extends HasIdImpl
                          + parameter + ", " + cls.getCanonicalName() );
       }
     }
-		form = Form.Parameter;
-	}
+    form = Form.Parameter;
+  }
 
-	/**
-	 * @param parameter
-	 */
-	public Expression( Parameter< ResultType > parameter ) {
+  /**
+   * @param parameter
+   */
+  public Expression( Parameter< ResultType > parameter ) {
     this( parameter, null );
-		if ( parameter != null && parameter.getValueNoPropagate() != null ) {
-		  resultType = (Class< ? extends ResultType >)parameter.getValueNoPropagate().getClass();
-		}
-	}
+    if ( parameter != null && parameter.getValueNoPropagate() != null ) {
+      resultType = (Class< ? extends ResultType >)parameter.getValueNoPropagate().getClass();
+    }
+  }
 
-	/**
-	 * @param function
-	 */
-	public Expression( FunctionCall function ) {
+  /**
+   * @param function
+   */
+  public Expression( FunctionCall function ) {
     init(function);
   }
   public Expression( FunctionCall function, Class<ResultType> resultType ) {
@@ -168,13 +170,13 @@ public class Expression< ResultType > extends HasIdImpl
     }
   }
   public void init( FunctionCall function ) {
-		this.expression = function;
-		if ( function != null && function.method != null ) {
-		  resultType = (Class< ? extends ResultType >)function.getReturnType();
-		}
-		form = Form.Function;
-	}
-	
+    this.expression = function;
+    if ( function != null && function.method != null ) {
+      resultType = (Class< ? extends ResultType >)function.getReturnType();
+    }
+    form = Form.Function;
+  }
+  
   /**
    * @param constructor
    */
@@ -203,39 +205,53 @@ public class Expression< ResultType > extends HasIdImpl
     }
   }
 
-  //	public Expression( Expression<ResultType> e ) {
-//		this.expression = e.expression;
-//		this.type = e.type;
-//	}
-	public Expression( Expression<ResultType> e, boolean deep ) {
-		this.form = e.form;
-		this.resultType = e.resultType;
-		if ( !deep ) {
-		  expression = e.expression;
-		} else {
-			switch (form) {
-			case None:
-//			case Method:
-			case Value:  // TODO -- is this right for Value?
-			case Parameter:
-				expression = e.expression;
-				break;
-			case Function:
-				expression = (Object) ((FunctionCall)e.expression).clone();
-				break;
-      case Constructor:
-        expression = (Object) ((ConstructorCall)e.expression).clone();
+  public Expression( Expression<ResultType> e, boolean deep ) {
+    this( e.expression, e.form, e.resultType, e.freeParameters, e.evaluationSucceeded, deep );
+  }
+  
+
+  public Expression( Object expression, Form form,
+                     Class< ? extends ResultType > resultType,
+                     Set< Parameter< ? > > freeParameters,
+                     boolean evaluationSucceeded ) {
+    this( expression, form, resultType, freeParameters, evaluationSucceeded, false );
+  }
+  
+  public Expression( Object expression, Form form,
+                     Class< ? extends ResultType > resultType,
+                     Set< Parameter< ? > > freeParameters,
+                     boolean evaluationSucceeded,
+                     boolean deep ) {
+    super();
+    this.form = form;
+    this.resultType = resultType;
+    this.evaluationSucceeded = evaluationSucceeded;
+    this.expression = expression;
+    if ( !deep ) {
+      //this.freeParameters = freeParameters;
+    } else {
+      switch (form) {
+      case None:
+      case Value:  // TODO -- is this right for Value?
+      case Parameter:
+        this.expression = expression; // REVIEW -- why is this not a deep copy?
         break;
-//			case Parameter:
-//				expression = (Object) new Parameter<ResultType>((Parameter<ResultType>)e.expression);
-//				break;
-			default:
-				Assert.assertTrue( "Error! Bad expression type!", false );
-			}
-		}
-	}
-	
-	// default shallow
+      case Function:
+        this.expression = (Object) ((FunctionCall)expression).clone();
+        break;
+      case Constructor:
+        this.expression = (Object) ((ConstructorCall)expression).clone();
+        break;
+//      case Parameter:
+//        expression = (Object) new Parameter<ResultType>((Parameter<ResultType>)e.expression);
+//        break;
+      default:
+        Assert.assertTrue( "Error! Bad expression type!", false );
+      }
+    }
+  }
+
+  // default shallow
   public Expression( Expression<ResultType> e ) {
     this(e, false);
   }
@@ -258,14 +274,14 @@ public class Expression< ResultType > extends HasIdImpl
     //expression = null;
   }
 
-  public void copyMembers( Expression< ResultType > expr ) {
+  public void copyMembers( Expression< ? > expr ) {
     this.expression = expr.expression;
     this.form = expr.form;
-    this.resultType = expr.resultType;
+    this.resultType = (Class< ? extends ResultType >)expr.resultType;
     this.freeParameters = expr.freeParameters;
     this.evaluationSucceeded = expr.evaluationSucceeded;
   }
-
+  
   public Boolean isResultType( Object o ) {
     try {
       ResultType t = (ResultType)o;
@@ -286,23 +302,23 @@ public class Expression< ResultType > extends HasIdImpl
    *          evaluating.
    * @return the resulting value
    */
-	public ResultType evaluate( boolean propagate ) {//throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-	  evaluationSucceeded = false;
-	  if ( form == null || ( form != Form.None && expression == null ) ) {
-	    return null;
-	  }
-		try {
-		switch (form) {
-		case None:
-			try {
-				throw new IllegalAccessException();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			}
-			return null; // TODO -- REVIEW -- exit?
-		case Value:
-			return (ResultType)expression;
-		case Parameter:
+  public ResultType evaluate( boolean propagate ) {//throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+    evaluationSucceeded = false;
+    if ( form == null || ( form != Form.None && expression == null ) ) {
+      return null;
+    }
+    try {
+    switch (form) {
+    case None:
+      try {
+        throw new IllegalAccessException();
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      }
+      return null; // TODO -- REVIEW -- exit?
+    case Value:
+      return (ResultType)expression;
+    case Parameter:
           Parameter< ? > p = (Parameter< ? >)expression;
           while ( p != null ) {
             Object o = null;
@@ -364,50 +380,50 @@ public class Expression< ResultType > extends HasIdImpl
               }
             }
           }
-		case Constructor:
+    case Constructor:
     case Function:
       //HERE!!!;
-			ResultType r = (ResultType)((Call)expression).evaluate( propagate );
-			evaluationSucceeded = ((Call)expression).didEvaluationSucceed();
-			return r;
-		default:
-		  evaluationSucceeded = false;
-			return null;
-		}
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-		}
-		evaluationSucceeded = false;
-		return null;  // TODO -- REVIEW -- shouldn't get here -- die?
-	}
-	
-	@Override
+      ResultType r = (ResultType)((Call)expression).evaluate( propagate );
+      evaluationSucceeded = ((Call)expression).didEvaluationSucceed();
+      return r;
+    default:
+      evaluationSucceeded = false;
+      return null;
+    }
+    } catch (IllegalArgumentException e) {
+      e.printStackTrace();
+    }
+    evaluationSucceeded = false;
+    return null;  // TODO -- REVIEW -- shouldn't get here -- die?
+  }
+  
+  @Override
   public String toString( boolean withHash, boolean deep, Set< Object > seen,
                           Map< String, Object > otherOptions ) {
     Pair< Boolean, Set< Object > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) deep = false;
     seen = pair.second;
-		switch (form) {
-		case None:
-			try {
-				throw new IllegalAccessException();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			}
-			return null; // TODO -- REVIEW -- exit?
-		case Value:
-//			return ((ResultType)expression).toString();
-		case Parameter:
-//		case Method:
-		case Function:
+    switch (form) {
+    case None:
+      try {
+        throw new IllegalAccessException();
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      }
+      return null; // TODO -- REVIEW -- exit?
+    case Value:
+//      return ((ResultType)expression).toString();
+    case Parameter:
+//    case Method:
+    case Function:
     case Constructor:
       if ( expression == null ) return "null";
       return MoreToString.Helper.toString( expression, withHash, deep, seen,
                                            otherOptions );
-		default:
-			return null;
-		}
-	}
+    default:
+      return null;
+    }
+  }
 
   @Override
   public String toShortString() {
@@ -425,55 +441,110 @@ public class Expression< ResultType > extends HasIdImpl
   }
 
   @Override
-	public boolean substitute( Parameter<?> p1, Parameter<?> p2, boolean deep,
-	                           Set<HasParameters> seen ) {
+  public boolean substitute( Parameter<?> p1, Parameter<?> p2, boolean deep,
+                             Set<HasParameters> seen ) {
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return false;
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return false;
-		boolean subbed = false;
-		if ( form == Form.Parameter ) {
-			if ( p1 == expression ) {
-				expression = p2;
-				subbed = true;
-			}
-		}
-		if ( !subbed && ( expression instanceof HasParameters ) ) {
-			HasParameters gotParameters = (HasParameters) expression;
-			assert( gotParameters != null );
-			subbed = gotParameters.substitute( p1, p2, deep, seen );
-		}
-		return subbed;
-	}
-	
-	@Override
-	public Set< Parameter<?> > getParameters( boolean deep,
-	                                          Set<HasParameters> seen ) {
+    boolean subbed = false;
+    if ( form == Form.Parameter ) {
+      if ( p1 == expression ) {
+        expression = p2;
+        subbed = true;
+      }
+    }
+    if ( !subbed && ( expression instanceof HasParameters ) ) {
+      HasParameters gotParameters = (HasParameters) expression;
+      assert( gotParameters != null );
+      subbed = gotParameters.substitute( p1, p2, deep, seen );
+    }
+    return subbed;
+  }
+
+  @Override
+  public boolean substitute( Parameter<?> p1, Object p2, boolean deep,
+                             Set<HasParameters> seen ) {
+    Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return false;
+    seen = pair.second;
+    //if ( Utils.seen( this, deep, seen ) ) return false;
+    
+    boolean subbed = false;
+    if ( p2 instanceof Parameter ) {
+      seen.remove( this );
+      return substitute( p1, (Parameter<?>)p2, deep, seen );
+    }
+    if ( p2 instanceof Expression ) {
+      seen.remove( this );
+      return substitute( p1, (Expression<?>)p2, deep, seen );
+    }
+    if ( expression instanceof HasParameters ) {
+      HasParameters gotParameters = (HasParameters) expression;
+      assert( gotParameters != null );
+      subbed = gotParameters.substitute( p1, p2, deep, seen );
+    }
+    return subbed;
+  }
+
+  public boolean substitute( Parameter< ? > p1, Expression< ? > p2,
+                             boolean deep, Set<HasParameters> seen ) {
+    Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return false;
+    seen = pair.second;
+    
+    if ( p2.getForm() == Form.Parameter && p2.expression instanceof Parameter ) {
+      seen.remove( this );
+      return substitute( p1, (Parameter<?>)p2.expression, deep, seen );
+    }
+    //if ( Utils.seen( this, deep, seen ) ) return false;
+    boolean subbed = false;
+    if ( form == Form.Parameter ) {
+      if ( p1 == expression ) {
+        // REVIEW -- This hopefully will never get called since a substitution
+        // like this should happen at a higher level, such as in a call for
+        // which this object is an argument.
+        this.copyMembers( p2 );
+        expression = p2;
+        subbed = true;
+      }
+    }
+    if ( expression instanceof HasParameters ) {
+      HasParameters gotParameters = (HasParameters) expression;
+      assert( gotParameters != null );
+      subbed = gotParameters.substitute( p1, p2, deep, seen );
+    }
+    return subbed;
+  }
+
+
+  
+  @Override
+  public Set< Parameter<?> > getParameters( boolean deep,
+                                            Set<HasParameters> seen ) {
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-		Set< Parameter<?> > set = new HashSet< Parameter<?> >();
-		if ( form == Form.Parameter ) {
-		  if ( expression != null ) {
-		    Parameter<?> p = (Parameter<?>) this.expression; 
-		    set.add( p );
-		    if ( deep ) {
-		      Object v = p.getValueNoPropagate(); 
-		      if ( v != null && v instanceof HasParameters ) {
-		        set = Utils.addAll( set, ((HasParameters)v).getParameters( deep, seen ) );
-		      }
-		    }
-		  }
-		} else if ( expression instanceof HasParameters ) {
-			HasParameters gotParameters = (HasParameters) expression;
-			if ( gotParameters != null ) {
-				set = Utils.addAll( set, gotParameters.getParameters( deep, seen ) );
-			}
-		}
-		return set;
-	}
-	
+    Set< Parameter<?> > set = new HashSet< Parameter<?> >();
+    if ( form == Form.Parameter ) {
+      if ( expression != null ) {
+        Parameter<?> p = (Parameter<?>) this.expression; 
+        set.add( p );
+        if ( deep ) {
+          Object v = p.getValueNoPropagate(); 
+          if ( v != null && v instanceof HasParameters ) {
+            set = Utils.addAll( set, ((HasParameters)v).getParameters( deep, seen ) );
+          }
+        }
+      }
+    } else if ( expression instanceof HasParameters ) {
+      HasParameters gotParameters = (HasParameters) expression;
+      set = Utils.addAll( set, gotParameters.getParameters( deep, seen ) );
+    }
+    return set;
+  }
+  
   /**
    * @return the freeParameters
    */
@@ -500,13 +571,13 @@ public class Expression< ResultType > extends HasIdImpl
     this.freeParameters = freeParameters;
   }
 
-	public Set<Parameter<?>> getFreeParameters( boolean deep,
-	                                            Set<HasParameters> seen ) {
+  public Set<Parameter<?>> getFreeParameters( boolean deep,
+                                              Set<HasParameters> seen ) {
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
-	  return getFreeParameters();
-	}
+    return getFreeParameters();
+  }
 
   @Override
   public void setFreeParameters( Set< Parameter< ? > > freeParams, boolean deep,
@@ -514,7 +585,7 @@ public class Expression< ResultType > extends HasIdImpl
     setFreeParameters( freeParams );
   }
   
-	/**
+  /**
    * @return the expression
    */
   public Object getExpression() {
@@ -549,63 +620,63 @@ public class Expression< ResultType > extends HasIdImpl
     this.resultType = resultType;
   }
 
-	@Override
-	public boolean isGrounded(boolean deep, Set< Groundable > seen) {
-		if (expression instanceof Groundable) {
-			return ((Groundable)expression).isGrounded(deep, seen);
-		}
-//		if ( expression == null ) {
-//			return false;
-//		}
-		switch (form) {
-		case Value:
-//		case Method:
-			return true; // null should be ok, right?
-		case Parameter: // Groundable -- should not get here
-		case Function: // Groundable -- should not get here
+  @Override
+  public boolean isGrounded(boolean deep, Set< Groundable > seen) {
+    if (expression instanceof Groundable) {
+      return ((Groundable)expression).isGrounded(deep, seen);
+    }
+//    if ( expression == null ) {
+//      return false;
+//    }
+    switch (form) {
+    case Value:
+//    case Method:
+      return true; // null should be ok, right?
+    case Parameter: // Groundable -- should not get here
+    case Function: // Groundable -- should not get here
     case Constructor: // Groundable -- should not get here
-		case None:
-		default:
-			try {
-				throw new IllegalAccessException();
-			} catch (IllegalAccessException e) {
-			  System.err.println( "Error! Expression has invalid type: " + form );
-				e.printStackTrace();
-			}
-			return false; // TODO -- REVIEW -- exit?
-		}
-	}
+    case None:
+    default:
+      try {
+        throw new IllegalAccessException();
+      } catch (IllegalAccessException e) {
+        System.err.println( "Error! Expression has invalid type: " + form );
+        e.printStackTrace();
+      }
+      return false; // TODO -- REVIEW -- exit?
+    }
+  }
 
-	/* (non-Javadoc)
-	 * @see gov.nasa.jpl.ae.event.Groundable#ground(boolean, java.util.Set)
-	 */
-	@Override
-	public boolean ground(boolean deep, Set< Groundable > seen) {
-		if (expression instanceof Groundable) {
-			return ((Groundable)expression).ground(deep, seen);
-		}
-//		if ( expression == null ) {
-//			return false;
-//		}
-		switch (form) {
-		case Value:
-			return true; // null should be ok, right?
-		case Parameter: // Groundable -- should not get here
-		case Function: // Groundable -- should not get here
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.ae.event.Groundable#ground(boolean, java.util.Set)
+   */
+  @Override
+  public boolean ground(boolean deep, Set< Groundable > seen) {
+    if (expression instanceof Groundable) {
+      return ((Groundable)expression).ground(deep, seen);
+    }
+//    if ( expression == null ) {
+//      return false;
+//    }
+    switch (form) {
+    case Value:
+      return true; // null should be ok, right?
+    case Parameter: // Groundable -- should not get here
+    case Function: // Groundable -- should not get here
     case Constructor: // Groundable -- should not get here
-		case None:
-		default:
-			try {
-				throw new IllegalAccessException();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			}
-			return false; // TODO -- REVIEW -- exit?
-		}
-		//return grounded;
-	}
+    case None:
+    default:
+      try {
+        throw new IllegalAccessException();
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      }
+      return false; // TODO -- REVIEW -- exit?
+    }
+    //return grounded;
+  }
 
-	// NOTE: Don't use hashCode() unless overridden -- default may vary between runs!
+  // NOTE: Don't use hashCode() unless overridden -- default may vary between runs!
   //@Override
   public int compareTo( Expression< ? > o ) {
     if ( this == o ) return 0;
@@ -659,6 +730,11 @@ public class Expression< ResultType > extends HasIdImpl
 
   @Override
   public Domain< ResultType > getDomain( boolean propagate, Set< HasDomain > seen ) {
+    // avoid infinite recursion
+    Pair< Boolean, Set< HasDomain > > pair = Utils.seen( this, propagate, seen );
+    if ( pair.first ) return null;
+    seen = pair.second;
+    
     if ( expression == null ) {
       if ( form == Form.Value ) {
         return SingleValueDomain.getNullDomain();
@@ -722,6 +798,7 @@ public class Expression< ResultType > extends HasIdImpl
                                   boolean propagate ) throws ClassCastException {
     return evaluate( object, cls, propagate, false );
   }
+  
   public static <TT> TT evaluate( Object object, Class< TT > cls,
                                   boolean propagate,
                                   boolean allowWrapping ) throws ClassCastException {
@@ -807,10 +884,12 @@ public class Expression< ResultType > extends HasIdImpl
     if ( v1 != null ) {
       cls1 = v1.getClass();
     }
-    if ( cls1 != null && cls1 != cls && valuesEqual( v2, v1, cls1 ) ) return true;
-    if ( v2 != null ) {
-      Class< ? > cls2 = v2.getClass();
-      if ( cls2 != cls && cls2 != cls1 && valuesEqual( v1, v2, cls2 ) ) return true;
+    if( !Utils.valuesEqual( o1, v1 ) ||  !Utils.valuesEqual( o2, v2 )) {
+      if ( cls1 != null && cls1 != cls && valuesEqual( v2, v1, cls1 ) ) return true;
+      if ( v2 != null ) {
+        Class< ? > cls2 = v2.getClass();
+        if ( cls2 != cls && cls2 != cls1 && valuesEqual( v1, v2, cls2 ) ) return true;
+      }
     }
     return false;
     /*

@@ -4,12 +4,12 @@
 package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.CompareUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.MoreToString;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -366,6 +366,11 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
   
   @Override
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2, boolean deep,
+                             Set< HasParameters > seen ) {
+    return substitute( p1, (Object)p2, deep, seen );
+  }
+  @Override
+  public boolean substitute( Parameter< ? > p1, Object p2, boolean deep,
                              Set< HasParameters > seen ) {
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return false;

@@ -3,8 +3,8 @@
  */
 package gov.nasa.jpl.ae.solver;
 
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,15 +50,17 @@ public class ConstraintLoopSolver implements Solver {
       for ( int i = 0; i < unsatisfiedConstraints.size(); ++i ) {
         Constraint c = unsatisfiedConstraints.get( i );
         if ( Debug.isOn() ) Debug.outln( "checking constraint " + i + ": " + c );
-        String cstr = c.toString();
-        if ( cstr.endsWith( "onstraint" ) ) {
-          Debug.breakpoint();
-        }
+//        String cstr = c.toString();
+//        if ( cstr.endsWith( "onstraint" ) ) {
+//          Debug.breakpoint();
+//        }
+        //Debug.turnOn();
         boolean thisSatisfied = c.isSatisfied( deep, null );
         if ( !thisSatisfied ) {
           thisSatisfied = c.satisfy( deep, null );
         }
         thisSatisfied = c.isSatisfied( deep, null );
+        //Debug.turnOff();
 //        if ( !thisSatisfied ) {
 //          thisSatisfied = satisfy( c, deep, null );
 //        }

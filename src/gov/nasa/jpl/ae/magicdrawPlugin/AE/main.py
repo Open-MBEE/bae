@@ -15,10 +15,12 @@ import os
 from os.path import expanduser
 
 home = expanduser("~")
-
-workspacePath = home + os.sep + 'workspaceYoxos'
-#mdPath = 'C:\\Program Files\\MagicDraw\\IMCE-GENPROF-17.0sp5-build99-20120615'
-mdPath = 'C:\\MD'
+gitDir = home + os.sep + 'git'
+workspacePath = gitDir
+projectPath = workspacePath + os.sep + 'bae'
+#workspacePath = home + os.sep + 'workspaceYoxos'
+#mdPath = 'C:\\MD'
+mdPath = home + os.sep + 'apps' + os.sep + 'MD'
 aePluginDirName = 'AE'
 
 if home == '/Users/mjackson': 
@@ -27,7 +29,7 @@ if home == '/Users/mjackson':
     aePluginDir = mdPath + os.sep + 'plugins' + os.sep + \
              'com.nomagic.magicdraw.jpython' + os.sep + 'scripts' + os.sep + 'magicdrawPlugin'
 
-projectPath = workspacePath + os.sep + 'CS'
+projectPath = workspacePath + os.sep + 'bae'
 pluginSrcPath = projectPath + os.sep + 'src' + os.sep + 'gov' + os.sep + \
                 'nasa' + os.sep + 'jpl' + os.sep + 'ae' + os.sep + 'magicdrawPlugin'
 aePluginDir = mdPath + os.sep + 'plugins' + os.sep + \
@@ -47,7 +49,7 @@ addToPath(projectPath + os.sep + 'bin');
 
 class ExampleAction( MDAction ):
     def __init__(self, name, s):
-        gl = Application.getInstance().getGUILog()
+        #gl = Application.getInstance().getGUILog()
         self.s = s
         MDAction.__init__( self,"", name, None, None )
         #gl.log(str(s))

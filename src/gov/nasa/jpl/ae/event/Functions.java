@@ -7,13 +7,21 @@ import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.solver.AbstractFiniteRangeDomain;
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.Domain;
+import gov.nasa.jpl.ae.solver.DoubleDomain;
+import gov.nasa.jpl.ae.solver.HasDomain;
+import gov.nasa.jpl.ae.solver.IntegerDomain;
+import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.ae.solver.RangeDomain;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.ae.util.ClassUtils;
-import gov.nasa.jpl.ae.util.Debug;
-import gov.nasa.jpl.ae.util.Pair;
+import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.Vector;
@@ -26,13 +34,13 @@ import java.util.Vector;
  */
 public class Functions {
 
-  private static boolean complainAboutBadExpressions = true;
+//  private static boolean complainAboutBadExpressions = true;
   
   private static Expression forceExpression ( Object o ) {
-    return Expression.evaluate( o, Expression.class, false, true );
-//    if ( o instanceof Expression ) return (Expression)o;
-//    //if ( o instanceof FunctionCall ) return new Expression(o);
-//    return new Expression( o );
+    if ( o instanceof Expression ) return (Expression<?>)o;
+    if ( o instanceof Parameter ) return new Expression( (Parameter<?>)o );
+    if ( o instanceof Call ) return new Expression( (Call)o );
+    return new Expression( o );
   }
 
   // Abstract n-ary functions
@@ -72,15 +80,85 @@ public class Functions {
     public < T > T pickValue( Variable< T > variable ) {
       return pickValueBF2( this, variable );
     }
-
+    
     @Override
     public SuggestiveFunctionCall clone() {
       SuggestiveFunctionCall c = new SuggestiveFunctionCall(this);
       return c;
     }
+    
+    /**
+     * Invert the function with respect to a range/return value and a given 
+     * argument.
+     * <p>
+     * If g is the inverse of f, then <br>
+     * g(f(x)) = x.<br>
+     * g(f(x,y)) = {(u,v) | f(u,v) = f(x,y)}<br>
+     * g(f(x,y),x) = {v | f(x,v) = f(x,y)}<br>
+     * g(f(x,y),x,y) = true
+     * <p>
+     * So, if f(x,y) = x + y, then<br>
+     * g(z) = {(u,v) | u + v = z}<br>
+     * g(z,x) = {v | v = z - x}<br>
+     * g(z,x,y} = true if x + y = z, else false
+     * <p>
+     * Given a FunctionCall f with arguments (a1, a2, .. an) where n is the
+     * number of arguments, g = f.inverse(r, ai) is a FunctionCall where ai must
+     * be an argument to f. g.evaluate() returns a Domain representing the set
+     * of values that ai may be assigned such that f.evaluate() == r.
+     * 
+     * is that makes the n-1 arguments passed in to f.inverse() its own
+     * arguments and when evaluated computes what this missing argument computes
+     * with a Method that takes an array of n-1 variables So,
+     * functionCall.inverse(z) returns inv, a FunctionCall, inv, that has the
+     * same arguments takes Method that takes functionCall with one argument z,
+     * which when evaluated returns a functionCallwhose arguments are
+     * 
+     * 
+     * f.setArg(x f.inverse(f.evaluate()).evaluate() == f.arguments
+     * 
+     * @param returnValue
+     * @param arg
+     *          the single argument with respect to which the inverse is
+     *          constructed (ex. the x in f(x))
+     * @return a new FunctionCall that returns a set of possible values
+     * <p>
+     * <b>Subclasses should override this method if the function is not
+     * a bijection</b> (one-to-one and the domain and range are the same),
+     * in which case the inverse may not be a single value. For example,
+     * if f(x)=x^2, then the inverse is {sqrt(x), -sqrt(x)}.
+     * 
+     */
+    public FunctionCall inverse( Object returnValue, Object arg ) { //Variable<?> variable ) {
+      FunctionCall singleValueFcn = inverseSingleValue( returnValue, arg );
+      if ( singleValueFcn == null ) return null;
+      return new FunctionCall(null,
+                              ClassUtils.getMethodsForName( Utils.class, "newList" )[0],
+                              new Object[] { singleValueFcn } );
+    }
+
+    /**
+     * Invert the function with respect to a range/return value and a given
+     * argument.
+     * <p>
+     * This could be implemented by calling {@link #inverse(Object, Object)} and
+     * selecting a value from the set of possible values returned by the inverse.
+     * 
+     * @param returnValue
+     * @param arg
+     *          the single argument with respect to which the inverse is
+     *          constructed (i.e. the x in f(x))
+     * @return a new FunctionCall that returns a possible value
+     * <p>
+     * <b>Subclasses of {@link SuggestiveFunctionCall} should override this 
+     * method.</b>
+     */
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      return null;
+    }
 
   }
-    
+  
   public static class Binary< T , R > extends SuggestiveFunctionCall implements Suggester {
     //public SuggestiveFunctionCall functionCall = null;
     //public SuggestiveFunctionCall pickFunctionCall = null;
@@ -132,6 +210,7 @@ public class Functions {
             functionMethod,
             pickFunctionMethod1, pickFunctionMethod2 );
       // this( ( o1 instanceof Expression ) ? )
+      
     }
 
     public Binary( Object o1, Object o2, String functionMethod ) {
@@ -158,6 +237,13 @@ public class Functions {
     public < T1 > T1 pickValue( Variable< T1 > variable ) {
       return pickValueBF2( this,//functionCall, 
                            variable );
+    }
+
+    public Vector< Expression > getArgumentExpressions() {
+      Vector< Expression > argExprs =
+          new Vector< Expression >( (Collection< Expression >)Utils.asList( super.getArguments(),
+                                                                            Expression.class ) );
+      return argExprs;
     }
   }
 
@@ -281,17 +367,79 @@ public class Functions {
     T elseT = (elseExpr == null ? null : elseExpr.evaluate( false ) );
     if ( b == null || !b.booleanValue() ) return elseT;
     return thenT;
-  }  
+  }
+  
   
   // Simple math functions
 
-  public static class Sum< T , R > extends Binary< T, R > {
+  public static class Sum< T, R > extends Binary< T, R > {
     public Sum( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "add" );
+      super( o1, o2, "add", "pickValueForward", "pickValueReverse" );
+      setMonotonic( true );
     }
     public Sum( Object o1, Object c ) {
-      super( o1, c, "add" );
+      super( o1, c, "add", "pickValueForward", "pickValueReverse" );
+      setMonotonic( true );
     }
+
+    @Override
+    public //< T1  extends Comparable< ? super T1 > > 
+    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 ) : arguments.get( 1 ) );
+      if ( returnValue == null || otherArg == null ) return null; // arg can be null!
+      return new Minus<T,T>( returnValue, otherArg );
+//      FunctionCall i = null;
+//      i = new FunctionCall( this, ClassUtils.getMethodsForName( getClass(), "invert" )[0],
+//                            new Object[]{returnValue, arg} );
+//      return i;
+    }
+    
+    @Override
+    public Domain< ? > getDomain( boolean propagate, Set< HasDomain > seen ) {
+      // avoid infinite recursion
+      Pair< Boolean, Set< HasDomain > > pair = Utils.seen( this, propagate, seen );
+      if ( pair.first ) return null;
+      seen = pair.second;
+      
+      RangeDomain<?> rd =
+          DomainHelper.combineDomains( new ArrayList< Object >( getArgumentExpressions() ),
+                                       new Sum<T,R>( null, null ) );
+      return rd;
+    }
+    
+    /**
+     * Return a domain for the matching input argument restricted by the domain
+     * of the other arguments and of an expected return value.
+     * 
+     * @param returnValue
+     * @param argument
+     * @return
+     */
+    public Domain< ? > inverseDomain( Object returnValue, Object argument ) {
+      FunctionCall inverse = inverse( returnValue, argument );
+      if ( inverse == null ) return null;
+      return inverse.getDomain( false, null );
+//      // check for bad or degenerate input while getting domains of args
+//      if ( arguments == null || arguments.size() != 2 ) return null;
+//      if ( arg == null || returnValue == null ) return null;
+//      int whichArg = ( arg == arguments.get( 0 ) ? 0 : arg == arguments.get( 1 ) ? 1 : -1 );
+//      Object otherArg = ( whichArg == 1 ? arguments.get( 0 ) : arguments.get( 1 ) );
+//      if ( !( arg instanceof HasDomain ) ) return null;
+//      HasDomain argWithDomain = (HasDomain)arg;
+//      if ( !( otherArg instanceof HasDomain ) || whichArg == -1 )
+//        return argWithDomain.getDomain( false, null );
+//      HasDomain otherArgWithDomain = (HasDomain)otherArg;
+//      Domain<?> domainArg = argWithDomain.getDomain( false, null );
+//      Domain<?> domainOtherArg = otherArgWithDomain.getDomain( false, null );
+//      //
+//      if ( domainArg instanceof AbstractRangeDomain && domainOtherArg instanceof AbstractRangeDomain ) {
+//        RangeDomain<?> inverseDomain =
+//        DomainHelper.combineDomains( Utils.newList( returnValue, otherArg ),
+//                                     new Minus<Object,Object>( null, null ) );
+//        if ( whichArg == 0 ) ((AbstractRangeDomain)domainArg).intersectRestrict( inverseDomain );
+    }
+        
   }
   public static class Add< T , R > extends Sum< T, R > {
     public Add( Expression< T > o1, Expression< T > o2 ) {
@@ -306,28 +454,29 @@ public class Functions {
     public Plus( Expression< T > o1, Expression< T > o2 ) {
       super( o1, o2 );
       //functionCall.
-      setMonotonic( true );
     }
     public Plus( Object o1, Object c ) {
       super( o1, c );
     }
   }
 
-  public static class Sub< T extends Comparable< ? super T >,
-                           R > extends Binary< T, R > {
+  public static class Sub<T,R>//< T extends Comparable< ? super T >,
+                           //R >
+  extends Binary< T, R > {
     public Sub( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "subtract" );
+      super( o1, o2, "subtract", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
     public Sub( Object o1, Object c ) {
-      super( o1, c, "subtract" );
+      super( o1, c, "subtract", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
   }
-  public static class Minus< T  extends Comparable< ? super T >,
-                             R  extends Comparable< ? super R > > extends Sub< T, R > {
+  public static class Minus<T,R>//< T  extends Comparable< ? super T >,
+                           //  R  extends Comparable< ? super R > > 
+  extends Sub< T, R > {
     public Minus( Expression< T > o1, Expression< T > o2 ) {
       super( o1, o2 );
       //functionCall.
@@ -342,24 +491,24 @@ public class Functions {
 
   public static class Times< T , R > extends Binary< T, R > {
     public Times( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "times" );
+      super( o1, o2, "times", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
     public Times( Object o1, Object c ) {
-      super( o1, c, "times" );
+      super( o1, c, "times", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
   }
   public static class Divide< T , R > extends Binary< T, R > {
     public Divide( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "divide" );
+      super( o1, o2, "divide", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
     public Divide( Object o1, Object c ) {
-      super( o1, c, "divide" );
+      super( o1, c, "divide", "pickValueForward", "pickValueReverse" );
       //functionCall.
       setMonotonic( true );
     }
@@ -369,10 +518,10 @@ public class Functions {
   // here. add(Expr, Expr) should call this fcn.
   public static <V1, V2> V1 plus( V1 o1, V2 o2 ) {
     if ( o1 == null || o2 == null ) return null;
-    Object result = null;
+      Object result = null;
     if ( o1 instanceof String || o2 instanceof String ) {
-      String s = "" + o1 + o2;
-      //String s = MoreToString.Helper.toString( o1 ) + MoreToString.Helper.toString( o2 ); 
+        String s = "" + o1 + o2;
+        //String s = MoreToString.Helper.toString( o1 ) + MoreToString.Helper.toString( o2 ); 
     } else {
       TimeVaryingMap<?> map = null;
       try {
@@ -383,34 +532,39 @@ public class Functions {
       if ( map != null ) result = plus( map, o2 );
       else {
         try {
-          map = Expression.evaluate( o2, TimeVaryingMap.class, false );
+        map = Expression.evaluate( o2, TimeVaryingMap.class, false );
         } catch ( ClassCastException e ) {
           //ignore
         }
         if ( map != null ) result = plus( o1, map );
         else {
-          Number n1 = Expression.evaluate( o1, Number.class, false );
-          Number n2 = Expression.evaluate( o2, Number.class, false );
-          if ( n1 != null && n2 != null ) {
-            if ( n1 instanceof Double || n2 instanceof Double ) {
-              result = ((Double)n1.doubleValue()) + ((Double)n2.doubleValue());
-            } else if ( n1 instanceof Float || n2 instanceof Float ) {
-              result = ((Float)n1.floatValue()) + ((Float)n2.floatValue());
-            } else if ( n1 instanceof Long || n2 instanceof Long ) {
-              result = ((Long)n1.longValue()) + ((Long)n2.longValue());
-            } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
-              result = ((Integer)n1.intValue()) + ((Integer)n2.intValue());
-            } else {
-              result = ((Integer)n1.intValue()) + ((Integer)n2.intValue());
-            }
-          }
-        }
+    Number n1 = Expression.evaluate( o1, Number.class, false );
+    Number n2 = Expression.evaluate( o2, Number.class, false );
+    if ( n1 != null && n2 != null ) {
+      if ( n1 instanceof Double || n2 instanceof Double ) {
+        result = ((Double)n1.doubleValue()) + ((Double)n2.doubleValue());
+      } else if ( n1 instanceof Float || n2 instanceof Float ) {
+        result = ((Float)n1.floatValue()) + ((Float)n2.floatValue());
+      } else if ( n1 instanceof Long || n2 instanceof Long ) {
+        result = ((Long)n1.longValue()) + ((Long)n2.longValue());
+      } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
+        result = ((Integer)n1.intValue()) + ((Integer)n2.intValue());
+      } else {
+        result = ((Integer)n1.intValue()) + ((Integer)n2.intValue());
+      }
+    }
+    }
       }
     }
     try {
       if ( o1 != null ) {
-        Object x = (V1)Expression.evaluate( result, o1.getClass(), false );
+        Class<?> cls1 = o1.getClass();
+        Class<?> cls2 = o2.getClass();
+        Object x = Expression.evaluate( result,
+                                        ClassUtils.dominantTypeClass(cls1,cls2),
+                                        false );
         if ( x == null ) x = result;
+        // TODO: type casting this w/ V1 assume that it is the dominant class
         return (V1)x;
       }
     } catch (ClassCastException e) {
@@ -431,34 +585,39 @@ public class Functions {
     if ( map != null ) result = times( map, o2 );
     else {
       try {
-        map = Expression.evaluate( o2, TimeVaryingMap.class, false );
+      map = Expression.evaluate( o2, TimeVaryingMap.class, false );
       } catch ( ClassCastException e ) {
         //ignore
       }
       if ( map != null ) result = times( o1, map );
       else {
-        Number n1 = Expression.evaluate( o1, Number.class, false );
-        Number n2 = Expression.evaluate( o2, Number.class, false );
-        if ( n1 != null && n2 != null ) {
-          // TODO -- other types, like BigDecimal
-          if ( n1 instanceof Double || n2 instanceof Double ) {
-            result = ((Double)n1.doubleValue()) * ((Double)n2.doubleValue());
-          } else if ( n1 instanceof Float || n2 instanceof Float ) {
-            result = ((Float)n1.floatValue()) * ((Float)n2.floatValue());
-          } else if ( n1 instanceof Long || n2 instanceof Long ) {
-            result = ((Long)n1.longValue()) * ((Long)n2.longValue());
-          } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
-            result = ((Integer)n1.intValue()) * ((Integer)n2.intValue());
-          } else {
-            result = ((Integer)n1.intValue()) * ((Integer)n2.intValue());
-          }
-        }
+    Number n1 = Expression.evaluate( o1, Number.class, false );
+    Number n2 = Expression.evaluate( o2, Number.class, false );
+    if ( n1 != null && n2 != null ) {
+      // TODO -- other types, like BigDecimal
+      if ( n1 instanceof Double || n2 instanceof Double ) {
+        result = ((Double)n1.doubleValue()) * ((Double)n2.doubleValue());
+      } else if ( n1 instanceof Float || n2 instanceof Float ) {
+        result = ((Float)n1.floatValue()) * ((Float)n2.floatValue());
+      } else if ( n1 instanceof Long || n2 instanceof Long ) {
+        result = ((Long)n1.longValue()) * ((Long)n2.longValue());
+      } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
+        result = ((Integer)n1.intValue()) * ((Integer)n2.intValue());
+      } else {
+        result = ((Integer)n1.intValue()) * ((Integer)n2.intValue());
+      }
+    }
       }
     }
     try {
       if ( o1 != null ) {
-        Object x = (V1)Expression.evaluate( result, o1.getClass(), false );
+        Class<?> cls1 = o1.getClass();
+        Class<?> cls2 = o2.getClass();
+        Object x = Expression.evaluate( result,
+                                        ClassUtils.dominantTypeClass(cls1,cls2),
+                                        false );
         if ( x == null ) x = result;
+        // TODO: type casting this w/ V1 assume that it is the dominant class
         return (V1)x;
       }
       return (V1)result;
@@ -479,34 +638,39 @@ public class Functions {
     if ( map != null ) result = divide( map, o2 );
     else {
       try {
-        map = Expression.evaluate( o2, TimeVaryingMap.class, false );
+      map = Expression.evaluate( o2, TimeVaryingMap.class, false );
       } catch ( ClassCastException e ) {
         //ignore
       }
       if ( map != null ) result = divide( o1, map );
       else {
-        Number n1 = Expression.evaluate( o1, Number.class, false );
-        Number n2 = Expression.evaluate( o2, Number.class, false );
-        if ( n1 != null && n2 != null ) {
-          // TODO -- other types, like BigDecimal
-          if ( n1 instanceof Double || n2 instanceof Double ) {
-            result = ((Double)n1.doubleValue()) / ((Double)n2.doubleValue());
-          } else if ( n1 instanceof Float || n2 instanceof Float ) {
-            result = ((Float)n1.floatValue()) / ((Float)n2.floatValue());
-          } else if ( n1 instanceof Long || n2 instanceof Long ) {
-            result = ((Long)n1.longValue()) / ((Long)n2.longValue());
-          } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
-            result = ((Integer)n1.intValue()) / ((Integer)n2.intValue());
-          } else {
-            result = ((Integer)n1.intValue()) / ((Integer)n2.intValue());
-          }
-        }
+    Number n1 = Expression.evaluate( o1, Number.class, false );
+    Number n2 = Expression.evaluate( o2, Number.class, false );
+    if ( n1 != null && n2 != null ) {
+      // TODO -- other types, like BigDecimal
+      if ( n1 instanceof Double || n2 instanceof Double ) {
+        result = ((Double)n1.doubleValue()) / ((Double)n2.doubleValue());
+      } else if ( n1 instanceof Float || n2 instanceof Float ) {
+        result = ((Float)n1.floatValue()) / ((Float)n2.floatValue());
+      } else if ( n1 instanceof Long || n2 instanceof Long ) {
+        result = ((Long)n1.longValue()) / ((Long)n2.longValue());
+      } else if ( n1 instanceof Integer || n2 instanceof Integer ) {
+        result = ((Integer)n1.intValue()) / ((Integer)n2.intValue());
+      } else {
+        result = ((Integer)n1.intValue()) / ((Integer)n2.intValue());
+      }
+    }
       }
     }
     try {
       if ( o1 != null ) {
-        Object x = (V1)Expression.evaluate( result, o1.getClass(), false );
+        Class<?> cls1 = o1.getClass();
+        Class<?> cls2 = o2.getClass();
+        Object x = Expression.evaluate( result,
+                                        ClassUtils.dominantTypeClass(cls1,cls2),
+                                        false );
         if ( x == null ) x = result;
+        // TODO: type casting this w/ V1 assume that it is the dominant class
         return (V1)x;
       }
       return (V1)result;
@@ -517,7 +681,7 @@ public class Functions {
   }
   
   public static <V1, V2> V1 minus( V1 o1, V2 o2 ) {
-    return plus( o1, times( -1, o2 ) );
+    return plus( o1, times( o2, -1 ) );
   }
   
   public static < T, TT > T add( Expression< T > o1,
@@ -533,7 +697,7 @@ public class Functions {
       String s = "" + r1 + r2;
       result = s;
     } else if ( r1.getClass().isAssignableFrom( java.lang.Double.class ) ||
-         r2.getClass().isAssignableFrom( java.lang.Double.class ) ) {
+                r2.getClass().isAssignableFrom( java.lang.Double.class ) ) {
       double rd1 = ClassUtils.castNumber( (Number)r1, Double.class ).doubleValue();
       double rd2 = ClassUtils.castNumber( (Number)r2, Double.class ).doubleValue();
       // check for overflow
@@ -601,7 +765,7 @@ public class Functions {
         result = ( (Double)rd1 ) - ( (Double)rd2 );
       }
     } else if ( r1.getClass().isAssignableFrom( java.lang.Float.class ) ||
-          r2.getClass().isAssignableFrom( java.lang.Float.class ) ) {
+                r2.getClass().isAssignableFrom( java.lang.Float.class ) ) {
        float rd1 = ClassUtils.castNumber( (Number)r1, Float.class ).floatValue();
        float rd2 = ClassUtils.castNumber( (Number)r2, Float.class ).floatValue();
        // check for overflow
@@ -637,7 +801,7 @@ public class Functions {
     if ( Debug.isOn() ) Debug.outln( r1 + " - " + r2 + " = " + result );
     return result;
 */  }
-  
+
   public static < T, TT > T times( Expression< T > o1,
                                                   Expression< TT > o2 ) {
     if ( o1 == null || o2 == null ) return null;
@@ -704,7 +868,7 @@ public class Functions {
     T r1 = o1.evaluate( false );
     TT r2 = o2.evaluate( false );
     if ( r1 == null || r2 == null ) return null;
-    return divide(o1, o2);
+    return divide(r1, r2);
 /*    Number result = null;
     if ( r1.getClass().isAssignableFrom( java.lang.Double.class ) ||
          r2.getClass().isAssignableFrom( java.lang.Double.class )) {
@@ -808,11 +972,12 @@ public class Functions {
 
   public static class EQ< T >
                         extends BooleanBinary< T > {
+    
     public EQ( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "equals" );
+      super( o1, o2, "equals", "pickEqualToFoward", "pickEqualToReverse");
     }
     public EQ( Object o1, Object o2 ) {
-      super( o1, o2, "equals" );
+      super( o1, o2, "equals", "pickEqualToFoward", "pickEqualToReverse");
     }
 /*
     @Override
@@ -870,10 +1035,10 @@ public class Functions {
   public static class NEQ< T > 
                         extends BooleanBinary< T > {
     public NEQ( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "notEquals" );
+      super( o1, o2, "notEquals", "pickNotEqualToFoward", "pickNotEqualToReverse");
     }
     public NEQ( Object o1, Object o2 ) {
-      super( o1, o2, "notEquals" );
+      super( o1, o2, "notEquals", "pickNotEqualToFoward", "pickNotEqualToReverse");
     }
 
 //    @Override
@@ -936,13 +1101,13 @@ public class Functions {
 
   public static class LT< T > extends BooleanBinary< T > {
     public LT( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "lessThan" );
+      super( o1, o2, "lessThan", "pickLessThan", "pickGreaterThanOrEqual" );
       // functionCall.
       setMonotonic( true );
     }
 
     public LT( Object o1, Object o2 ) {
-      super( o1, o2, "lessThan" );
+      super( o1, o2, "lessThan", "pickLessThan", "pickGreaterThanOrEqual" );
       // functionCall.
       setMonotonic( true );
     }
@@ -964,13 +1129,15 @@ public class Functions {
 
   public static class LTE< T > extends BooleanBinary< T > {
     public LTE( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "lessThanOrEqual" );
+      super( o1, o2,
+             "lessThanOrEqual", "pickLessThanOrEqual", "pickGreaterThan" );
       // functionCall.
       setMonotonic( true );
     }
 
     public LTE( Object o1, Object o2 ) {
-      super( o1, o2, "lessThanOrEqual" );
+      super( o1, o2,
+             "lessThanOrEqual", "pickLessThanOrEqual", "pickGreaterThan" );
       // functionCall.
       setMonotonic( true );
     }
@@ -1030,38 +1197,32 @@ public class Functions {
                                                                    GT< T > {
     public Greater( Expression< T > o1, Expression< T > o2 ) {
       super( o1, o2 );
-      // functionCall.
       setMonotonic( true );
     }
 
     public Greater( Object o1, Object o2 ) {
       super( o1, o2 );
-      // functionCall.
       setMonotonic( true );
     }
 
+    // REVIEW -- This seems out of place.  Does something else do this?
     public boolean restrictDomains( boolean targetResult ) {
-      if ( // functionCall.
-      arguments.size() < 2 ) return false;
-      Expression< T > e1 = (Expression< T >)// functionCall.
-          arguments.get( 0 );
-      Expression< T > e2 = (Expression< T >)// functionCall.
-          arguments.get( 1 );
+      if ( arguments.size() < 2 ) return false;
+      Expression< T > e1 = (Expression< T >)arguments.get( 0 );
+      Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
-      if ( d1 instanceof AbstractRangeDomain ) {
+      if ( d1 instanceof AbstractRangeDomain && d1 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        if ( e2.getDomain( false, null ) instanceof AbstractRangeDomain ) {
-          AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-          if ( targetResult == true ) {
-            if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-              ard1.setLowerBound( ard2.getLowerBound() );
-              ard1.excludeLowerBound();
-            }
-            if ( ard2.greater( ard2.getUpperBound(), ard1.getUpperBound() ) ) {
-              ard2.setUpperBound( ard1.getUpperBound() );
-              ard2.excludeUpperBound();
-            }
+        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
+        if ( targetResult == true ) {
+          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
+            ard1.setLowerBound( ard2.getLowerBound() );
+            ard1.excludeLowerBound();
+          }
+          if ( ard2.greater( ard2.getUpperBound(), ard1.getUpperBound() ) ) {
+            ard2.setUpperBound( ard1.getUpperBound() );
+            ard2.excludeUpperBound();
           }
         }
       }
@@ -1069,24 +1230,21 @@ public class Functions {
     }
   }
 
-  public static class GTE< T extends Comparable< ? super T > >
-                                                               extends
-                                                               BooleanBinary< T > {
+  public static class GTE< T extends Comparable< ? super T > > extends BooleanBinary< T > {
     public GTE( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "greaterThanOrEqual" );
-      // functionCall.
+      super( o1, o2, "greaterThanOrEqual", "pickGreaterThanOrEqual",
+             "pickLessThan" );
       setMonotonic( true );
     }
 
     public GTE( Object o1, Object o2 ) {
-      super( o1, o2, "greaterThanOrEqual" );
-      // functionCall.
+      super( o1, o2, "greaterThanOrEqual", "pickGreaterThanOrEqual",
+             "pickLessThan" );
       setMonotonic( true );
     }
   }
 
-  public static class GreaterEquals< T extends Comparable< ? super T > >
-                                                                         extends
+  public static class GreaterEquals< T extends Comparable< ? super T > > extends
                                                                          GTE< T > {
 
     public GreaterEquals( Expression< T > o1, Expression< T > o2 ) {
@@ -1099,13 +1257,23 @@ public class Functions {
   }
 
   public static class DoesThereExist< T > extends BooleanBinary< T > {
+    // REVIEW -- This could extend ForAll or vice versa.
 
     public DoesThereExist( Variable< T > variable,
-    // Domain<T> d,
+                           // Domain<T> d,
                            Expression< Boolean > o ) {
-      super( variable, o, "thereExists" );
+      super( variable, o, "thereExists" ); // TODO -- pickFunctions?
       // functionCall.
       setMonotonic( Functions.isMonotonic( o ) );
+    }
+  }  
+
+  public static class ThereExists< T > extends DoesThereExist< T > {
+
+    public ThereExists( Variable< T > variable,
+                        // Domain<T> d,
+                        Expression< Boolean > o ) {
+      super( variable, o );
     }
   }  
 
@@ -1118,43 +1286,72 @@ public class Functions {
     public ForAll( Variable< T > variable,
     // Domain<T> d,
                    Expression< Boolean > o ) {
-      super( variable, o, "forAll" );
+      super( variable, o, "forAll" ); // TODO -- pickFunctions?
       // functionCall.
       setMonotonic( Functions.isMonotonic( o ) );
     }
   }
 
+  public static <T extends Comparable<T>> Boolean thereExists( Variable<T> variable,
+                                                               Expression< Boolean > o ) {
+    return !forAll(variable, new Expression<Boolean>( new Not( o ) ) );
+  }
+
   public static <T extends Comparable<T>> Boolean forAll( Variable<T> variable,
                                                           Expression< Boolean > o ) {
-    if ( variable == null ) return null; // TODO -- error?
-    if ( o == null ) return true;
+    if ( variable == null ) return null; // TODO -- fix this.  If o is True, doesnt matter if variable is null
+    if ( o == null ) return true;  // TODO REVIEW
+    
+    // If the variable is not in expression, then it doesnt matter what
+    // the variable is.  Just evaluate the expression:
     if ( variable instanceof Parameter &&
          !o.hasParameter( (Parameter< T >)variable, true, null ) ) {
       return o.evaluate( false );
     }
     Domain<T> d = variable.getDomain();
     Boolean b = null;
+    
+    // The variable doesnt have a domain, then just need to evaluate the
+    // expression:
+    // REVIEW
     if ( d == null || d.size() == 0 ) {
       b = o.evaluate( false );
     }
+    
     RangeDomain< T > rd = null;
     if ( b == null && d instanceof RangeDomain ) {
       rd = (RangeDomain<T>)d;
     }
-    if ( b == null && isMonotonic( o ) && d instanceof RangeDomain ) {
+    
+    // If the function is monotonic then evaluate expression with values
+    // at the range endpoints:
+    if ( b == null && isMonotonic( o ) && rd != null) {
       variable.setValue( rd.getLowerBound() );
-      if ( !o.evaluate( true ) ) b = false; 
-      variable.setValue( rd.getUpperBound() );
-      if ( !o.evaluate( true ) ) b = false;
-      b = true;
+      if ( !o.evaluate( true ) ) {
+        b = false; 
+      }
+      else {
+        variable.setValue( rd.getUpperBound() );
+        if ( !o.evaluate( true ) ) {
+          b = false;
+        }
+        else {
+          b = true;
+        }
+      }
     }
+    
+    // If the range is finite then try every value in the domain:
     if ( b == null && d.size() > 0 && d instanceof AbstractFiniteRangeDomain ) {//!d.isInfinite() ) {
       AbstractFiniteRangeDomain<T> afrd = (AbstractFiniteRangeDomain<T>)d;
+      b = true;
       for ( long i=0; i<d.size(); ++i ) {
         variable.setValue( afrd.getNthValue( i ) );
-        if ( !o.evaluate( true ) ) b = false; 
+        if ( !o.evaluate( true ) ) {
+          b = false; 
+          break;
+        }
       }
-      b = true;
     }
     if ( Debug.isOn() ) Debug.outln( "forAll(" + variable + " in " + d + ", " + o + " = " + b );
     return b;
@@ -1391,6 +1588,95 @@ public class Functions {
     return pickLess( o2, orEquals );
   }
 
+  // Picking Equals ///////////////////////////////////////////////////////////////////
+  
+  public static < T > T pickEqualToFoward( Expression< T > o1,
+                                          Expression< T > o2 ) {
+    
+    return pickEquals(o1, o2, true);
+  }
+  
+  public static < T > T pickEqualToReverse( Expression< T > o1,
+                                           Expression< T > o2 ) {
+     
+     return pickEquals(o1, o2, false);
+   }
+  
+  public static < T > T pickEquals( Expression< T > o1, Expression< T > o2, boolean forward) {
+    
+    T t = null;
+    
+    if ((o1 != null) && (o2 != null)) {
+      
+      // If we are selection a value for the first arg then evaluate the second arg expression,
+      // otherwise due the reverse:
+      t = forward ? o2.evaluate(false) : o1.evaluate(false);
+   
+    }
+    
+    return t;
+  }
+  
+  // Picking Not Equals ///////////////////////////////////////////////////////////////////
+
+  public static < T > T pickNotEqualToFoward( Expression< T > o1,
+                                           Expression< T > o2 ) {
+     
+    Domain<T> domain = o1.getDomain( false, null );
+    return pickNotEquals(o2, domain);
+  }
+ 
+  public static < T > T pickNotEqualToReverse( Expression< T > o1,
+                                               Expression< T > o2 ) {
+    
+    Domain<T> domain = o2.getDomain( false, null );
+    return pickNotEquals(o1, domain);
+  }
+   
+  public static < T > T pickNotEquals( Expression< T > o, Domain< T > domain) {
+    
+    T t = null;
+    if ( o == null ) return null;
+    T r = o.evaluate( false );
+    if ( r == null ) return null;
+    t = domain.pickRandomValueNotEqual(r);
+    return t;
+    
+  }
+  
+  // Picking Sum (Add/Plus are subtypes of Sum) /////////////////////////////////////////
+  // Picking Sub (Minus is subtype of Sub) ////////////////////////////////////////////
+  // Picking Times ///////////////////////////////////////////////////////////////////
+  // Picking Divide ///////////////////////////////////////////////////////////////////
+  // TODO is it okay to pick zero for Divide?
+  
+  public static < T > T pickValueForward( Expression< T > o1,
+                                       Expression< T > o2 ) {
+      
+    Domain<T> domain = o1.getDomain( false, null );
+    return pickRandomValueInDomain(domain);
+  }
+  
+  public static < T > T pickValueReverse( Expression< T > o1,
+                                        Expression< T > o2 ) {
+     
+    Domain<T> domain = o2.getDomain( false, null );
+    return pickRandomValueInDomain(domain);
+  }
+    
+  public static < T > T pickRandomValueInDomain(Domain< T > domain) {
+     
+    T t = null;
+    t = domain.pickRandomValue();
+    return t;
+       
+  }
+
+
+
+
+
+  
   public static < T extends Comparable< ? super T > > Boolean
       greaterThanOrEqual( Expression< T > o1, Expression< T > o2 ) {
 //    if ( !expressionsAreOkay( complainAboutBadExpressions, o1, o2 ) ) {
@@ -1684,12 +1970,76 @@ public class Functions {
                                 functionCall.reversePickFunctionCall );
     return newValue;
   }
+  
+  public static Object getArgumentWithVariable( FunctionCall fCall,
+                                                Variable<?> variable,
+                                                boolean mustBeOnlyOne ) {
+    ArrayList< Object > list = getArgumentsWithVariable( fCall, variable, true,
+                                                         mustBeOnlyOne );
+    if ( Utils.isNullOrEmpty( list ) ) return null;
+    return list.get( 0 );
+  }
+  public static ArrayList< Object > getArgumentsWithVariable( FunctionCall fCall,
+                                                              Variable<?> variable ) {
+    ArrayList< Object > list = getArgumentsWithVariable( fCall, variable, false, false );
+    return list;
+  }
+  public static ArrayList< Object > getArgumentsWithVariable( FunctionCall fCall,
+                                                              Variable<?> variable,
+                                                              boolean returnOnlyOne,
+                                                              boolean mustBeOnlyOne ) {
+    if ( fCall == null || variable == null ) return null;
+    Vector< Object > arguments = fCall.getArguments();
+    ArrayList< Object > argsWithVariable = new ArrayList<Object>();
+    if ( variable instanceof Parameter ) {
+      for ( Object arg : arguments ) {
+        if ( arg == null ) continue;
+        if ( Expression.valuesEqual( variable, arg, Parameter.class ) ||
+             ( arg instanceof HasParameters && 
+               ((HasParameters)arg).hasParameter( (Parameter< ? >)variable,
+                                                  true, null ) ) ) {
+          argsWithVariable.add( arg );
+          if ( returnOnlyOne && !mustBeOnlyOne ) {
+            return argsWithVariable;
+          }
+          if ( mustBeOnlyOne && !argsWithVariable.isEmpty() ) {
+            return null;
+          }
+        }
+      }
+    }
+    return argsWithVariable;
+  }
+  
+  /**
+   * Pick a value for the variable in the context of a binary function using pickFunctionCall if variable is in the expression of the first argument to the binary function or reversePickFunctionCall if in the expression of the second argument.
+   * @param variable
+   * @param pickFunctionCall
+   * @param reversePickFunctionCall
+   * @return
+   */
   protected static <T1> T1 pickValueBF2( Variable< T1 > variable,
                                          FunctionCall pickFunctionCall,
                                          FunctionCall reversePickFunctionCall ) {
-//  public < T1 > T1 pickValue( Variable< T1 > variable ) {
-    Vector< Object > args = pickFunctionCall.getArguments();
-    if ( args.size() < 2 ) return null;
+    // check for valid input
+    if ( variable == null ) return null;
+    if ( pickFunctionCall == null && reversePickFunctionCall == null ) return null;
+    if (!( variable instanceof Parameter )  ) {
+      Debug.error( false,
+                   "Unfortunately, pickValueBF2() depends on variable being a Parameter! "
+                       + variable );
+      return null;
+    }
+    Parameter< T1 > variableParam = (Parameter< T1 >)variable;
+
+    // get the arguments of the binary function, assumed to be the same as the
+    // arguments of the pick functions
+    if ( pickFunctionCall == null && reversePickFunctionCall == null ) return null;
+    Vector< Object > args =
+        ( pickFunctionCall == null ) ? reversePickFunctionCall.getArguments()
+                                     : pickFunctionCall.getArguments();
+    assert( args.size() == 2 );
+    if ( args.size() != 2 ) return null;
     Object arg1 = args.get( 0 );
     Object arg2 = args.get( 1 );
     Expression< T1 > o1 = null;
@@ -1700,20 +2050,80 @@ public class Functions {
     if ( arg2 instanceof Expression ) {
       o2 = (Expression< T1 >)arg2;
     }
-    //if ( o1 == null && variable == null ) return (T1)reverseFunctionCall.evaluate( false );
-    Variable<?> v1 = Expression.evaluate( o1, Variable.class, false, true );
-    if ( v1 == variable ) return (T1)pickFunctionCall.evaluate( false );
-    Variable<?> v2 = Expression.evaluate( o2, Variable.class, false, true );
-    if ( v2 == variable ) return (T1)reversePickFunctionCall.evaluate( false );
-    if ( v1.equals( variable ) ) return (T1)pickFunctionCall.evaluate( false );
-    if ( v2.equals( variable ) ) return (T1)reversePickFunctionCall.evaluate( false );
+
+    // choose the argument as the context for which a value is picked for the variable 
+    // This was changed to use Utils.valuesEqual(), but we dont know why...
+//    boolean isFirst = o1 != null && Utils.valuesEqual( variable, o1 );
+//    boolean isSecond = o2 != null && Utils.valuesEqual( variable, o2 );
+    boolean isFirst = o1 != null && Expression.valuesEqual( variableParam, o1, Parameter.class );
+    boolean isSecond = o2 != null && Expression.valuesEqual( variableParam, o2, Parameter.class );
+    boolean inFirst = isFirst || ( o1 != null && o1.hasParameter( variableParam, true, null ) );
+    boolean inSecond = isSecond || ( o2 != null && o2.hasParameter( variableParam, true, null ) );
+
+    if ( !inFirst && !inSecond ) {
+      Debug.error( false, "Error! pickValueBF2(variable=" + variable
+                          + ", pickFunction=" + pickFunctionCall
+                          + ", reversePickFunctionCall="
+                          + reversePickFunctionCall
+                          + "): variable not in function arguments! args=" + args );
+      return null;
+    }
+    FunctionCall chosenPickCall = null;
+    Expression< T1 > arg = null;
+    Expression< T1 > otherArg = null;
+    boolean equal;
+    boolean first;
+    if ( inFirst && ( reversePickFunctionCall == null || !inSecond ) ) {
+      first = true;
+    } else if ( inSecond && ( pickFunctionCall == null || !inFirst ) ) {
+      first = false;
+    } else {
+      // in both arguments; pick randomly
+      first = Random.global.nextBoolean();
+    }
+    chosenPickCall = first ? pickFunctionCall : reversePickFunctionCall;
+    arg = first ? o1 : o2;
+    otherArg = first ? o2 : o1;
+    equal = first ? isFirst : isSecond;
     
-//    Debug.error( true,
-//                 "Error! Functions.pickValue(variable, fcn, reverseFcn) could not find variable "
-//                     + variable + " in arguments of "
-//                     + pickFunctionCall.toString( Debug.isOn(), true, null ) );
-    return null; //(T1)functionCall.evaluate( false );
-    //return pickValueBB(this, variable, getClass().getMethod( "pickGreaterThan", parameterTypes ) );
+    // pick a value for the chosen argument    
+    T1 t1 = (T1)chosenPickCall.evaluate( false );
+    
+    // If the argument is the variable, then picking a value for the function is
+    // the same as picking a value for the variable.
+    if ( equal ) return t1;
+    
+    // else, the variable is a part of the argument.
+    // Example: pick value for x for z <= x + y
+    // arg1 = z, arg2 = x+y, chosen arg = arg2
+    // If z = 1, then t1 will be chosen >= 1, let's say t1 = 10 and y = 3
+    // Need to choose value for x where x + y = 10; x = 10 - y = 10 - 3 = 7
+
+    // If the argument is a FunctionCall, try to invert the call with the target
+    // value, t1, to solve for the variable.
+    if ( arg.expression instanceof SuggestiveFunctionCall ) {
+      // fCall=Plus(x,y)
+      SuggestiveFunctionCall fCall = (SuggestiveFunctionCall)arg.expression;
+      ArrayList< Object > argsWithVar = getArgumentsWithVariable( fCall, variable );
+      if ( Utils.isNullOrEmpty( argsWithVar ) || argsWithVar.size() > 1 ) {
+        // TODO -- solve for variable! or simplify expression!
+        return null;
+      }
+      Object subExprArg = argsWithVar.get( 0 );
+      if ( !( subExprArg instanceof Expression ) ) {
+        return null;
+      }
+      // inverseCall = inverse of Plus(x,y)
+      // inverseCall(x) = t1 - y
+      // inverseCall(y) = t1 - x
+      FunctionCall inverseCall = fCall.inverse(new Expression<T1>(t1), (Expression< ? >)subExprArg);
+      if ( inverseCall instanceof SuggestiveFunctionCall ) {
+        T1 t11 = ((SuggestiveFunctionCall)inverseCall).pickValue( variable );
+        return t11;
+      }
+    }
+
+    return null;
   }
 
   // delete this function
@@ -1822,6 +2232,28 @@ public class Functions {
     if ( Debug.isOn() ) Debug.outln( "suggesting value " + newValue + " for "
         + f.getClass().getSimpleName() + " true" );
     return newValue;
+  }
+  
+  public static void main( String[] args ) {
+    Parameter<Double> z = new Parameter<Double>( "z", (Domain<Double>)(new DoubleDomain( 0.0, 10.0 )), 10.0, null );
+    Parameter<Integer> y = new Parameter<Integer>( "y", new IntegerDomain( 0, 10 ), 1, null );
+    Parameter<Integer> x = new Parameter<Integer>( "x", new IntegerDomain( 0, 10 ), 1, null );
+    Parameter<Double> w = new Parameter<Double>( "w", new DoubleDomain( 0.0, 10.0 ), 2.0, null );
+    Sum< Integer, Integer > xPlusY = new Sum< Integer, Integer >( x, y );
+    Sum< Integer, Integer > xPlusYPlusW =
+        new Sum< Integer, Integer >( xPlusY, w );
+    Less< Integer > expr = new Less< Integer >( z, xPlusYPlusW );
+    System.out.println("expr = " + expr ); 
+////    Integer xVal = expr.pickValue( x );
+////    System.out.println("Picked " + xVal + " for x = " + x + " in expr = " + expr ); 
+//    Integer zVal = expr.pickValue( z );
+//    System.out.println("Picked " + zVal + " for z = " + z + " in expr = " + expr ); 
+    Double wVal = expr.pickValue( w );
+    System.out.println("Picked " + wVal + " for w = " + w + " in expr = " + expr );
+    
+    Less< Double > exprLess = new Less< Double >( z, w );
+    Double zVal = exprLess.pickValue( z );
+    System.out.println("Picked " + zVal + " for z = " + z + " in exprLess = " + exprLess );
   }
 
   

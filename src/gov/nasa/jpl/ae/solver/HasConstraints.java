@@ -1,11 +1,12 @@
 /**
- * 
+ *
  */
 package gov.nasa.jpl.ae.solver;
 
 import gov.nasa.jpl.ae.event.Parameter;
-import gov.nasa.jpl.ae.util.Pair;
-import gov.nasa.jpl.ae.util.Utils;
+import gov.nasa.jpl.mbee.util.HasId;
+import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -13,9 +14,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 
+ *
  */
-public interface HasConstraints extends HasId {
+public interface HasConstraints extends HasId<Integer> {
   public Collection< Constraint > getConstraints( boolean deep,
                                                   Set< HasConstraints > seen );
   public long getNumberOfResolvedConstraints(boolean deep, Set< HasConstraints > seen);
@@ -30,9 +31,9 @@ public interface HasConstraints extends HasId {
    * or contain objects that do.
    */
   public static class Helper {
-    
+
     // WARNING! Do not call from o.getConstraints() -- infinite loop
-    public static Set< Constraint > getConstraints( Object o, 
+    public static Set< Constraint > getConstraints( Object o,
                                                     boolean deep,
                                                     Set< HasConstraints > seen) {
       if ( o == null ) return Utils.getEmptySet();
@@ -63,7 +64,7 @@ public interface HasConstraints extends HasId {
       }
       return set;
     }
-    
+
     public static < K, V > Set< Constraint > getConstraints( Map< K, V > map,
                                                              boolean deep,
                                                              Set< HasConstraints > seen ) {
@@ -74,7 +75,7 @@ public interface HasConstraints extends HasId {
       }
       return set;
     }
-    
+
     public static < T > Set< Constraint > getConstraints( Collection< T > c,
                                                           boolean deep,
                                                           Set< HasConstraints > seen ) {
@@ -84,7 +85,7 @@ public interface HasConstraints extends HasId {
       }
       return set;
     }
-    
+
     public static Set< Constraint > getConstraints( Object[] c,
                                                        boolean deep,
                                                        Set< HasConstraints > seen ) {
@@ -94,9 +95,9 @@ public interface HasConstraints extends HasId {
       }
       return set;
     }
-  
+
     // static implementations on Pair
-    
+
     public static < T1, T2 > Set< Constraint > getConstraints( Pair< T1, T2 > p,
                                                                   boolean deep,
                                                                   Set< HasConstraints > seen ) {
@@ -105,10 +106,10 @@ public interface HasConstraints extends HasId {
       set = Utils.addAll( set, getConstraints( p.second, deep, seen ) );
       return set;
     }
-    
+
     // getNumberOfResolvedConstraints
-    
-    public static long getNumberOfResolvedConstraints( Object o, 
+
+    public static long getNumberOfResolvedConstraints( Object o,
                                    boolean deep,
                                    Set< HasConstraints > seen) {
       if ( o == null ) return 0;
@@ -125,7 +126,7 @@ public interface HasConstraints extends HasId {
       }
       return 0;
     }
-    
+
     public static < K, V > long getNumberOfResolvedConstraints( Map< K, V > map,
                                             boolean deep,
                                             Set< HasConstraints > seen ) {
@@ -136,7 +137,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static < T > long getNumberOfResolvedConstraints( Collection< T > c,
                                          boolean deep,
                                          Set< HasConstraints > seen ) {
@@ -146,7 +147,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static long getNumberOfResolvedConstraints( Object[] c,
                                    boolean deep,
                                    Set< HasConstraints > seen ) {
@@ -156,9 +157,9 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-  
+
     // static implementations on Pair
-    
+
     public static < T1, T2 > long getNumberOfResolvedConstraints( Pair< T1, T2 > p,
                                               boolean deep,
                                               Set< HasConstraints > seen ) {
@@ -166,11 +167,11 @@ public interface HasConstraints extends HasId {
       num += getNumberOfResolvedConstraints( p.first, deep, seen );
       num += getNumberOfResolvedConstraints( p.second, deep, seen );
       return num;
-    }    
+    }
 
     // getNumberOfUnresolvedConstraints
-    
-    public static long getNumberOfUnresolvedConstraints( Object o, 
+
+    public static long getNumberOfUnresolvedConstraints( Object o,
                                    boolean deep,
                                    Set< HasConstraints > seen) {
       if ( o == null ) return 0;
@@ -187,7 +188,7 @@ public interface HasConstraints extends HasId {
       }
       return 0;
     }
-    
+
     public static < K, V > long getNumberOfUnresolvedConstraints( Map< K, V > map,
                                             boolean deep,
                                             Set< HasConstraints > seen ) {
@@ -198,7 +199,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static < T > long getNumberOfUnresolvedConstraints( Collection< T > c,
                                          boolean deep,
                                          Set< HasConstraints > seen ) {
@@ -208,7 +209,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static long getNumberOfUnresolvedConstraints( Object[] c,
                                    boolean deep,
                                    Set< HasConstraints > seen ) {
@@ -218,9 +219,9 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-  
+
     // static implementations on Pair
-    
+
     public static < T1, T2 > long getNumberOfUnresolvedConstraints( Pair< T1, T2 > p,
                                               boolean deep,
                                               Set< HasConstraints > seen ) {
@@ -228,11 +229,11 @@ public interface HasConstraints extends HasId {
       num += getNumberOfUnresolvedConstraints( p.first, deep, seen );
       num += getNumberOfUnresolvedConstraints( p.second, deep, seen );
       return num;
-    }    
+    }
 
     // getNumberOfConstraints
-    
-    public static long getNumberOfConstraints( Object o, 
+
+    public static long getNumberOfConstraints( Object o,
                                    boolean deep,
                                    Set< HasConstraints > seen) {
       if ( o == null ) return 0;
@@ -249,7 +250,7 @@ public interface HasConstraints extends HasId {
       }
       return 0;
     }
-    
+
     public static < K, V > long getNumberOfConstraints( Map< K, V > map,
                                             boolean deep,
                                             Set< HasConstraints > seen ) {
@@ -260,7 +261,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static < T > long getNumberOfConstraints( Collection< T > c,
                                          boolean deep,
                                          Set< HasConstraints > seen ) {
@@ -270,7 +271,7 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-    
+
     public static long getNumberOfConstraints( Object[] c,
                                    boolean deep,
                                    Set< HasConstraints > seen ) {
@@ -280,9 +281,9 @@ public interface HasConstraints extends HasId {
       }
       return num;
     }
-  
+
     // static implementations on Pair
-    
+
     public static < T1, T2 > long getNumberOfConstraints( Pair< T1, T2 > p,
                                               boolean deep,
                                               Set< HasConstraints > seen ) {
@@ -290,7 +291,7 @@ public interface HasConstraints extends HasId {
       num += getNumberOfConstraints( p.first, deep, seen );
       num += getNumberOfConstraints( p.second, deep, seen );
       return num;
-    }    
+    }
 
   }
 

@@ -1,3 +1,5 @@
+import os
+
 # debugMode can be passed in at the command line to turn it on
 debugMode = True
 # A modes for a data sources below can be passed at the command line and
@@ -17,8 +19,14 @@ movieFilePrefix = "plotAnimation"
 movieFileExtension = "mp4"
 
 # default file to read if useFile
-#fileName = "/home/bclement/proj/ae/workspace/CS/simulationSnapshot.example.txt"
-fileName = 'C:\Users\bclement\workspace\CS\simulationSnapshot.example.txt'
+#fileName = "/home/bclement/proj/ae/workspace/bae/simulationSnapshot.example.txt"
+#fileName = 'C:\Users\bclement\git\bae\simulationSnapshot.example.txt'
+from os.path import expanduser
+homeDir = expanduser("~")
+#homeDir = '/home/bclement'
+gitDir = homeDir + os.sep + 'git'
+projectPath = gitDir + os.sep + 'bae'
+fileName = projectPath + os.sep + 'simulationSnapshot.example.txt'
 
 plotLines = True
 allLinesSameStyle = True # linestyle="-" for all lines
@@ -70,7 +78,6 @@ if usingTk:
     # vars for Tk backend
     root = Tk()
 
-import os
 import sys
 import Queue
 import threading
