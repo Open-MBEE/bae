@@ -76,6 +76,8 @@ import demandResponse.*;
 
 import gov.nasa.jpl.mbee.util.Random;
 
+import static gov.nasa.jpl.mbee.util.Debug.error;
+
 /*
  * Translates XML to executable Java classes for Analysis Engine behavior (based
  * on events such as those of the Timeline Ontology).
@@ -133,7 +135,7 @@ public class EventXmlToJava {
     return fileManager;
   }
 
-  protected ClassLoader loader = null;
+  protected static ClassLoader loader = null;
   protected Class<?> mainClass = null;
 
   protected DurativeEvent mainInstance = null;
@@ -463,7 +465,7 @@ public class EventXmlToJava {
       TypeDeclaration type = getTypeDeclaration( c.getName(), classData );
       boolean alreadyAdded = false;
       if ( type == null ) {
-        Debug.error( "No type found for constructor! " + c );
+        error( "No type found for constructor! " + c );
       } else if ( c != null ) {
         ConstructorDeclaration ctorToReplace = null;
         for ( BodyDeclaration bd : type.getMembers() ) {
@@ -813,12 +815,12 @@ public class EventXmlToJava {
                                                                   List< ClassData.Param > arguments,
                                                                   JavaToConstraintExpression expressionTranslator) {
     if ( expressionTranslator == null ) {
-      Debug.error("Missing expressionTranslator!");
+      error("Missing expressionTranslator!");
       return null;
     }
     ClassData classData = expressionTranslator.getClassData();
     if ( classData == null ) {
-      Debug.error("Missing ClassData!");
+      error("Missing ClassData!");
       return null;
     }
     ConstructorDeclaration ctor =
@@ -2260,9 +2262,11 @@ public class EventXmlToJava {
   /**
    * @return the loader
    */
-  public ClassLoader getLoader() {
+  public static ClassLoader getLoader() {
+    CL cl = new CL();
+    if ( cl != null ) return cl;
     if ( loader == null ) {
-      loader = getClass().getClassLoader();//fileManager.getClassLoader(null);
+      loader = EventXmlToJava.class.getClassLoader();//fileManager.getClassLoader(null);
     }
     return loader;
   }
@@ -2270,8 +2274,8 @@ public class EventXmlToJava {
   /**
    * @param loader the loader to set
    */
-  public void setLoader( ClassLoader loader ) {
-    this.loader = loader;
+  public static void setLoader( ClassLoader loader ) {
+    EventXmlToJava.loader = loader;
   }
 
   /**
@@ -2326,7 +2330,7 @@ public class EventXmlToJava {
       classData.setCurrentClass( e.getKey() );
       CompilationUnit cu = e.getValue();
       if ( cu == null ) {
-        Debug.error("No compilation unit to write out! " + e.getKey() );
+        error("No compilation unit to write out! " + e.getKey() );
         continue;
       }
       classData.setCurrentCompilationUnit( cu );
@@ -2747,6 +2751,135 @@ public class EventXmlToJava {
     return succ;
   }
 
+  static class CL extends ClassLoader {
+    ClassLoader parent = CL.class.getClassLoader();
+    /**
+     * Loads the class with the specified <a href="#name">binary name</a>.  The
+     * default implementation of this method searches for classes in the
+     * following order:
+     *
+     * <ol>
+     *
+     *   <li><p> Invoke {@link #findLoadedClass(String)} to check if the class
+     *   has already been loaded.  </p></li>
+     *
+     *   <li><p> Invoke the {@link #loadClass(String) <tt>loadClass</tt>} method
+     *   on the parent class loader.  If the parent is <tt>null</tt> the class
+     *   loader built-in to the virtual machine is used, instead.  </p></li>
+     *
+     *   <li><p> Invoke the {@link #findClass(String)} method to find the
+     *   class.  </p></li>
+     *
+     * </ol>
+     *
+     * <p> If the class was found using the above steps, and the
+     * <tt>resolve</tt> flag is true, this method will then invoke the {@link
+     * #resolveClass(Class)} method on the resulting <tt>Class</tt> object.
+     *
+     * <p> Subclasses of <tt>ClassLoader</tt> are encouraged to override {@link
+     * #findClass(String)}, rather than this method.  </p>
+     *
+     * <p> Unless overridden, this method synchronizes on the result of
+     * {@link #getClassLoadingLock <tt>getClassLoadingLock</tt>} method
+     * during the entire class loading process.
+     *
+     * @param  name
+     *         The <a href="#name">binary name</a> of the class
+     *
+     * @param  resolve
+     *         If <tt>true</tt> then resolve the class
+     *
+     * @return  The resulting <tt>Class</tt> object
+     *
+     * @throws  ClassNotFoundException
+     *          If the class could not be found
+     */
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve)
+            throws ClassNotFoundException
+    {
+      synchronized (getClassLoadingLock(name)) {
+        // First, check if the class has already been loaded
+        Class<?> cc = findLoadedClass(name);
+        Class<?> c = null;
+        long t0 = System.nanoTime();
+        // Invoke findClass in order
+        // to find the class.
+        long t1 = System.nanoTime();
+
+        try {
+          c = findClass(name);
+        } catch ( ClassNotFoundException e ) {
+          Debug.error(true, false, "Warning!  CL.findClass(" + name + ") could not find the class!");
+        }
+
+        // this is the defining class loader; record the stats
+        sun.misc.PerfCounter.getParentDelegationTime().addTime(t1 - t0);
+        sun.misc.PerfCounter.getFindClassTime().addElapsedTimeFrom(t1);
+        sun.misc.PerfCounter.getFindClasses().increment();
+
+        if (c == null) {
+          c = super.loadClass(name, resolve);
+        }
+        if ( c == null ) {
+          c = cc;
+        }
+//        if (c == null) {
+//          c = getParent().loadClass(name, resolve);
+//        }
+        if (c == null) {
+          c = parent.loadClass(name);
+        }
+        if (resolve) {
+          resolveClass(c);
+        }
+
+        if ( c != null ) {
+          // Update classes cache since the other loader may not be able to find this.
+          updateClassesCache(name, c);
+          String fqn = c.getCanonicalName();
+          if (fqn != null && !fqn.isEmpty() && !fqn.equals(name)) {
+            updateClassesCache(fqn, c);
+          }
+          String sn = c.getSimpleName();
+          if (sn != null && !sn.isEmpty() && !sn.equals(name)) {
+            updateClassesCache(sn, c);
+          }
+          String n = c.getName();
+          if (n != null && !n.isEmpty() && !n.equals(name)) {
+            updateClassesCache(n, c);
+          }
+        }
+
+        return c;
+      }
+    }
+
+  }
+
+  /**
+   * Put the class name and Class in the classes cache.  If the class is null,
+   * or the class is already in the cache, do nothing;
+   * @param nane
+   * @param c
+   * @return whether the cache was updated
+   */
+  protected static boolean updateClassesCache( String name, Class<?> c ) {
+    // Update classes cache since the other loader may not be able to find this.
+    if ( c == null ) return false;
+    //Class<?> cls = ClassUtils.classCache.get(name);
+    List< Class< ? > > classList = ClassUtils.classesCache.get( name );
+    if ( classList == null ) {
+      classList = new ArrayList<Class<?>>();
+    }
+    if ( !classList.contains(c) ) {
+      classList.add(c);
+      ClassUtils.classesCache.put( name, classList );
+      return true;
+    }
+    return false;
+  }
+
   public boolean loadClasses( String javaPath, String packageName ) {
     return loadClasses(null, javaPath, packageName, mainClass, getClassData(), getLoader());
 
@@ -2791,7 +2924,7 @@ public class EventXmlToJava {
       try {
         Class<?> cls = classLoader.loadClass( className );
         System.out.println( "loadClasses(" + javaPath + ", " + packageName +
-                            "): loaded class: " + cls.getName() );
+                            "): loaded class: " + (cls == null ? "null" : cls.getName()) );
         try {
           final Object[] a = new Object[]{};
           if ( cls != null
@@ -2896,10 +3029,13 @@ public class EventXmlToJava {
                                            Class<?> mainClass, ClassData classData,
                                            ClassLoader loader,
                                            StandardJavaFileManager fileManager) {
+    // TODO -- using the passed in loader as a backup for another is not expected.
+    ClassLoader c = getLoader();
+    if ( c == null ) c = loader;
     boolean succ = compileAndLoad(javaFiles, projectPath, packageName, mainClass, classData,
-                                  loader, fileManager);
+                                  c, fileManager);
     if ( !succ ) return false;
-    return runMain(loader, mainClass);
+    return runMain(c, mainClass);
   }
 
   public Class<?> getMainClass() {
