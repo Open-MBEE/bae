@@ -31,12 +31,7 @@ import japa.parser.ast.type.ClassOrInterfaceType;
 import japa.parser.ast.type.Type;
 import japa.parser.ast.type.VoidType;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.StringReader;
+import java.io.*;
 import java.lang.Math;
 import java.util.*;
 import java.util.Map.Entry;
@@ -75,6 +70,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 import demandResponse.*;
 
 import gov.nasa.jpl.mbee.util.Random;
+//import qj.util.lang.DynamicClassLoader;
 
 import static gov.nasa.jpl.mbee.util.Debug.error;
 
@@ -86,6 +82,7 @@ public class EventXmlToJava {
   
   // Used for generating unique variable names where unspecified.
   protected static int counter = 0;
+  private static boolean usingDynamicClassLoader = false;
 
   // The source XML document.
   protected Document xmlDocDOM = null;
@@ -2406,7 +2403,7 @@ public class EventXmlToJava {
     }
 
     String packageSubpathName = packageName.replaceAll("[.]", File.separator);
-    String pathPrefix = Utils.isNullOrEmpty( pathName ) ? "" : pathName + File.separatorChar;
+    String pathPrefix = Utils.isNullOrEmpty( pathName ) ? "" : pathName + (pathName.endsWith(File.separator) ? "" :  File.separatorChar);
     String packagePathName = pathPrefix + packageSubpathName;
     File packagePath = new File( packagePathName );
     if ( packagePath.exists() ) {
@@ -2419,6 +2416,14 @@ public class EventXmlToJava {
     if ( packagePath2.exists() ) {
       return packagePathName2;
     }
+
+    if ( pathPrefix.endsWith(packageSubpathName) || pathPrefix.endsWith(packageSubpathName + File.separator) ) {
+      packagePath2 = new File( pathName );
+      if ( packagePath2.exists() ) {
+        return pathName;
+      }
+    }
+
     return packagePathName;
   }
 
@@ -2673,16 +2678,28 @@ public class EventXmlToJava {
       return fileArr;
     }
 
-    fileArr = new File[ classData.getClasses().size() ];
+    List<File> fileList = new ArrayList<File>();
     if ( !classData.getClasses().isEmpty() ) {
       int ctr = 0;
-      for ( String clsName : classData.getClasses().keySet() ) {
+      Set<String> fileNames = new LinkedHashSet<String>();
+      fileNames.addAll(classData.getClasses().keySet());
+      if ( !sourceOrClass ) {
+        fileNames.addAll(classData.getAeClasses().keySet());
+      }
+      for ( String clsName : fileNames ) {
+        if ( !sourceOrClass ) {
+          clsName = clsName.replaceAll("[.]", "\\$");
+        }
         String filePathName =
             pathName.trim() + File.separator + clsName
                 + ( sourceOrClass ? ".java" : ".class" );
-        fileArr[ ctr++ ] = new File( filePathName );
+        fileList.add( new File( filePathName ) );
+        //fileArr[ ctr++ ] = new File( filePathName );
       }
     }
+    fileArr = new File[ fileList.size() ];
+    fileList.toArray(fileArr);
+//    fileArr = new File[ classData.getClasses().size() ];
     return fileArr;
   }
   
@@ -2721,7 +2738,7 @@ public class EventXmlToJava {
     }
     if ( fileArr != null ) {
       for ( File ff : fileArr ) {
-        if ( ff.exists() ) {
+        if ( ff.exists() && !files.contains( ff ) ) {
           files.add( ff );
         }
       }
@@ -2736,14 +2753,26 @@ public class EventXmlToJava {
 //      e.printStackTrace();
 //    }
 
+    List<String> optionList = new ArrayList<String>();
+// set compiler's classpath to be same as the runtime's
+    String cp = System.getProperty("java.class.path");
+    if ( Debug.isOn()) Debug.outln("cp = " + cp);
+    optionList.addAll(Arrays.asList("-classpath",cp));
+
+//// any other options you want
+//    optionList.addAll(Arrays.asList(options));
+
+//    JavaCompiler.CompilationTask task = compiler.getTask(out,jfm,diagnostics,optionList,null,jfos);
+
+
     Iterable<? extends JavaFileObject> compilationUnits =
         fileManager.getJavaFileObjectsFromFiles(files);
     System.out.println( "compileJavaFiles(" + javaPath
                         + "): got compilationUnits as java file objects: "
                         + compilationUnits );
     CompilationTask task = 
-        compiler.getTask(null, fileManager, null, null, null, compilationUnits);
-    System.out.println( "compileJavaFiles(" + javaPath + 
+        compiler.getTask(null, fileManager, null, optionList, null, compilationUnits);
+    if ( Debug.isOn()) Debug.outln( "compileJavaFiles(" + javaPath +
                         "): got CompilationTask: " + task );
     boolean succ = task.call();
     System.out.println( "compileJavaFiles(" + javaPath + 
@@ -2752,7 +2781,21 @@ public class EventXmlToJava {
   }
 
   static class CL extends ClassLoader {
+    List<String> paths = new ArrayList<String>();
+    String packageName = null;
     ClassLoader parent = CL.class.getClassLoader();
+    Set<String> loadedClasses = new HashSet<>();
+    Set<String> unavaiClasses = new HashSet<>();
+
+
+    public CL() {
+      super();
+    }
+    public CL(String path) {
+      super();
+      paths.add(path);
+    }
+
     /**
      * Loads the class with the specified <a href="#name">binary name</a>.  The
      * default implementation of this method searches for classes in the
@@ -2810,7 +2853,12 @@ public class EventXmlToJava {
         try {
           c = findClass(name);
         } catch ( ClassNotFoundException e ) {
-          Debug.error(true, false, "Warning!  CL.findClass(" + name + ") could not find the class!");
+//          try {
+//            c = parent.findClass(name);  // can't access protected method
+//          } catch ( ClassNotFoundException e ) {
+//            Debug.error(true, false, "Warning!  CL.findClass(" + name + ") could not find the class!");
+//          }
+          //Debug.error(true, false, "Warning!  CL.findClass(" + name + ") could not find the class!");
         }
 
         // this is the defining class loader; record the stats
@@ -2819,7 +2867,9 @@ public class EventXmlToJava {
         sun.misc.PerfCounter.getFindClasses().increment();
 
         if (c == null) {
-          c = super.loadClass(name, resolve);
+          try {
+            c = super.loadClass(name, resolve);
+          } catch (Throwable t) {}
         }
         if ( c == null ) {
           c = cc;
@@ -2828,63 +2878,203 @@ public class EventXmlToJava {
 //          c = getParent().loadClass(name, resolve);
 //        }
         if (c == null) {
-          c = parent.loadClass(name);
+          try {
+            c = parent.loadClass(name);
+          } catch (Throwable t) {}
         }
-        if (resolve) {
-          resolveClass(c);
+        if (c != null) {
+          if (resolve) {
+            resolveClass(c);
+          }
+          updateClassesCacheForAllNames(name, c);
+        } else {
+          Debug.error(true, false, "Warning!  CL.loadClass(" + name + ") could not find the class!");
         }
-
-        if ( c != null ) {
-          // Update classes cache since the other loader may not be able to find this.
-          updateClassesCache(name, c);
-          String fqn = c.getCanonicalName();
-          if (fqn != null && !fqn.isEmpty() && !fqn.equals(name)) {
-            updateClassesCache(fqn, c);
-          }
-          String sn = c.getSimpleName();
-          if (sn != null && !sn.isEmpty() && !sn.equals(name)) {
-            updateClassesCache(sn, c);
-          }
-          String n = c.getName();
-          if (n != null && !n.isEmpty() && !n.equals(name)) {
-            updateClassesCache(n, c);
-          }
-        }
-
         return c;
       }
     }
 
-  }
-
-  /**
-   * Put the class name and Class in the classes cache.  If the class is null,
-   * or the class is already in the cache, do nothing;
-   * @param nane
-   * @param c
-   * @return whether the cache was updated
-   */
-  protected static boolean updateClassesCache( String name, Class<?> c ) {
-    // Update classes cache since the other loader may not be able to find this.
-    if ( c == null ) return false;
-    //Class<?> cls = ClassUtils.classCache.get(name);
-    List< Class< ? > > classList = ClassUtils.classesCache.get( name );
-    if ( classList == null ) {
-      classList = new ArrayList<Class<?>>();
+    public static boolean updateClassesCacheForAllNames( String name, Class<?> c ) {
+      boolean changedCache = false;
+      if (c != null) {
+        // Update classes cache since the other loader may not be able to find this.
+        boolean cc = updateClassesCache(name, c);
+        if ( cc ) changedCache = true;
+        try {
+          String fqn = c.getCanonicalName();
+          if (fqn != null && !fqn.isEmpty() && !fqn.equals(name)) {
+            cc = updateClassesCache(fqn, c);
+            if (cc) changedCache = true;
+          }
+        } catch ( Throwable t ) {}
+        try {
+          String sn = c.getSimpleName();
+          if (sn != null && !sn.isEmpty() && !sn.equals(name)) {
+            cc = updateClassesCache(sn, c);
+            if ( cc ) changedCache = true;
+          }
+        } catch ( Throwable t ) {}
+        try {
+          String n = c.getName();
+          if (n != null && !n.isEmpty() && !n.equals(name)) {
+            cc = updateClassesCache(n, c);
+            if ( cc ) changedCache = true;
+          }
+        } catch ( Throwable t ) {}
+      }
+      return changedCache;
     }
-    if ( !classList.contains(c) ) {
-      classList.add(c);
+
+    /**
+     * Put the class name and Class in the classes cache.  If the class is null,
+     * or the class is already in the cache, do nothing;
+     * @param nane
+     * @param c
+     * @return whether the cache was updated
+     */
+    public static boolean updateClassesCache( String name, Class<?> c ) {
+      // Update classes cache since the other loader may not be able to find this.
+      if ( c == null ) return false;
+      //Class<?> cls = ClassUtils.classCache.get(name);
+      List< Class< ? > > classList = ClassUtils.classesCache.get( name );
+      if ( classList == null ) {
+        classList = new ArrayList<Class<?>>();
+      }
+      // replace any existing entry -- not sure if this does anything
+      if ( classList.contains(c) ) {
+        classList.remove(c);
+      }
+      // Put it in front so that it's the new default
+      classList.add(0, c);
       ClassUtils.classesCache.put( name, classList );
       return true;
     }
-    return false;
+
+
+    public static byte[] readDataNice(InputStream inputStream) {
+      ByteArrayOutputStream boTemp = null;
+      byte[] buffer = null;
+      try {
+        int read;
+        buffer = new byte[8192];
+        boTemp = new ByteArrayOutputStream();
+        while ((read=inputStream.read(buffer, 0, 8192)) > -1) {
+          boTemp.write(buffer, 0, read);
+        }
+        return boTemp.toByteArray();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    /**
+     * Close streams (in or out)
+     * @param stream
+     */
+    public static void close(Closeable stream) {
+      if (stream != null) {
+        try {
+          if (stream instanceof Flushable) {
+            ((Flushable)stream).flush();
+          }
+          stream.close();
+        } catch (IOException e) {
+          // When the stream is closed or interupted, can ignore this exception
+        }
+      }
+    }
+
+
+    protected byte[] readData( InputStream inputStream) {
+      try {
+        return readDataNice(inputStream);
+      } finally {
+        close(inputStream);
+      }
+    }
+    protected byte[] readBytes( File f) {
+      try {
+        return readData(new FileInputStream(f));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    public static String toFilePath(String name) {
+      return name.replaceAll("\\.", "/") + ".class";
+    }
+
+    @Override
+    public Class<?> loadClass(String name) throws ClassNotFoundException {
+      if (loadedClasses.contains(name) || unavaiClasses.contains(name)) {
+        return super.loadClass(name); // Use default CL cache
+      }
+
+      String fileName = toFilePath(name);
+      File f = new File(fileName);
+      if ( !f.exists() ) {
+        for ( String path : paths ) {
+          f = new File(path + File.separator  + fileName);
+          if (f.exists()) break;
+          f = null;
+        }
+      }
+      // Don't want to find files because it will find and load unexpected things.
+//      if ( f == null ) {
+//         f = FileUtils.findFile(fileName);
+//      }
+      Class<?> cls = null;
+      if ( f != null && f.exists() ) {
+        cls = loadClass(f, packageName);
+      } else {
+        if ( Debug.isOn()) Debug.outln("File doesn't exist: " + fileName);
+        unavaiClasses.add(name);
+        cls = parent.loadClass(name);
+      }
+      return cls;
+    }
+
+
+    public Class<?> loadClass(File f, String packageName) throws ClassNotFoundException {
+
+      int pos = f.getName().lastIndexOf( '.' );
+      if ( pos == -1 ) pos = f.getName().length();
+      String className = packageName + '.' + f.getName().substring( 0, pos );
+      byte[] bytes = readBytes( f );
+      Class<?> cls = null;
+      if ( bytes != null && bytes.length > 0 ) {
+        cls = loadClass(bytes, className);
+      }
+      if ( cls == null ) {
+        cls = loadClass(className);
+      }
+      return cls;
+    }
+
+    public Class<?> loadClass(byte[] classData, String name) {
+      if ( Debug.isOn()) Debug.outln("calling loadClass(" + name + ")");
+      //Class<?> clazz = defineClass(name, classData, 0, classData.length);
+      //Class<?> clazz = defineClass(name, classData, 0, classData.length);
+      Class<?> clazz = defineClass(null, classData, 0, classData.length);
+      String realName = clazz.getName();
+      if ( Debug.isOn()) Debug.outln("real name = '" + realName + "'; expected name = '" + name + "'; equal = " + name.equals(realName));
+      if (clazz != null) {
+        if (clazz.getPackage() == null) {
+          definePackage(name.replaceAll("\\.\\w+$", ""), null, null, null, null, null, null, null);
+        }
+        resolveClass(clazz);
+        updateClassesCacheForAllNames(name, clazz);
+      }
+      return clazz;
+    }
+
   }
 
-  public boolean loadClasses( String javaPath, String packageName ) {
+  public Pair<Boolean, Class<?>> loadClasses(String javaPath, String packageName ) {
     return loadClasses(null, javaPath, packageName, mainClass, getClassData(), getLoader());
 
   }
-  public static boolean loadClasses(
+  public static Pair<Boolean, Class<?>> loadClasses(
           ArrayList<String> javaFiles, String javaPath,
           String packageName,
           Class<?> mainClass, ClassData classData,
@@ -2894,13 +3084,40 @@ public class EventXmlToJava {
       javaPath = "";
     }
     File path = new File(javaPath);
+    String pathName = packagePath(javaPath, packageName, false);
+    if ( !FileUtils.exists(pathName) ) {
+      if ( javaFiles != null && javaFiles.size() > 0 ) {
+        File f = new File(javaFiles.get(0));
+        pathName = f.getParent();
+      }
+      if ( !FileUtils.exists(pathName) ) {
+        pathName = packagePath(javaPath, packageName, true);
+      }
+      if ( !FileUtils.exists(pathName) && javaPath.isEmpty() ) {
+        pathName = packagePath("src", packageName, true);
+      }
+      if ( FileUtils.exists(pathName) ) {
+        javaPath = pathName;
+        if ( javaPath.endsWith(File.separator + packageName) ) {
+          javaPath = javaPath.substring(0, javaPath.length() - packageName.length() - 1 );
+        }
+      }
+    }
+
     assert path.exists();
     File[] fileArr = null;
-    fileArr = getJavaFiles( javaPath, false, packageName, true, classData );//path.listFiles();
-    if ( fileArr.length == 0 ) fileArr = getJavaFiles( javaPath, false,
-                                                       packageName, false,
-                                                       classData );
-    ArrayList<File> files = new ArrayList<File>();
+    fileArr = getJavaFiles( javaPath, false, packageName, false, classData );//path.listFiles();
+    if ( fileArr == null || fileArr.length == 0 ) {
+      fileArr = getJavaFiles( javaPath, false, packageName, true, classData );
+    }
+    if ( (fileArr == null || fileArr.length == 0) && javaPath.isEmpty() ) {
+      javaPath = "src";
+      fileArr = getJavaFiles(javaPath, false, packageName, false, classData);//path.listFiles();
+      if (fileArr == null || fileArr.length == 0) {
+        fileArr = getJavaFiles(javaPath, false, packageName, true, classData);
+      }
+    }
+    LinkedHashSet<File> files = new LinkedHashSet<File>();
     for ( String fs : javaFiles ) {
       fs = fs.endsWith(".java") ? fs.substring(0, fs.length() - ".java".length() ) + ".class" : fs;
       File ff = new File( fs );
@@ -2917,18 +3134,54 @@ public class EventXmlToJava {
     }
 
     //loader = getClass().getClassLoader();//fileManager.getClassLoader(null);
+    //DynamicClassLoader dcl = new DynamicClassLoader("src");
+    String path2Package = null;
+    if ( !files.isEmpty() ) {
+      File ff = files.iterator().next();
+      path2Package = ff.getParentFile().getPath();
+      if ( path2Package != null ) {
+        String packagePath = packageName.replaceAll("[.]", File.separator);
+        if ( path2Package.endsWith(File.separator + packagePath) ) {
+          path2Package = path2Package.substring((File.separator + packagePath).length());
+        }
+      }
+      else path2Package = "src";
+      System.out.println("path to files = " + path2Package);
+    }
+    classLoader = new CL(path2Package);
     for ( File f : files ) {
+      // strip off ,class
       int pos = f.getName().lastIndexOf( '.' );
       if ( pos == -1 ) pos = f.getName().length();
       String className = packageName + '.' + f.getName().substring( 0, pos );
       try {
-        Class<?> cls = classLoader.loadClass( className );
+        Class<?> cls = null;
+        /*
+        if ( usingDynamicClassLoader ) {
+          //String clsName = f.getName().replaceFirst("[.]class$", "");
+          //className = f.getName().substring(0, pos);
+          if ( Debug.isOn()) Debug.outln("passing " + className + " to DynamicClassRelaoader!");
+          cls = dcl.load(className);
+          CL.updateClassesCacheForAllNames(className, cls);
+        } else
+        */
+        if ( classLoader instanceof CL ) {
+          if ( Debug.isOn()) Debug.outln("passing " + className + " to CL!");
+          try {
+            System.out.println("passing " + className + " to CL!  f.getName() = " + f.getName() + "; f.getPath() = " + f.getPath() + "; f.getCanonicalPath() = " + f.getCanonicalPath());
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          cls = ((CL) classLoader).loadClass(f, packageName);
+        } else {
+          cls = classLoader.loadClass(className);
+        }
         System.out.println( "loadClasses(" + javaPath + ", " + packageName +
                             "): loaded class: " + (cls == null ? "null" : cls.getName()) );
         try {
           final Object[] a = new Object[]{};
           if ( cls != null
-               && ( cls.getName().equals( packageName + ".Main" )
+               && ( cls.getName().endsWith( ".Main" )
                     || ( mainClass == null
                          && cls.getMethod( "main", a.getClass() ) != null ) ) ) {
             mainClass = cls;
@@ -2942,7 +3195,7 @@ public class EventXmlToJava {
         succ = false;
       }
     }
-    return succ;
+    return new Pair<Boolean, Class<?>>(succ, mainClass);
   }
 
 
@@ -2973,20 +3226,27 @@ public class EventXmlToJava {
 //    return binPath;
   }
 
-  public boolean compileAndLoad( String projectPath ) {
+  public Pair<Boolean, Class<?>> compileAndLoad(String projectPath ) {
     return compileAndLoad( null, projectPath, getPackageName(), mainClass,
                            getClassData(), getLoader(), getFileManager() );
   }
-  public static boolean compileAndLoad( ArrayList<String> javaFiles,
-                                        String projectPath,
-                                        String packageName,
-                                        Class<?> mainClass,
-                                        ClassData classData,
-                                        ClassLoader loader,
-                                        StandardJavaFileManager fileManager ) {
+  public static Pair<Boolean, Class<?>> compileAndLoad(ArrayList<String> javaFiles,
+                                                       String projectPath,
+                                                       String packageName,
+                                                       Class<?> mainClass,
+                                                       ClassData classData,
+                                                       ClassLoader loader,
+                                                       StandardJavaFileManager fileManager ) {
     boolean succCompile = compile( javaFiles, projectPath, packageName, classData, fileManager );
-    boolean succLoad = load( javaFiles, projectPath, packageName, mainClass, classData, loader );
-    return succCompile && succLoad;
+    Pair<Boolean, Class<?>> p = load(javaFiles, projectPath, packageName, mainClass, classData, loader);
+    boolean succ = false;
+    if ( p != null ) {
+      succ = succCompile && p.first;
+      p.first = succ;
+    } else {
+      p = new Pair<Boolean, Class<?>>(false, null);
+    }
+    return p;
   }
 
   public boolean compile( String projectPath ) {
@@ -2999,23 +3259,28 @@ public class EventXmlToJava {
     return succ;
   }
 
-  public boolean load( String projectPath ) {
-    boolean succLoad = loadClasses( getPackageBinPath( projectPath ),
-                                    getPackageName() );
-    return succLoad;
+  public Pair<Boolean, Class<?>> load(String projectPath ) {
+    Pair<Boolean, Class<?>> p = loadClasses(getPackageBinPath(projectPath),
+            getPackageName());
+    return p;
   }
-  public static boolean load(ArrayList<String> javaFiles,
-                             String path, String packageName,
-                             Class<?> mainClass, ClassData classData,
-                             ClassLoader classLoader) {
-    boolean succLoad = loadClasses( javaFiles, path, packageName, mainClass, classData,
-                                    classLoader );
-    return succLoad;
+  public static Pair<Boolean, Class<?>> load(ArrayList<String> javaFiles,
+                                             String path, String packageName,
+                                             Class<?> mainClass, ClassData classData,
+                                             ClassLoader classLoader) {
+    Pair<Boolean, Class<?>> p = loadClasses(javaFiles, path, packageName, mainClass, classData,
+            classLoader);
+    return p;
   }
 
   public boolean compileLoadAndRun( String projectPath ) {
-    boolean succ = compileAndLoad( projectPath );
+    Pair<Boolean, Class<?>> p = compileAndLoad(projectPath);
+    if ( p == null ) return false;
+    boolean succ = p.first;
     if ( !succ ) return false;
+    if ( p.second != null ) {
+      mainClass = p.second;
+    }
     return runMain();
   }
   public static boolean compileLoadAndRun( String projectPath, String packageName,
@@ -3032,9 +3297,12 @@ public class EventXmlToJava {
     // TODO -- using the passed in loader as a backup for another is not expected.
     ClassLoader c = getLoader();
     if ( c == null ) c = loader;
-    boolean succ = compileAndLoad(javaFiles, projectPath, packageName, mainClass, classData,
-                                  c, fileManager);
+    Pair<Boolean, Class<?>> p = compileAndLoad(javaFiles, projectPath, packageName, mainClass, classData,
+            c, fileManager);
+    if ( p == null || p.first == null ) return false;
+    boolean succ = p.first;
     if ( !succ ) return false;
+    if ( p.second != null ) mainClass = p.second;
     return runMain(c, mainClass);
   }
 
