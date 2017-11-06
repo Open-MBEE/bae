@@ -102,7 +102,7 @@
                 <configuration>
                     <sources>
                         <source>src</source>
-                        <source>thirdParty/douglascrockford-JSON-java-d15e776</source>
+                        <!-- <source>thirdParty/douglascrockford-JSON-java-d15e776</source> -->
                         <source>thirdParty/javaparser-1.0.8-src</source>
                         <!-- <source>thirdParty</source> -->
                     </sources>
@@ -145,6 +145,13 @@
           <artifactId>commons-math3</artifactId>
           <version>3.6.1</version>
       </dependency>
+      <!--<dependency>-->
+          <!--<groupId>qj</groupId>-->
+          <!--<artifactId>classreloading</artifactId>-->
+          <!--<scope>system</scope>-->
+          <!--<version>1.8.0</version>-->
+          <!--<systemPath>${project.basedir}/../classreloading/target/classreloading-1.0-SNAPSHOT.jar</systemPath>-->
+      <!--</dependency>-->
 	<dependency>
 		<groupId>com.sun</groupId>
 		<artifactId>tools</artifactId>
