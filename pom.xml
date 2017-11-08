@@ -76,6 +76,8 @@
           <target>1.8</target>
           <excludes>
                <exclude>**/magicdrawPlugin/**</exclude>
+              <exclude>generatedSrc/**/*.java</exclude>
+              <exclude>generatedSrc/**/*.class</exclude>
               <!-- <exclude>**/tests/**</exclude> -->
           </excludes>
         </configuration>

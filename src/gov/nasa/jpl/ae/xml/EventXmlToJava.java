@@ -2359,15 +2359,18 @@ public class EventXmlToJava {
 
   public static String convertPathToPackage( String filePath, String packageName ) {
     String newPath = filePath;
-    if (filePath.startsWith("src")) {
-      newPath = "src";
+    if (filePath.startsWith(generatedCodeLocation)) {
+      newPath = generatedCodeLocation;
     } else {
       newPath = filePath.replaceFirst(
-              "([^A-Za-z_0-9-])src[^A-Za-z_0-9-]?.*", "$1src");
+              "([^A-Za-z_0-9-])" + generatedCodeLocation + "[^A-Za-z_0-9-]?.*", "$1" + generatedCodeLocation);
     }
     newPath = newPath + File.separatorChar + packageName.replaceAll("[.]", File.separator);
     return newPath;
   }
+
+
+  public static String generatedCodeLocation = "generatedSrc";
 
   public static String packagePath( String pathName, String packageName ) {
     return packagePath( pathName, packageName, true );
@@ -2378,15 +2381,15 @@ public class EventXmlToJava {
     if ( !Utils.isNullOrEmpty(pathName) ) {
       path = new File(pathName);
     }
-    String srcOrBinStr = srcOrBin ? "src" : "bin";
+    String srcOrBinStr = srcOrBin ? generatedCodeLocation : "bin";
     if ( path == null || !path.exists() ) {
       if ( pathName == null ) {
         pathName = srcOrBinStr;
       }
       if ( pathName.contains(srcOrBinStr) ) {
-        if (!pathName.endsWith("src")) {
-          if (pathName.startsWith("src")) {
-            pathName = "src";
+        if (!pathName.endsWith(generatedCodeLocation)) {
+          if (pathName.startsWith(generatedCodeLocation)) {
+            pathName = generatedCodeLocation;
           } else {
             pathName =
                     pathName.replaceFirst(File.separator + srcOrBinStr + ".*",
@@ -2639,23 +2642,6 @@ public class EventXmlToJava {
                                      ClassData classData ) {
     File[] fileArr = null;
     File path = null;
-//    try {
-//      if ( javaPath != null ) {
-//        path = new File(javaPath);
-//      }
-//    } catch (Throwable t) {
-//    }
-//    if ( javaPath == null || path == null || !path.exists()) {
-//      javaPath = (sourceOrClass ? "src" : "bin") + File.separator + packageName;
-//      File path2 = new File(javaPath);
-//      if ( !path2.exists() && !sourceOrClass ) {
-//        javaPath = "src" + File.separator + packageName;
-//        path2 = new File(javaPath);
-//      }
-//      if ( path2.exists() ) {
-//        path = path2;
-//      }
-//    }
     String pathName = packagePath(javaPath, packageName, sourceOrClass);
     if ( pathName == null ) return null;
     path = new File( pathName );
@@ -3094,7 +3080,7 @@ public class EventXmlToJava {
         pathName = packagePath(javaPath, packageName, true);
       }
       if ( !FileUtils.exists(pathName) && javaPath.isEmpty() ) {
-        pathName = packagePath("src", packageName, true);
+        pathName = packagePath(generatedCodeLocation, packageName, true);
       }
       if ( FileUtils.exists(pathName) ) {
         javaPath = pathName;
@@ -3111,7 +3097,7 @@ public class EventXmlToJava {
       fileArr = getJavaFiles( javaPath, false, packageName, true, classData );
     }
     if ( (fileArr == null || fileArr.length == 0) && javaPath.isEmpty() ) {
-      javaPath = "src";
+      javaPath = generatedCodeLocation;
       fileArr = getJavaFiles(javaPath, false, packageName, false, classData);//path.listFiles();
       if (fileArr == null || fileArr.length == 0) {
         fileArr = getJavaFiles(javaPath, false, packageName, true, classData);
@@ -3134,7 +3120,7 @@ public class EventXmlToJava {
     }
 
     //loader = getClass().getClassLoader();//fileManager.getClassLoader(null);
-    //DynamicClassLoader dcl = new DynamicClassLoader("src");
+    //DynamicClassLoader dcl = new DynamicClassLoader(generatedCodeLocation);
     String path2Package = null;
     if ( !files.isEmpty() ) {
       File ff = files.iterator().next();
@@ -3145,7 +3131,7 @@ public class EventXmlToJava {
           path2Package = path2Package.substring((File.separator + packagePath).length());
         }
       }
-      else path2Package = "src";
+      else path2Package = generatedCodeLocation;
       System.out.println("path to files = " + path2Package);
     }
     classLoader = new CL(path2Package);
@@ -3204,26 +3190,10 @@ public class EventXmlToJava {
   }
   public static String getPackageSourcePath( String projectPath, String packageName ) {
     return packagePath(projectPath, packageName);
-//    if ( projectPath == null ) {
-//      projectPath = "";
-//    } else {
-//      projectPath += File.separator;
-//    }
-//    String packagePath = packageName.replace( '.', File.separatorChar );
-//    String srcPath = projectPath + "src" + File.separator + packagePath;
-//    return srcPath;
   }
   
   public String getPackageBinPath( String projectPath ) {
     return packagePath(projectPath, getPackageName(), false);
-//    if ( projectPath == null ) {
-//      projectPath = "";
-//    } else {
-//      projectPath += File.separator;
-//    }
-//    String packagePath = getPackageName().replace( '.', File.separatorChar );
-//    String binPath = projectPath + "bin" + File.separator + packagePath;
-//    return binPath;
   }
 
   public Pair<Boolean, Class<?>> compileAndLoad(String projectPath ) {
