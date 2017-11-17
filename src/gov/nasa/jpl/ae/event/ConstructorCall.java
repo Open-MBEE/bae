@@ -11,14 +11,8 @@ import gov.nasa.jpl.mbee.util.Utils;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
-import java.lang.reflect.Modifier;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 
-/**
- * 
- */
 
 /**
  * 
@@ -64,6 +58,7 @@ public class ConstructorCall extends Call {
                           Class<?> returnType ) {
     this.constructor = constructor; // the constructor must be static
     this.returnType = returnType;
+    this.alwaysNotStale = true;
   }
 
   /**
@@ -75,7 +70,8 @@ public class ConstructorCall extends Call {
                           Class<?> returnType ) {
     thisClass = cls;
     this.returnType = returnType;
-    setConstructor( ClassUtils.getConstructorForArgTypes( cls, (Class<?>[])null ) ); 
+    setConstructor( ClassUtils.getConstructorForArgTypes( cls, (Class<?>[])null ) );
+    this.alwaysNotStale = true;
   }
 
   /**
@@ -87,6 +83,7 @@ public class ConstructorCall extends Call {
     this.object = object;
     this.returnType = returnType;
     setConstructor( constructor );
+    this.alwaysNotStale = true;
   }
 
   public ConstructorCall( Object object, Class<?> cls,
@@ -107,6 +104,7 @@ public class ConstructorCall extends Call {
     setConstructor( constructor );
     this.arguments = arguments;
     this.returnType = returnType;
+    this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -124,6 +122,7 @@ public class ConstructorCall extends Call {
     this.arguments = arguments;
     this.constructor = getConstructor();
     this.returnType = returnType;
+    this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -193,6 +192,7 @@ public class ConstructorCall extends Call {
       }
     }
     this.returnType = returnType;
+    this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -214,6 +214,7 @@ public class ConstructorCall extends Call {
     }
     this.constructor = getConstructor();
     this.returnType = returnType;
+    this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -260,6 +261,9 @@ public class ConstructorCall extends Call {
     this.nestedCall = constructorCall.nestedCall;
     this.returnType = constructorCall.returnType;
     this.argHelper = constructorCall.argHelper;
+    this.alwaysStale = constructorCall.alwaysStale;
+    this.alwaysNotStale = constructorCall.alwaysNotStale;
+
     hasTypeErrors();
   }
 
@@ -282,7 +286,42 @@ public class ConstructorCall extends Call {
     }
     return newTypes;
   }
-  
+
+  @Override
+  public Set< Parameter< ? > > getParameters( boolean deep,
+                                              Set<HasParameters> seen ) {
+    Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return Utils.getEmptySet();
+    seen = pair.second;
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? >>();
+//    if ( !isStatic() ) {
+//      if (object instanceof Parameter) set.add((Parameter<?>) object);
+////      if ( deep ) {
+////        set = Utils.addAll(set, getMemberParameters(object, deep, seen));
+////      }
+//    }
+
+    for (Object o : arguments) {
+      set = Utils.addAll( set, getMemberParameters( o, deep, seen));
+    }
+
+//    //if ( nestedCall != null ) {//&& nestedCall.getValue() != null ) {
+//    // REVIEW -- bother with adding nestedCall as a parameter?
+//    set = Utils.addAll( set, HasParameters.Helper.getParameters( nestedCall, deep, seen, true ) );
+////      set = Utils.addAll( set, nestedCall.getValue().getParameters( deep, seen ) );
+//    //}
+//    set = Utils.addAll( set,
+//            HasParameters.Helper.getParameters( returnValue, deep,
+//                    seen, true ) );
+//    set = Utils.addAll( set,
+//            HasParameters.Helper.getParameters( evaluatedArguments,
+//                    deep, seen, true ) );
+
+    return set;
+  }
+
+
+
   @Override
   public Member getMember() {
     return constructor;
@@ -333,7 +372,25 @@ public class ConstructorCall extends Call {
     }
     return returnValue; //newObject;
   }
-  
+
+  @Override
+  public boolean isStale() {
+    if ( alwaysNotStale ) {
+      return false;
+    }
+    if ( stale ) {
+      return true;
+    }
+
+    boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
+    if ( argsStale ) {
+      return true;
+    }
+
+    return false;
+  }
+
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.Call#calculateDomain(boolean, java.util.Set)
    */

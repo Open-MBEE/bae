@@ -55,6 +55,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
   protected boolean stale = true;
   protected boolean alwaysStale = false;
+  public boolean alwaysNotStale = false;
+
+  // constrainedParameters is a subset of Parameters that can make the call stale.
+  // If constrainedParameters is an empty set, then the call will not be set
+  // stale for any parameter.  If it is null, then any parameter in getParameters()
+  // can make the call stale.  This is used by setStaleAnyReferenceTo().
+  public Set< Parameter<?> > constrainedParameters = null;
 
   public Object returnValue = null;  // a cached value
   
@@ -882,16 +889,18 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? >>();
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? >>();
     if ( !isStatic() ) {
       if (object instanceof Parameter) set.add((Parameter<?>) object);
-      set = Utils.addAll( set, getMemberParameters( object, deep, seen) );
+      if ( deep ) {
+        set = Utils.addAll(set, getMemberParameters(object, deep, seen));
+      }
     }
 
     for (Object o : arguments) {
       set = Utils.addAll( set, getMemberParameters( o, deep, seen));
     }
-   
+
     //if ( nestedCall != null ) {//&& nestedCall.getValue() != null ) {
       // REVIEW -- bother with adding nestedCall as a parameter?
     set = Utils.addAll( set, HasParameters.Helper.getParameters( nestedCall, deep, seen, true ) );
@@ -1148,6 +1157,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   }
   @Override
   public boolean isStale() {
+    if ( alwaysNotStale ) {
+      return false;
+    }
     if ( stale ) {
 //      try {
 //        if ( Random.global.nextDouble() < 0.3 ) {
@@ -1778,7 +1790,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     
     boolean hasParam = false;
     hasParam = HasParameters.Helper.hasParameter( getArguments(), parameter, true, null, true );
-    hasParam = hasParam || (!isStatic() && HasParameters.Helper.hasParameter( object, parameter, true, null, true ));
+    // hasParam = hasParam || (!isStatic() && HasParameters.Helper.hasParameter( object, parameter, true, null, true ));
     hasParam = hasParam || HasParameters.Helper.hasParameter( nestedCall, parameter, true, null, true );
     if ( hasParam || hasParameter( parameter, true, null ) ) {
       setStale(true);
@@ -1827,7 +1839,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if (p.first) return;
     seen = p.second;
     if ( changedParameter == null ) return;
-    if ( hasParameter( changedParameter, false, null ) ) {
+
+    // constrainedParameters is a subset of Parameters that can make the call stale.
+    // If the constrainedParameters is an empty set, then the call will not be
+    // set stale here.  If it is null, then any parameter in getParameters() can
+    // make the call stale.
+    boolean hasCPs = constrainedParameters != null;
+    if ( ( hasCPs && constrainedParameters.contains(changedParameter) ) ||
+         ( !hasCPs && hasParameter(changedParameter, false, null) ) ) {
       setStale(true);
     }
     // TODO -- make a helper for ParameterListener since this should be applied

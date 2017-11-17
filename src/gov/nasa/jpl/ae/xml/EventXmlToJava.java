@@ -960,6 +960,7 @@ public class EventXmlToJava {
       looksAlreadyFixed = true;
     }
     for ( ClassData.Param p : arguments ) {
+      Utils.add(expressionTranslator.getClassData().constructorParams, ctor.getName(), ctor, p.name);
       stmtList.append( "addDependency( this." + p.name + ", " + p.name
                        + " );\n" );
     }
@@ -2621,6 +2622,7 @@ public class EventXmlToJava {
   
   public static File[] getJavaFileList( File path ) {
     File[] fileArr = null;
+    //FileUtils.stringToFile(path.getCanonicalPath() + "\n" + path.getAbsolutePath(), "someFile.txt");
     assert path.exists();
     fileArr = path.listFiles();
     return fileArr;

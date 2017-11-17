@@ -7,6 +7,7 @@ import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
+import japa.parser.ast.TypeParameter;
 import japa.parser.ast.body.ConstructorDeclaration;
 import japa.parser.ast.body.MethodDeclaration;
 import japa.parser.ast.body.ModifierSet;
@@ -21,6 +22,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
+import japa.parser.ast.type.Type;
 import junit.framework.Assert;
 
 /**
@@ -1307,6 +1309,35 @@ public class JavaForFunctionCall {
   public void
          setConvertingArgumentsToExpressions( boolean convertingArgumentsToExpressions ) {
     this.convertingArgumentsToExpressions = convertingArgumentsToExpressions;
+  }
+
+  public Set<String> getConstrainedParameters() {
+    Constructor<?> c = getMatchingConstructor();
+    Map<ConstructorDeclaration, Set<String>> decls = getExprXlator().getClassData().constructorParams.get(c.getName());
+
+    // Find the best matching constructor declaration.
+    int bestNumParams = 0;
+    int bestNumParamTypeMatches = 0;
+    ConstructorDeclaration bestDecl = null;
+    for ( Map.Entry<ConstructorDeclaration, Set<String>> entry : decls.entrySet() ) {
+      ConstructorDeclaration decl = entry.getKey();
+
+      Parameter lastParam = decl.getParameters().get(decl.getParameters().size() - 1);
+//      Type t = lastParam.getType();
+//      if ( lastParam.isVarArgs() ) {
+//
+//      }
+      int numParams = decl.getParameters().size();
+      // TODO --
+      if ( bestDecl == null || (numParams == c.getParameterCount() && bestNumParams != c.getParameterCount() ) ) {
+        bestDecl = decl;
+        bestNumParams = numParams;
+      }
+    }
+    if ( bestDecl != null ) {
+      return decls.get( bestDecl );
+    }
+    return null;
   }
 
   /**

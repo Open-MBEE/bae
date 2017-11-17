@@ -146,6 +146,24 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     }
   }
 
+  public static final boolean smartEquals = true;
+
+  @Override
+  public boolean equals(Object obj) {
+    if ( obj == null ) return false;
+    if ( super.equals(obj) ) return true;
+    if ( !smartEquals ) return false;
+    if ( obj instanceof ParameterListenerImpl ) {
+      ParameterListenerImpl opl = (ParameterListenerImpl) obj;
+      int comp = compareTo(opl, true, false, true );
+      if ( comp != 0 ) {
+        System.out.println("not equal: " + this + " and " + opl );
+      }
+      return comp == 0;
+    }
+    return false;
+  }
+
   @Override
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2, boolean deep,
                              Set< HasParameters > seen ) {
@@ -645,7 +663,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     // if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > set = new TreeSet< Parameter< ? > >();
     // set.addAll( getParameters() );
     // if ( deep ) {
     // for ( Parameter<?> p : getParameters() ) {
@@ -757,6 +775,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
             && ( !usingTimeLimit || curTimeLeft > 0.0 )
             && ( !usingLoopLimit || numLoops < maxPassesAtConstraints ) ) {
       if ( Debug.isOn() || this.amTopEventToSimulate ) {
+        System.out.println();
+        System.out.println();
+
         if ( usingTimeLimit ) {
           System.out.println( this.getClass().getName() + " satisfy loop with "
                               + Duration.toFormattedString( (long)curTimeLeft )
@@ -1302,26 +1323,37 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   public int compareTo( ParameterListenerImpl o, boolean checkId ) {
+    return compareTo(o, checkId, false, false);
+  }
+  public int compareTo( ParameterListenerImpl o, boolean checkId, boolean onlyCheckId, boolean loosely ) {
     if ( this == o ) return 0;
     if ( o == null ) return -1;
-    if ( checkId ) return CompareUtils.compare( getId(), o.getId() );
+    if ( checkId ) {
+      int compare = CompareUtils.compare( getId(), o.getId() );
+      if ( compare == 0 ) return compare;
+      if ( onlyCheckId ) return compare;
+    }
     int compare = getClass().getName().compareTo( o.getClass().getName() );
     if ( compare != 0 ) return compare;
-    compare = getName().compareTo( o.getName() );
-    if ( compare != 0 ) return compare;
+    if ( !loosely ) {
+      compare = getName().compareTo(o.getName());
+      if (compare != 0) return compare;
+    }
     Debug.errln( "ParameterListenerImpl.compareTo() potentially accessing value information" );
     compare = CompareUtils.compareCollections( parameters, o.getParameters(),
-                                               true, checkId );
+                                               checkId && onlyCheckId, checkId && onlyCheckId );
     if ( compare != 0 ) return compare;
     compare = CompareUtils.compareCollections( dependencies, o.dependencies,
-                                               true, checkId );
+            checkId, checkId && onlyCheckId );
     if ( compare != 0 ) return compare;
     compare = CompareUtils.compareCollections( constraintExpressions,
-                                               o.constraintExpressions, true,
-                                               checkId );
+                                               o.constraintExpressions, checkId,
+            checkId && onlyCheckId );
     if ( compare != 0 ) return compare;
-    compare = CompareUtils.compare( this, o, false, checkId );
-    if ( compare != 0 ) return compare;
+    if ( !loosely ) {
+      compare = CompareUtils.compare(this, o, false, false );
+      if (compare != 0) return compare;
+    }
     return compare;
   }
 
