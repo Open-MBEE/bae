@@ -30,16 +30,6 @@ import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Utils;
 
 
-
-/**
- * 
- */
-
-/**
- * @author bclement
- * 
- */
-
 // TODO -- REVIEW -- Staleness can be managed with a bit string (one bit for
 // each node): Each node has a mask for setting downstream sinks (or checking
 // upstream sources).
@@ -66,11 +56,20 @@ public class Dependency< T > extends HasIdImpl
 
   public <T2> Dependency( Parameter< T > p, Expression< T2 > e ) {
     parameter = p;
-    parameter.setStale( true );
     expression = e;
+    if ( p == null ) {
+      Debug.error("Consstructed Dependency with null parameter!");
+      return;
+    }
+    boolean eq = p.valueEquals(e);
+    parameter.setStale(!eq);
   }
 
   public Dependency( Dependency< T > d ) {
+    if ( d == null ) {
+      Debug.error("Consstructed Dependency with null argument!");
+      return;
+    }
     parameter = new Parameter< T >( d.parameter );
     expression = new Expression( d.expression, true );
   }

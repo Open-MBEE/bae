@@ -86,6 +86,7 @@ ClassData {
   // Map: longName -> method name -> set of javaparser.MethodDeclarations
   protected Map< String, Map< String, Set< MethodDeclaration > > > methodTable =
       new TreeMap< String, Map< String, Set< MethodDeclaration > > >();
+
   // // Map class name (long?) -> set of javaparser.ConstructorDeclarations
   // protected Map< String, Set< ConstructorDeclaration> >
   // constructorDeclarations =
