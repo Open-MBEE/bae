@@ -87,15 +87,6 @@ ClassData {
   protected Map< String, Map< String, Set< MethodDeclaration > > > methodTable =
       new TreeMap< String, Map< String, Set< MethodDeclaration > > >();
 
-  // Map: className -> ConstructorDeclaration -> set of names of parameters that are
-  // initialized by the constructor.
-  public Map< String, Map< ConstructorDeclaration, Set< String > > > constructorParams =
-          new TreeMap<String, Map<ConstructorDeclaration, Set<String>>>();
-
-//  // Map: className -> ConstructorCall -> ConstructorDeclaration.
-//  public Map< String, Map< ConstructorCall, ConstructorDeclaration > > constructorCallToDeclaration =
-//          new TreeMap<String, Map<ConstructorCall, ConstructorDeclaration>>();
-
   // // Map class name (long?) -> set of javaparser.ConstructorDeclarations
   // protected Map< String, Set< ConstructorDeclaration> >
   // constructorDeclarations =

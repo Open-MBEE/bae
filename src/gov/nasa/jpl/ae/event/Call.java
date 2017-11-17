@@ -57,12 +57,6 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   protected boolean alwaysStale = false;
   public boolean alwaysNotStale = false;
 
-  // constrainedParameters is a subset of Parameters that can make the call stale.
-  // If constrainedParameters is an empty set, then the call will not be set
-  // stale for any parameter.  If it is null, then any parameter in getParameters()
-  // can make the call stale.  This is used by setStaleAnyReferenceTo().
-  public Set< Parameter<?> > constrainedParameters = null;
-
   public Object returnValue = null;  // a cached value
   
   protected boolean proactiveEvaluation = false;
@@ -1787,14 +1781,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( returnValue instanceof ParameterListener ) {
       ((ParameterListener)returnValue).handleValueChangeEvent( parameter, seen );
     }
-    
-    boolean hasParam = false;
-    hasParam = HasParameters.Helper.hasParameter( getArguments(), parameter, true, null, true );
-    // hasParam = hasParam || (!isStatic() && HasParameters.Helper.hasParameter( object, parameter, true, null, true ));
-    hasParam = hasParam || HasParameters.Helper.hasParameter( nestedCall, parameter, true, null, true );
-    if ( hasParam || hasParameter( parameter, true, null ) ) {
-      setStale(true);
-      if ( !proactiveEvaluation ) return;
+
+    if ( !proactiveEvaluation ) return;
+
+    if ( stale ) {
       try {
         evaluate( true );
       } catch ( IllegalAccessException e ) {
@@ -1808,9 +1798,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         e.printStackTrace();
       }
     }
-    // TODO Auto-generated method stub
-    
   }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.ParameterListener#handleDomainChangeEvent(gov.nasa.jpl.ae.event.Parameter)
    */
@@ -1840,13 +1829,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     seen = p.second;
     if ( changedParameter == null ) return;
 
-    // constrainedParameters is a subset of Parameters that can make the call stale.
-    // If the constrainedParameters is an empty set, then the call will not be
-    // set stale here.  If it is null, then any parameter in getParameters() can
-    // make the call stale.
-    boolean hasCPs = constrainedParameters != null;
-    if ( ( hasCPs && constrainedParameters.contains(changedParameter) ) ||
-         ( !hasCPs && hasParameter(changedParameter, false, null) ) ) {
+    if ( hasParameter( changedParameter, false, null ) ) {
       setStale(true);
     }
     // TODO -- make a helper for ParameterListener since this should be applied

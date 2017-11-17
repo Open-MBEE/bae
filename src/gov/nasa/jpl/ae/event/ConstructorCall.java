@@ -400,46 +400,6 @@ public class ConstructorCall extends Call {
     return null;
   }
 
-  
-//  @Override
-//  public boolean isStale() {
-//    if ( super.isStale() ) return true;
-//    if ( possiblyStale( newObject ) ) return true;
-//    return false;
-//  }
-
-//  @Override
-//  public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
-//    // REVIEW -- if this is buggy, consider making this a dependency.
-//    // Nested call can also be a dependency.
-//    if ( newObject != null && !isStale() && isGrounded( propagate, null ) ) {
-//      evaluationSucceeded = true;
-//      return newObject;
-//    }
-//    newObject = null;
-//    return super.evaluate( propagate );
-//  }
-  
-//  @Override
-//  public boolean substitute( Parameter< ? > p1, Parameter< ? > p2, boolean deep,
-//                             Set<HasParameters> seen ) {
-//    if ( super.substitute( p1, p2, deep, seen ) ) {
-//      this.newObject = null;
-//      setStale( true );
-//      return true;
-//    }
-//    return false;
-//  }
-
-//  @Override
-//  public boolean ground( boolean deep, Set< Groundable > seen ) {
-//    if ( seen != null && seen.contains( this ) ) return true;
-//    if ( isGrounded( deep, null ) ) return true;
-//    this.returnValue = null;
-//    setStale( true );
-//    return super.ground( deep, seen );
-//  }
-  
   @Override
   public Boolean hasTypeErrors() {
     if ( super.hasTypeErrors() ) return true;
@@ -474,7 +434,6 @@ public class ConstructorCall extends Call {
     }
     return sb.toString();
   }
-
   
   // Getters and setters   
   
@@ -504,26 +463,6 @@ public class ConstructorCall extends Call {
     }
     this.returnValue = null;
  }
-
-//  /* (non-Javadoc)
-//   * @see gov.nasa.jpl.ae.event.Call#setObject(java.lang.Object)
-//   */
-//  @Override
-//  public void setObject( Object object ) {
-//    this.object = object;
-//    this.returnValue = null;
-//    setStale( true );
-//  }
-
-//  /* (non-Javadoc)
-//   * @see gov.nasa.jpl.ae.event.Call#setArguments(java.util.Vector)
-//   */
-//  @Override
-//  public void setArguments( Vector< Object > arguments ) {
-//    super.setArguments( arguments );
-//    this.returnValue = null;
-//    setStale( true );
-//  }
 
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.Call#setNestedCall(gov.nasa.jpl.ae.event.Call)

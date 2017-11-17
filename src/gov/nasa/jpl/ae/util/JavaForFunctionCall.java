@@ -1311,35 +1311,6 @@ public class JavaForFunctionCall {
     this.convertingArgumentsToExpressions = convertingArgumentsToExpressions;
   }
 
-  public Set<String> getConstrainedParameters() {
-    Constructor<?> c = getMatchingConstructor();
-    Map<ConstructorDeclaration, Set<String>> decls = getExprXlator().getClassData().constructorParams.get(c.getName());
-
-    // Find the best matching constructor declaration.
-    int bestNumParams = 0;
-    int bestNumParamTypeMatches = 0;
-    ConstructorDeclaration bestDecl = null;
-    for ( Map.Entry<ConstructorDeclaration, Set<String>> entry : decls.entrySet() ) {
-      ConstructorDeclaration decl = entry.getKey();
-
-      Parameter lastParam = decl.getParameters().get(decl.getParameters().size() - 1);
-//      Type t = lastParam.getType();
-//      if ( lastParam.isVarArgs() ) {
-//
-//      }
-      int numParams = decl.getParameters().size();
-      // TODO --
-      if ( bestDecl == null || (numParams == c.getParameterCount() && bestNumParams != c.getParameterCount() ) ) {
-        bestDecl = decl;
-        bestNumParams = numParams;
-      }
-    }
-    if ( bestDecl != null ) {
-      return decls.get( bestDecl );
-    }
-    return null;
-  }
-
   /**
    * @return the evaluateCall
    */
