@@ -21,8 +21,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-import junit.framework.Assert;
-
 /**
  * @author bclement
  *

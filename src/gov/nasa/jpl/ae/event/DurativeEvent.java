@@ -2962,16 +2962,22 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
   @Override
   public int compareTo( ParameterListenerImpl o, boolean checkId ) {
+      return compareTo(o, checkId, false, false);
+  }
+  public int compareTo( ParameterListenerImpl o, boolean checkId, boolean onlyCheckId, boolean loosely ) {
     if ( this == o ) return 0;
     if ( o == null ) return -1;
-    if ( checkId ) return CompareUtils.compare( getId(), o.getId() );
+    if ( checkId ) {
+        int compare = CompareUtils.compare( getId(), o.getId() );
+        if ( compare == 0 ) return compare;
+        if ( onlyCheckId ) return compare;
+    }
     int compare = super.compareTo( o, checkId );
     if ( compare != 0 ) return compare;
-    // compare = Utils.compareTo( getClass().getName(), o.getClass().getName()
-    // );
-    // if ( compare != 0 ) return compare;
-    // compare = Utils.compareTo( getName(), o.getName() );
-    // if ( compare != 0 ) return compare;
+//    compare = Utils.compareTo(getClass().getName(), o.getClass().getName());
+//    if (compare != 0) return compare;
+//    compare = Utils.compareTo(getName(), o.getName());
+//    if (compare != 0) return compare;
     if ( o instanceof DurativeEvent ) {
       DurativeEvent oe = (DurativeEvent)o;
       compare = startTime.compareTo( oe.getStartTime() );
@@ -2988,8 +2994,10 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     compare = CompareUtils.compareCollections( parameters, o.getParameters(),
                                                true, checkId );
     if ( compare != 0 ) return compare;
-    compare = CompareUtils.compare( this, o, false, checkId );
-    if ( compare != 0 ) return compare;
+    if ( !loosely ) {
+      compare = CompareUtils.compare(this, o, false, checkId);
+      if (compare != 0) return compare;
+    }
     return compare;
   }
 
