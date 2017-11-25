@@ -264,7 +264,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public T getValue() {
     if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() start: " + this );
-    assert mayPropagate;
+    if ( Debug.isOn() ) assert mayPropagate;
     if ( isStale() ) {
       if ( owner != null ) {
         owner.refresh( this );
@@ -351,8 +351,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       valString = MoreToString.Helper.toShortString( val );
       Debug.outln( "Parameter.setValue(" + valString + ") start: " + this.toString( true, false, null ) );
     }
-    assert !propagateChange || mayPropagate;
-    assert mayChange;
+    if ( Debug.isOn() ) assert !propagateChange || mayPropagate;
+    if ( Debug.isOn() )assert mayChange;
     T castVal = null;
     try {
       try {
