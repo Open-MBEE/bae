@@ -2621,15 +2621,8 @@ public class EventXmlToJava {
   
   public static File[] getJavaFileList( File path )  {
     File[] fileArr = null;
-//    if (!path.exists()) {
-//      try {
-//        System.out.println(path.getCanonicalPath());
-//      } catch (Exception e) {
-//
-//      }
-//
-//    }
-    //assert path.exists();
+
+    if ( Debug.isOn() ) assert path.exists();
     fileArr = path.listFiles();
     return fileArr;
   }
@@ -2653,7 +2646,7 @@ public class EventXmlToJava {
     String pathName = packagePath(javaPath, packageName, sourceOrClass);
     if ( pathName == null ) return null;
     path = new File( pathName );
-    //assert path.exists();
+    if ( Debug.isOn() ) assert path.exists();
     if ( !justCurrentClasses ) {
       fileArr = getJavaFileList( path );
       if ( fileArr != null ) {
@@ -3098,7 +3091,7 @@ public class EventXmlToJava {
       }
     }
 
-    assert path.exists();
+    if ( Debug.isOn() ) assert path.exists();
     File[] fileArr = null;
     fileArr = getJavaFiles( javaPath, false, packageName, false, classData );//path.listFiles();
     if ( fileArr == null || fileArr.length == 0 ) {
