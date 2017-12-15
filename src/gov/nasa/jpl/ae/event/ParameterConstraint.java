@@ -41,7 +41,11 @@ public interface ParameterConstraint extends Constraint, HasParameters {
       // TODO -- REVIEW
       assert false;
     }
-    
+
+    public Parameter< ? > getParameter( String name ) {
+      return HasParameters.Helper.getParameter(this, name);
+    }
+
     public static boolean hasParameter( HasParameters o, Parameter< ? > parameter,
                                         boolean deep,
                                         Set<HasParameters> seen ) {

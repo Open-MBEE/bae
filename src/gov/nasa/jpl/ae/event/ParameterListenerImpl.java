@@ -57,7 +57,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean snapshotToSameFile = true;
   protected int loopsPerSnapshot = 20; // set to 1 to take snapshot every time
   protected String baseSnapshotFileName = "simulationSnapshot.txt";
-  protected boolean amTopEventToSimulate = false;
+  public boolean amTopEventToSimulate = false;
 
 //  protected boolean redirectStdOut = false;
 //  protected PrintStream oldOut = System.out;
@@ -648,6 +648,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     }
     return set;
   }
+
+  @Override
+  public Parameter< ? > getParameter( String name ) {
+    return HasParameters.Helper.getParameter( this, name );
+  }
+
 
   // Gather any parameter instances contained by this event.
   /*

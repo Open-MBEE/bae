@@ -66,6 +66,12 @@ public class EffectInstance extends HasIdImpl implements HasParameters {
   public void setStale( boolean staleness ) {
     Assert.assertTrue( "This method is not supported!", false );
   }
+
+  @Override
+  public Parameter< ? > getParameter( String name ) {
+    return HasParameters.Helper.getParameter( this, name );
+  }
+
   @Override
   public Set< Parameter< ? > > getParameters( boolean deep,
                                               Set< HasParameters > seen ) {

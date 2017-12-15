@@ -458,7 +458,11 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
     this.event  = event;
   }
 
-  
+  @Override
+  public Parameter< ? > getParameter( String name ) {
+    return HasParameters.Helper.getParameter( this, name );
+  }
+
   @Override
   public Set< Parameter< ? > > getParameters( boolean deep,
                                               Set< HasParameters > seen ) {

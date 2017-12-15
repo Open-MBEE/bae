@@ -297,6 +297,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
 
     @Override
+    public Parameter<?> getParameter(String name) {
+      return HasParameters.Helper.getParameter(this, name);
+    }
+
+    @Override
     public boolean substitute( Parameter< ? > p1, Parameter< ? > p2,
                                boolean deep,
                                Set< HasParameters > seen ) {
@@ -1329,6 +1334,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       return true;
     }
     return false;
+  }
+
+  @Override
+  public Parameter<?> getParameter(String name) {
+      return HasParameters.Helper.getParameter(this, name);
   }
 
   @Override

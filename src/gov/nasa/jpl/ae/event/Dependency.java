@@ -340,6 +340,11 @@ public class Dependency< T > extends HasIdImpl
     return subbed;
   }
 
+  @Override
+  public Parameter< ? > getParameter( String name ) {
+    return HasParameters.Helper.getParameter( this, name );
+  }
+
   // Gather the parameters of the expression and the dependent parameter.
   @Override
   public Set< Parameter< ? > > getParameters( boolean deep,

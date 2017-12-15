@@ -454,7 +454,23 @@ public class EventXmlToJava {
     constructors.addAll( createConstructors( this.xmlDocDOM, constructors ) );
     addConstructors( constructors, getClassData() );
   }
-  
+
+  public static List<ConstructorDeclaration> getConstructors(String className, ClassData classData) {
+    List<ConstructorDeclaration> ctors = new ArrayList<ConstructorDeclaration>();
+    TypeDeclaration type = getTypeDeclaration(className, classData);
+    if (type == null) {
+      error("No type found named, " + className + "!");
+      return ctors;
+    }
+    ConstructorDeclaration ctorToReplace = null;
+    for (BodyDeclaration bd : type.getMembers()) {
+      if (bd instanceof ConstructorDeclaration) {
+        ctors.add((ConstructorDeclaration) bd);
+      }
+    }
+    return ctors;
+  }
+
   public static void addConstructors(Collection< ConstructorDeclaration > constructors,
                                      ClassData classData) {
 
@@ -462,21 +478,19 @@ public class EventXmlToJava {
       TypeDeclaration type = getTypeDeclaration( c.getName(), classData );
       boolean alreadyAdded = false;
       if ( type == null ) {
-        error( "No type found for constructor! " + c );
+        error( "No type found for " + c + "! " );
       } else if ( c != null ) {
+        List<ConstructorDeclaration> existingCtors = getConstructors( c.getName(), classData );
         ConstructorDeclaration ctorToReplace = null;
-        for ( BodyDeclaration bd : type.getMembers() ) {
-          if ( bd instanceof ConstructorDeclaration ) {
-            if ( equals(c, (ConstructorDeclaration)bd ) ) {
+        for ( ConstructorDeclaration cd : existingCtors ) {
+            if ( equals(c, cd ) ) {
               if ( Utils.isNullOrEmpty( c.getParameters() ) ) {
-                Debug.outln( "found constructor to replace:\n" + bd );
-                ctorToReplace = (ConstructorDeclaration)bd;
+                Debug.outln( "found constructor to replace:\n" + cd );
+                ctorToReplace = cd;
               }
               alreadyAdded = true;
               break;
             }
-            Debug.outln( "not replacing constructor:\n" + bd );
-          }
         }
         if ( !alreadyAdded || ctorToReplace != null ) {
           if ( ctorToReplace != null ) {
@@ -573,7 +587,15 @@ public class EventXmlToJava {
     // Create public static main( String args[] ) { }
     // First, create main() { }
     int mods = ModifierSet.PUBLIC | ModifierSet.STATIC;
-    
+
+    MethodDeclaration setupMethodDecl =
+            new MethodDeclaration( mods, new VoidType(), "setup" );
+    BlockStmt setupBody = new BlockStmt();
+    setupMethodDecl.setBody( setupBody );
+    MethodDeclaration runMethodDecl =
+            new MethodDeclaration( mods, new ClassOrInterfaceType("Main"), "run" );
+    BlockStmt runBody = new BlockStmt();
+    runMethodDecl.setBody( runBody );
     MethodDeclaration mainMethodDecl =
         new MethodDeclaration( mods, new VoidType(), "main" );
     BlockStmt mainBody = new BlockStmt();
@@ -589,15 +611,15 @@ public class EventXmlToJava {
     // REVIEW -- We need a scenario event that requires these arguments in the
     // constructor to ensure they are set up front.
     //String epochString = Timepoint.toTimestamp( Timepoint.getEpoch().getTime() );
-    addStatements( mainBody,
+    addStatements( setupBody,
                    "Timepoint.setUnits(\"" + Timepoint.getUnits() + "\");\n" );
-    addStatements( mainBody,
+    addStatements( setupBody,
                    "Timepoint.setEpoch(\"" + Timepoint.getEpoch() + "\");\n" );
-    addStatements( mainBody,
+    addStatements( setupBody,
                    "Timepoint.setHorizonDuration("
                    + Timepoint.getHorizonDuration() + "L);\n" );
     for ( String path : TimeVaryingMap.resourcePaths ) {
-      addStatements( mainBody,"TimeVaryingMap.resourcePaths.add(\"" + path + "\");\n" );
+      addStatements( setupBody,"TimeVaryingMap.resourcePaths.add(\"" + path + "\");\n" );
     }
 
     // Create String args[].
@@ -607,8 +629,11 @@ public class EventXmlToJava {
         new japa.parser.ast.body.Parameter( type, id );
     // Wire everything together. 
     ASTHelper.addParameter( mainMethodDecl, parameter  );
+    ASTHelper.addParameter( runMethodDecl, parameter  );
+    ASTHelper.addMember( newClassDecl, setupMethodDecl );
+    ASTHelper.addMember( newClassDecl, runMethodDecl );
     ASTHelper.addMember( newClassDecl, mainMethodDecl );
-    
+
     // Now add statements to main()
     
     // Get the name/class of the event to execute
@@ -671,8 +696,12 @@ public class EventXmlToJava {
     // Put the statements in the constructor.
     //addStatements( ctorBody, stmtsCtor.toString() );
     
-    // Put the statements in main().
-    addStatements( mainBody, stmtsMain.toString() );
+    // Put the statements in run() and main().
+    addStatements(runBody, "setup();\n" );
+    addStatements(runBody, stmtsMain.toString() );
+    addStatements(runBody, "return scenario;\n" );
+
+    addStatements(mainBody, "run(args);\n");
   }
 
   protected static void addExtends( ClassOrInterfaceDeclaration newClassDecl,
@@ -3254,27 +3283,27 @@ public class EventXmlToJava {
     }
     return runMain();
   }
-  public static boolean compileLoadAndRun( String projectPath, String packageName,
-                                           Class<?> mainClass, ClassData classData,
-                                           ClassLoader loader,
-                                           StandardJavaFileManager fileManager) {
+  public static Pair< Boolean, Object > compileLoadAndRun( String projectPath, String packageName,
+                                                           Class<?> mainClass, ClassData classData,
+                                                           ClassLoader loader,
+                                                           StandardJavaFileManager fileManager) {
     ArrayList<String> javaFiles = null;
     return compileLoadAndRun(javaFiles, projectPath, packageName, mainClass, classData, loader, fileManager);
   }
-  public static boolean compileLoadAndRun( ArrayList<String> javaFiles, String projectPath, String packageName,
-                                           Class<?> mainClass, ClassData classData,
-                                           ClassLoader loader,
-                                           StandardJavaFileManager fileManager) {
+  public static Pair< Boolean, Object >  compileLoadAndRun( ArrayList<String> javaFiles, String projectPath, String packageName,
+                                                            Class<?> mainClass, ClassData classData,
+                                                            ClassLoader loader,
+                                                            StandardJavaFileManager fileManager) {
     // TODO -- using the passed in loader as a backup for another is not expected.
     ClassLoader c = getLoader();
     if ( c == null ) c = loader;
     Pair<Boolean, Class<?>> p = compileAndLoad(javaFiles, projectPath, packageName, mainClass, classData,
             c, fileManager);
-    if ( p == null || p.first == null ) return false;
+    if ( p == null || p.first == null ) return null;
     boolean succ = p.first;
-    if ( !succ ) return false;
+    if ( !succ ) return null;
     if ( p.second != null ) mainClass = p.second;
-    return runMain(c, mainClass);
+    return runRun(c, mainClass);
   }
 
   public Class<?> getMainClass() {
@@ -3335,6 +3364,15 @@ public class EventXmlToJava {
     Pair< Boolean, Object > p =
         ClassUtils.runMethod( false, mainClass, "main", (Object[])args );
     return p.first;
+  }
+
+  public static Pair< Boolean, Object > runRun(ClassLoader loader, Class<?> mainClass) {
+    boolean succ = false;
+    String args[] = new String[] { null };
+    Utils.loader = loader;
+    Pair< Boolean, Object > p =
+            ClassUtils.runMethod( false, mainClass, "run", (Object[])args );
+    return p;
   }
 
   public DurativeEvent generateExecution() {

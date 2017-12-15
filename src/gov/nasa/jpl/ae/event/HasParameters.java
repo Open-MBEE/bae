@@ -33,6 +33,9 @@ public interface HasParameters extends LazyUpdate, HasId<Integer>, Deconstructab
   public boolean hasParameter( Parameter< ? > parameter, boolean deep,
                                Set< HasParameters > seen );
 
+  public Parameter< ? > getParameter( String name );
+
+
   public boolean substitute( Parameter< ? > p1, Parameter< ? > p2,
                              boolean deep, Set< HasParameters > seen );
   public boolean substitute( Parameter< ? > p1, Object exp,
@@ -101,6 +104,17 @@ public interface HasParameters extends LazyUpdate, HasId<Integer>, Deconstructab
 //        }
       }
     }
+
+    public static Parameter<?> getParameter( Object o, String name) {
+      if ( name == null ) return null;
+      Set< Parameter< ? > > params = Helper.getParameters(o, false, null, true);
+      // TODO -- Would be faster to lookup in a map or to walk a TreeMap if sorted by name.
+      for ( Parameter<?> p : params ) {
+        if (p.getName() != null && p.getName().equals(name) ) return p;
+      }
+      return null;
+    }
+
 
     // WARNING! don't call this from o.hasParameter() -- infinite loop
     public static boolean hasParameter( Object o, Parameter< ? > p,

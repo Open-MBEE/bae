@@ -875,7 +875,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
     return set;
   }
-  
+
+  @Override
+  public Parameter< ? > getParameter( String name ) {
+    return HasParameters.Helper.getParameter( this, name );
+  }
+
 
   @Override
   public Set< Parameter< ? > > getParameters( boolean deep,

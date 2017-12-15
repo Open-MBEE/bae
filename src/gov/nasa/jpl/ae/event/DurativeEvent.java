@@ -171,6 +171,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         }
 
         @Override
+        public Parameter< ? > getParameter( String name ) {
+            return HasParameters.Helper.getParameter( this, name );
+        }
+
+        @Override
         public Set< Parameter< ? > >
                getParameters( boolean deep, Set< HasParameters > seen ) {
           Pair< Boolean, Set< HasParameters > > pair =
@@ -345,6 +350,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
             }
           }
           return true;
+        }
+
+        @Override
+        public Parameter< ? > getParameter( String name ) {
+            return HasParameters.Helper.getParameter( this, name );
         }
 
         @Override
