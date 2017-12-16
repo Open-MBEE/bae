@@ -793,6 +793,13 @@ public class Dependency< T > extends HasIdImpl
     return expression;
   }
 
+  /**
+   * @return the sink Parameter of this Dependency
+   */
+  public Parameter<T> getParameter() {
+    return parameter;
+  }
+
   @Override
   public CollectionTree getConstraintCollection(boolean deep, Set< HasConstraints > seen) {
     // TODO Auto-generated method stub

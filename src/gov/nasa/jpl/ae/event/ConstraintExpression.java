@@ -129,6 +129,40 @@ public class ConstraintExpression extends Expression< Boolean >
     return new Pair<Parameter<?>, Object>(dependentVar, value);
   }
 
+  protected static Set<String> equalFunctionNames =
+          new LinkedHashSet<String>(Utils.arrayAsList(new String[]{
+                  "eq", "equal", "equals", "is", "=", "==", "equivalent"
+          }));
+
+  public boolean canBeDependency() {
+    if ( !isEqualsFunction() ) {
+      return false;
+    }
+    Pair<Parameter<?>, Object> pair = dependencyLikeVar();
+    if ( pair == null || pair.first == null ) return false;
+//    try {
+//      Parameter<?> p = Expression.evaluate(pair.first, Parameter.class, false);
+//      if ( p == null ) return false;
+//      if ( pair.second == null ||
+//           !HasParameters.Helper.hasParameter(pair.second, p, false, null, true) ) {
+        return true;
+//      }
+//    } catch (IllegalAccessException e) {
+//    } catch (InvocationTargetException e) {
+//    } catch (InstantiationException e) {
+//    }
+//    return false;
+  }
+
+  public boolean isEqualsFunction() {
+    if ( this.form != Form.Function || !(this.expression instanceof FunctionCall) ) return false;
+    FunctionCall fc = (FunctionCall)this.expression;
+    if ( equalFunctionNames.contains(fc.method.getName().toLowerCase()) ) {
+      return true;
+    }
+    return false;
+  }
+
   public Pair<Parameter<?>, Object> dependencyLikeVar() {
     ConstraintExpression ce = this;
     if ( !( ce.expression instanceof Functions.EQ ) ) {
