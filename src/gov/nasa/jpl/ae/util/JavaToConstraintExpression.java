@@ -801,6 +801,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     /*** NameExpr ***/
     } else if ( expr.getClass() == NameExpr.class ) {
       middle = nameExprToAe( (NameExpr)expr, true, evaluateCall, getParameterValue, true );
+      if ( middle != null && middle.equals("time") ) {
+        middle = "TimeVaryingMap.time";
+      }
     /*** ThisExpr ***/
     } else if ( expr.getClass() == ThisExpr.class ) {
       middle = expr.toString(); // just "this", right?
@@ -1405,6 +1408,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         }
       } else if ( expr.getClass() == NameExpr.class ) {
         name = ( (NameExpr)expr ).getName();
+        if ( name != null && name.equals("time") ) {
+          result = "TimeVaryingMap<Double>";
+        }
   /*      // HACK? to avoid errors for package name prefix.  What about org?
         if ( name.equals( "java" ) ) {
           result = "java";
@@ -2180,6 +2186,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                               boolean propagate, boolean complainIfNotFound ) {
       
       String aeString = nameExpr.getName();
+      if ( aeString != null && aeString.equals("time") ) {
+        aeString = "TimeVaryingMap.time";
+      }
       //ClassData.Param p = classData.lookupCurrentClassMember( aeString, false, false );
       //if ( p == null ) 
       ClassData.Param p = getClassData().getParam( null, aeString, true, true,

@@ -142,7 +142,32 @@ ClassData {
   private CompilationUnit currentCompilationUnit = null;
 
 
-  
+  public String getClassNameWithoutScope( String className ) {
+    if ( Utils.isNullOrEmpty(className) ) return className;
+    int pos = className.lastIndexOf('.');
+    if ( pos < 0 ) return className;
+    int pos1 = className.lastIndexOf('<');
+    if ( pos1 < 0 || pos1 > pos ) {
+      return className.substring(pos+1);
+    }
+    int braketCt = 0;
+    pos = className.length()-1;
+    while (pos >= 0) {
+      char c = className.charAt(pos);
+      if ( braketCt == 0 && c == '.') {
+        return className.substring(pos+1);
+      }
+      if ( c == '<') {
+        braketCt -= 1;
+      }
+      if ( c == '>') {
+        braketCt += 1;
+      }
+      pos += 1;
+    }
+    return className;
+  }
+
   /**
    * Try to figure out the scope of the class name if an inner class, and return
    * the scoped class name.
@@ -784,7 +809,14 @@ ClassData {
       }
       String scopedName = getClassNameWithScope( className );
       if ( !Utils.isNullOrEmpty( scopedName ) ) {
-        enclosingClassName = nestedToEnclosingClassNames.get( scopedName ); 
+        if (!scopedName.equals(className)) {
+          enclosingClassName = nestedToEnclosingClassNames.get(scopedName);
+        } else {
+          String descopedName = getClassNameWithoutScope( className );
+          if ( !Utils.isNullOrEmpty( descopedName ) ) {
+            enclosingClassName = nestedToEnclosingClassNames.get(descopedName);
+          }
+        }
   //      if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
   //        return true;
   //      }

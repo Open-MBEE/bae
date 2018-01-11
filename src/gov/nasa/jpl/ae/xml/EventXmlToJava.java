@@ -1465,6 +1465,16 @@ public class EventXmlToJava {
                 getClassData().getNestedToEnclosingClassNames().put( childClassName, parentClassName );
                 if ( Debug.isOn() ) Debug.outln( "nestedToEnclosingClassNames.put( "
                              + childClassName + ", " + parentClassName + " )" );
+                int pos = childClassName.lastIndexOf('.');
+                if ( pos >= 0 ) {
+                  String simpleClassName = childClassName.substring(pos+1);
+                  String maybeParentClassName = childClassName.substring(0, pos);
+                  if ( !Utils.isNullOrEmpty(simpleClassName) && maybeParentClassName.equals(parentClassName)) {
+                    getClassData().getNestedToEnclosingClassNames().put( simpleClassName, parentClassName );
+                    if ( Debug.isOn() ) Debug.outln( "nestedToEnclosingClassNames.put( "
+                            + simpleClassName + ", " + parentClassName + " )" );
+                  }
+                }
               }
             } else {
               if ( Debug.isOn() ) Debug.outln( childClassName + " is not a nested class of "
