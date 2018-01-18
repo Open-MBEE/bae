@@ -451,7 +451,7 @@ ClassData {
 //  }
   public < T > Parameter< T > makeParameter( String className, Param p ) {//, Class< T > type ) {
     ParameterListenerImpl aeClass = getAeClass( className, true );
-    Parameter < T > parameter = constructParameter( className, p );//new Parameter< T >( p.name, null, p.value, aeClass );
+    Parameter < T > parameter = constructParameter( className, p, null );//new Parameter< T >( p.name, null, p.value, aeClass );
     aeClass.getParameters().add( parameter );
     parameterMap.put( p, parameter );
     return parameter;
@@ -514,7 +514,8 @@ ClassData {
   public PTA
       convertToParameterTypeAndConstructorArguments( String paramName,
                                                      String paramTypeName,
-                                                     String classNameOfParameter ) {
+                                                     String classNameOfParameter,
+                                                     String enclosingObject) {
     PTA typesAndArgs = null;
     
     Class< ? extends Parameter< ? > > paramType = null;
@@ -647,9 +648,10 @@ ClassData {
 
   public ClassData.PTA
   convertToEventParameterTypeAndConstructorArguments( ClassData.Param p,
-                                                      String classNameOfParameter ) {
+                                                      String classNameOfParameter,
+                                                      String enclosingObject) {
     return convertToParameterTypeAndConstructorArguments( p.name, p.type,
-                                                          classNameOfParameter );
+                                                          classNameOfParameter, enclosingObject );
   }
   
   /**
@@ -659,9 +661,10 @@ ClassData {
    * @return a parameter
    */
   public < P extends Parameter< ? > > P constructParameter( String className,
-                                                            Param param ) {
+                                                            Param param,
+                                                            String enclosingObject) {
     PTA pta =
-        convertToParameterTypeAndConstructorArguments( param.name, param.type, className );
+        convertToParameterTypeAndConstructorArguments( param.name, param.type, className, enclosingObject );
     Class< P > cls = (Class< P >)pta.paramType;
     ConstructorCall call = new ConstructorCall( null, cls, pta.argArr, (Class<?>)null );
     P parameter = null;
@@ -742,6 +745,7 @@ ClassData {
       }
     }
 
+    // FIXME -- TODO -- Superclasses should be explored before enclosing classes!!!
     if ( p == null ) {
       ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
       if ( clsDecl != null ) {

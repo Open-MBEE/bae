@@ -1470,6 +1470,10 @@ public class JavaForFunctionCall {
             JavaToConstraintExpression.unaryOpNameToEventFunction( operationName.toString(),
                                                                    null,
                                                                    false );
+        if ( call == null ) {
+          //call = JavaToConstraintExpression.javaCallToEventFunction()
+
+        }
       } else if ( argSize == 2 ) {
         call =
             JavaToConstraintExpression.binaryOpNameToEventFunction( operationName.toString(),

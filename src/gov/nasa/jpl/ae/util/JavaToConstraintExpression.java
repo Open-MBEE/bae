@@ -680,7 +680,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
   }
 
   public String getConstructorString( ClassData.Param p ) {
-    String args[] = convertToEventParameterTypeAndConstructorArgs( p );
+    String args[] = convertToEventParameterTypeAndConstructorArgs( p, null );
     String s = constructorStringOfGenericType(p.name, args[ 0 ],
                                               args[ 1 ], args[ 2 ] );
     return s;
@@ -735,8 +735,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // compile errors.
     boolean isTimeVarying = classlessType != null && classlessType.contains("TimeVarying");
 
+    String classlessTypeWithScope = getClassData().getClassNameWithScope(classlessType);
+
     final String prefix =
-        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessType ) ? "" : "<" + classlessType + ">" ) + "( ";
+        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessTypeWithScope ) ? "" : "<" + classlessTypeWithScope + ">" ) + "( ";
     final String suffix = " )";
     String middle = null;
     /*** BinaryExpr ***/
@@ -2273,21 +2275,30 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     }
     return expr;
   }
-  
-  public String getDomainString(String type) {
-    if (!type.equals( "Integer" ) && !type.equals("Boolean") &&!type.equals( "Double" ) && !type.equals( "String" )) {
-      String enclosing = getClassData().getEnclosingClassName(type);
-      if (enclosing != null) {
-        return "new ObjectDomain<" + type + ">(" + type + ".class, " + enclosing + ".this)";
 
+  // Had to dodge the domain code in order to get 'Foo.new Bar()' to work.
+  protected static boolean useObjectDomain = false;
+
+  public String getDomainString(String type, String enclosingObject) {
+    if (!useObjectDomain) return "null";
+    if (!type.equals( "Integer" ) && !type.equals("Boolean") &&!type.equals( "Double" ) && !type.equals( "String" )) {
+      if ( Utils.isNullOrEmpty(enclosingObject) ) {
+        String enclosing = getClassData().getEnclosingClassName(type);
+        if (enclosing != null) {
+          enclosingObject = enclosing + ".this";
+        }
+      }
+      if ( !Utils.isNullOrEmpty(enclosingObject) ) {
+        return "new ObjectDomain<" + type + ">(" + type + ".class, " + enclosingObject + ")";
       }
     }
     return "null";
   }
   
 
-  public String[] convertToEventParameterTypeAndConstructorArgs( ClassData.Param p ) {
-    return convertToEventParameterTypeAndConstructorArgs( p, getCurrentClass() );
+  public String[] convertToEventParameterTypeAndConstructorArgs( ClassData.Param p,
+                                                                 String enclosingObject ) {
+    return convertToEventParameterTypeAndConstructorArgs( p, getCurrentClass(), enclosingObject );
   }
   
 
@@ -2299,7 +2310,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
    */
   public String[]
       convertToEventParameterTypeAndConstructorArgs( ClassData.Param p,
-                                                     String classOfParameterName ) {
+                                                     String classOfParameterName,
+                                                     String enclosingObject ) {
     if (p.type == null || p.type.isEmpty() || p.type.equalsIgnoreCase("null")) {
       ClassData.Param pDef =
               getClassData().lookupMemberByName(classOfParameterName, p.name,
@@ -2309,7 +2321,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         p.type = pDef.type;
       }
     }
-    return convertToTypeAndConstructorArgs( p );
+    return convertToTypeAndConstructorArgs( p, enclosingObject );
   }
 
   /**
@@ -2317,7 +2329,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
    * @param p
    * @return
    */
-  public String[] convertToTypeAndConstructorArgs( ClassData.Param p ) {
+  public String[] convertToTypeAndConstructorArgs( ClassData.Param p, String enclosingObject ) {
     boolean evaluateForType = true;
 
     String ret[] = new String[ 3 ];
@@ -2334,7 +2346,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // do not include p.value?
     String valueArg = javaToAeExpr( p.value, p.type, false, true, true );
     String typePlaceholder = "!TYPE!";
-    String domain = getDomainString(p.type);
+    String domain = getDomainString(p.type, enclosingObject);
 //    // if ( valueArg.equals( "null" )
 //    // || ( valueArg.startsWith( "new Expression" ) &&
 //    // valueArg.endsWith( "(null)" ) ) ) {
@@ -2471,11 +2483,12 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
    */
   public ClassData.PTA
       convertToEventParameterTypeAndConstructorArguments( ClassData.Param p,
-                                                          String classNameOfParameter ) {
+                                                          String classNameOfParameter,
+                                                          String enclosingObject ) {
     
     // TODO -- Remove overlap of this and ClassData.convertToParameterTypeAndConstructorArguments()
     
-    String[] result = convertToEventParameterTypeAndConstructorArgs( p, classNameOfParameter );
+    String[] result = convertToEventParameterTypeAndConstructorArgs( p, classNameOfParameter, enclosingObject );
 //    Object ret[] = new Object[ 3 ];
     Class< ? > type = ClassUtils.getClassForName( result[0], null, getClassData().getPackageName(), false );
     Class< ? > parameterType = ClassUtils.getClassForName( result[1], null, getClassData().getPackageName(), false );

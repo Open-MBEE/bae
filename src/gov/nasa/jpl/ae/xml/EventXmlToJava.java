@@ -882,6 +882,12 @@ public class EventXmlToJava {
                                                true, false );
         }
       }
+      if ( p.type != null ) {
+        p.type = p.type.replaceFirst(".class$","");
+        if ( p.name.endsWith("Time") && p.type.endsWith("Timepoint") ) {
+          p.type = "Long";
+        }
+      }
       japa.parser.ast.body.Parameter param =
               ASTHelper.createParameter( new ClassOrInterfaceType( "Expression<"
                                                                    + ClassUtils.getNonPrimitiveClassName( p.type )
@@ -1647,7 +1653,7 @@ public class EventXmlToJava {
   }
 
   public FieldDeclaration createParameterField( ClassData.Param p ) {
-    String args[] = expressionTranslator.convertToEventParameterTypeAndConstructorArgs( p );
+    String args[] = expressionTranslator.convertToEventParameterTypeAndConstructorArgs( p, null );
     // return createFieldOfGenericType( p.name, type, p.type, args );
     return createFieldOfGenericType( p.name, args[ 0 ],
                                      null,//args[ 1 ],
@@ -1660,7 +1666,7 @@ public class EventXmlToJava {
     if ( initMembers == null ) {
       return createParameterField( p );
     }
-    String args[] = expressionTranslator.convertToEventParameterTypeAndConstructorArgs( p );
+    String args[] = expressionTranslator.convertToEventParameterTypeAndConstructorArgs( p, null );
     Statement s =
         createAssignmentOfGenericType( p.name, args[ 0 ],
                                        args[ 1 ],
@@ -1676,8 +1682,8 @@ public class EventXmlToJava {
     return f;
   }
 
-  public void addParameterField( TypeDeclaration typeDecl, ClassData.Param p ) {
-    FieldDeclaration f = createParameterField( p );
+  public void addParameterField( TypeDeclaration typeDecl, ClassData.Param p, String enclosingObject ) {
+    FieldDeclaration f = createParameterField( p );//, enclosingObject );
     ASTHelper.addMember( typeDecl, f );
   }
 
