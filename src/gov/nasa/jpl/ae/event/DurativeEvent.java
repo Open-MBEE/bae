@@ -2419,8 +2419,15 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
             set.add((Event) deo );
         }
         if ( deep ) {
-            if ( o instanceof HasEvents ) {
-                set = Utils.addAll( set, ( (HasEvents)o ).getEvents( deep, seen ) );
+            deo = null;
+            try {
+                deo = Expression.evaluate(o, HasEvents.class, false);
+            } catch (IllegalAccessException e) {
+            } catch (InvocationTargetException e) {
+            } catch (InstantiationException e) {
+            }
+            if ( deo instanceof HasEvents ) {
+                set = Utils.addAll( set, ( (HasEvents)deo ).getEvents( deep, seen ) );
             }
         }
     }
