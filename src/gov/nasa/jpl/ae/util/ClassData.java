@@ -178,15 +178,12 @@ ClassData {
   public String getClassNameWithScope( String className ) {
     if ( Utils.isNullOrEmpty( className ) ) return null;
     // Return input class name if in table.
-    if ( paramTable.keySet().contains( className ) ) {
-      // Note: this.paramTable is used because it is populated at the beginning.
-      // this.methodTable could also be used. this.classes cannot be used since
-      // it only contains classes processed so far.
+    if ( getClassNames().contains( className ) ) {
       return className;
     }
     // See if the class is an inner class of the current class
     String classNameWithScope = this.currentClass + "." + className;
-    if ( paramTable.keySet().contains( classNameWithScope ) ) {
+    if ( getClassNames().contains( classNameWithScope ) ) {
       return classNameWithScope;
     }
 
@@ -194,7 +191,7 @@ ClassData {
     // name. Pick the one that seems to be "best" and print a warning if not
     // sure.
     String otherClassName = null;
-    for ( String n : paramTable.keySet() ) {
+    for ( String n : getClassNames() ) {
       if ( n.endsWith( className )
            && ( n.length() == className.length() || n.charAt( n.lastIndexOf( className ) - 1 ) == '.' ) ) {
         if ( otherClassName != null && otherClassName.endsWith( className ) ) {
@@ -1198,6 +1195,25 @@ ClassData {
  */
 public Map< String, CompilationUnit > getClasses() {
     return classes;
+}
+
+/**
+ * @return the names of the classes
+ */
+public Set<String> getClassNames() {
+  // Note: this.paramTable is used because it is populated at the beginning.
+  // this.methodTable could also be used. this.classes cannot be used since
+  // it only contains classes processed so far.
+  return paramTable.keySet();
+}
+
+public boolean isClassName( String name ) {
+  if ( Utils.isNullOrEmpty( name ) ) return false;
+  if ( getClassNames().contains( name ) ) return true;
+  String classNameWithScope = getClassNameWithScope( name );
+  if ( Utils.isNullOrEmpty( classNameWithScope ) ) return false;
+  if ( getClassNames().contains( classNameWithScope ) ) return true;
+  return false;
 }
 
 /**

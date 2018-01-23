@@ -756,6 +756,19 @@ public class JavaForFunctionCall {
   }
 
   /**
+   * @return the callName
+   */
+  public String getConstructorCallNameWithScope() {
+    String c = getCallName();
+    if ( Utils.isNullOrEmpty( c ) ) return null;
+    String cws = getExprXlator().getClassData().getClassNameWithoutScope( c );
+    if ( !Utils.isNullOrEmpty( cws ) && !cws.equals( c ) ) {
+      return cws;
+    }
+    return c;
+  }
+
+  /**
    * @param callName
    *          the callName to set
    */
@@ -1053,7 +1066,11 @@ public class JavaForFunctionCall {
       Method m = getMatchingMethod();
       Constructor c = getMatchingConstructor();
 
-      if ( m == null && c != null ) setMethodOrConstructor( false );
+      if ( m == null && c == null ) {
+        if ( getExprXlator().getClassData().isClassName(getCallName()) ) {
+          setMethodOrConstructor( false );
+        }
+      } else if ( m == null && c != null ) setMethodOrConstructor( false );
       else if ( c == null && m != null ) setMethodOrConstructor( true );
 
       StringBuffer methodJavaSb = new StringBuffer();
@@ -1131,8 +1148,9 @@ public class JavaForFunctionCall {
         }
         
       } else {
+        String callName = getConstructorCallNameWithScope();
         methodJavaSb.append( "ClassUtils.getConstructorForArgTypes("
-                             + ClassUtils.noParameterName( getCallName() )
+                             + ClassUtils.noParameterName( callName )
                              + ".class" );
         if ( getConstructorDecl() != null ) {
           if ( getConstructorDecl() != null
