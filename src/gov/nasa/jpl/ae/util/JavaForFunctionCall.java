@@ -761,7 +761,7 @@ public class JavaForFunctionCall {
   public String getConstructorCallNameWithScope() {
     String c = getCallName();
     if ( Utils.isNullOrEmpty( c ) ) return null;
-    String cws = getExprXlator().getClassData().getClassNameWithoutScope( c );
+    String cws = getExprXlator().getClassData().getClassNameWithScope( c );
     if ( !Utils.isNullOrEmpty( cws ) && !cws.equals( c ) ) {
       return cws;
     }
