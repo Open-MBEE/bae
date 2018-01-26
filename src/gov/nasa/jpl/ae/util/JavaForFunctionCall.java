@@ -20,6 +20,7 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.time.Duration;
 
 /**
  * @author bclement
@@ -61,6 +62,8 @@ public class JavaForFunctionCall {
 
   protected Boolean isTimeVarying = null;
   protected Boolean timeVaryingCall = null;
+
+  private Duration dummyForClassLoader = new Duration();
 
   // /**
   // * When expressions are passed to functions that are expecting parameters, a

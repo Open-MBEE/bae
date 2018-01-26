@@ -599,6 +599,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // convert types to Class equivalents
     // TODO -- REVIEW -- other than "time", shouldn't this be in ClassUtils?
     if ( type.toLowerCase().equals( "time" )
+        || type.toLowerCase().startsWith( "duration" )
         || type.toLowerCase().startsWith( "long" ) ) {
       type = "Long";
     } else if ( type.toLowerCase().startsWith( "int" )
@@ -646,10 +647,12 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     if ( Arrays.asList( primClassesSame ).contains( type ) ) {
       return type.toLowerCase();
     }
-    if ( type.toLowerCase().equals( "integer" ) 
-         || type.toLowerCase().equals( "time" )
-         || type.toLowerCase().equals( "timepoint" ) 
-         || type.toLowerCase().equals( "duration" ) ) { 
+    if ( type.toLowerCase().equals( "time" )
+         || type.toLowerCase().equals( "timepoint" )
+         || type.toLowerCase().equals( "duration" ) ) {
+      return "long";
+    }
+    if ( type.toLowerCase().equals( "integer" ) ) {
       return "int";
     }
     if ( type.toLowerCase().equals( "real" ) ) {

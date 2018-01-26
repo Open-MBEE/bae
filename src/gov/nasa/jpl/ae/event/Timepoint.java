@@ -33,14 +33,14 @@ public class Timepoint extends LongParameter implements TimeVariable {//FIXME --
   //    $ date; date '+%s'
   //    Fri, Jul 06, 2012  3:48:55 PM
   //    1341614935
-  // The units of time and the epoch are specified by Units units below.  
-  protected static Date epoch = new Date();
+  // The units of time and the epoch are specified by Units units below.
+  protected static Date epoch = new Date(0);
   protected static Date horizon = null;
   // The unit of time for the epoch and all other integer values of time.  
   protected static TimeUtils.Units units = TimeUtils.Units.seconds;
 
   protected static int counter = 0;
-  protected static long horizonDuration = 24 * 3600;
+  protected static long horizonDuration = 24L * 3600 * 200 * (4 * 365 + 1) / 4;  // 200 years
   
   private final static Timepoint epochTimepoint = new Timepoint( "", 0L, null );
   private static Timepoint horizonTimepoint = null;
@@ -76,9 +76,9 @@ public class Timepoint extends LongParameter implements TimeVariable {//FIXME --
   }
 
 	/**
-	 * @param o 
-	 * @param n
-	 * @param v
+	 * @param name
+	 * @param value
+	 * @param o
 	 */
 	public Timepoint(String name, Long value, ParameterListener o) {
 		super(name, defaultDomain, value, o);
