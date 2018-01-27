@@ -35,13 +35,20 @@ ClassData {
     public String name;
     public String type;
     public String value;
+    public String scope;
   
-    public Param( String name, String type, String value ) {
+//    public Param( String name, String type, String value ) {
+//      this.name = name;
+//      this.type = type;
+//      this.value = value;
+//    }
+    public Param( String name, String type, String value, String scope ) {
       this.name = name;
       this.type = type;
       this.value = value;
+      this.scope = scope;
     }
-  
+
     /* (non-Javadoc)
      * @see java.lang.Object#toString()
      */
@@ -467,7 +474,7 @@ ClassData {
    */
   public Param makeParam( String className, String paramName, String type,
                            String value ) {
-    Param p = new Param( paramName, type, value );
+    Param p = new Param( paramName, type, value, className );
     Param existingParam = Utils.put( paramTable, className, paramName, p );
     Parameter< ? > parameter = parameterMap.get( p );
     if ( parameter == null ) {
@@ -680,7 +687,29 @@ ClassData {
     return parameter;
   }
 
-  
+  public String scopeForParameter( String className, String paramName,
+                                   boolean lookOutsideClassData,
+                                   boolean complainIfNotFound ) {
+    Param ppp = lookupMemberByName(className, paramName, lookOutsideClassData, complainIfNotFound);
+    if ( ppp == null ) return null;
+    if ( !Utils.isNullOrEmpty(ppp.scope) ) {
+      return ppp.scope;
+    }
+    String classNameWithScope = getClassNameWithScope(className);
+    Map<String, Param> params = paramTable.get(classNameWithScope);
+    if ( params.values().contains( ppp ) ) {
+      return className;
+    }
+    if ( isInnerClass( className ) ) {
+      String enclosingClassName = getEnclosingClassName(className);
+      if (!Utils.isNullOrEmpty(enclosingClassName)) {
+        String s = scopeForParameter(enclosingClassName, paramName, lookOutsideClassData, complainIfNotFound);
+        if ( !Utils.isNullOrEmpty( s ) ) return s;
+      }
+    }
+    return null;
+  }
+
   protected Param lookupMemberByName( String className, String paramName,
                                       boolean lookOutsideClassData ) {
     return lookupMemberByName( className, paramName, lookOutsideClassData, true );
@@ -737,7 +766,7 @@ ClassData {
         Field field = ClassUtils.getField( classForName, paramName, true );
         if ( field != null ) {
           p = new Param( paramName, ClassUtils.toString( field.getType() ),
-                         null );
+                         null, classForName.getCanonicalName().replaceAll("<.*>", "") );
         }
       }
     }
