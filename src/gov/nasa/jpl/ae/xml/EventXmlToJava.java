@@ -321,7 +321,7 @@ public class EventXmlToJava {
     String name = fixName( XmlUtils.getChildElementText( n, "name" ) );
     String type = JavaToConstraintExpression.typeToClass( fixName( XmlUtils.getChildElementText( n, "type" ) ) );
     String value = expressionTranslator.fixValue( XmlUtils.getChildElementText( n, "value" ) );
-    return new ClassData.Param( name, type, value );
+    return new ClassData.Param( name, type, value, null );
   }
 
   
@@ -346,7 +346,8 @@ public class EventXmlToJava {
                     new ClassData.Param( p.getName(), pType,
                                ( p.getValueNoPropagate() == null 
                                  ? null
-                                 : p.getValueNoPropagate().toString() ) ) );
+                                 : p.getValueNoPropagate().toString() ),
+                            "DurativeEvent") );
       }
     }
 
@@ -408,10 +409,12 @@ public class EventXmlToJava {
                     ? "Long" // TODO -- big assumption! Use p.getClass().
                     : p.getValueNoPropagate().getClass().getSimpleName() );
               params.put( p.getName(),
-                          new ClassData.Param( p.getName(), pType,
-                                     ( p.getValueNoPropagate() == null 
-                                       ? null
-                                       : p.getValueNoPropagate().toString() ) ) );
+                          new ClassData.Param(
+                                  p.getName(), pType,
+                                  ( p.getValueNoPropagate() == null
+                                    ? null
+                                    : p.getValueNoPropagate().toString() ),
+                                  className) );
             }
           }
         } else {
@@ -856,9 +859,9 @@ public class EventXmlToJava {
 
     // If instantiating from a timeline, add start time and durection to parameters.
     if ( !Utils.isNullOrEmpty( fromTimeVarying ) ) {
-      ClassData.Param p = new ClassData.Param("startTime", "Long", null);
+      ClassData.Param p = new ClassData.Param("startTime", "Long", null, eventType);
       arguments.add(p);
-      p = new ClassData.Param("duration", "Long", null);
+      p = new ClassData.Param("duration", "Long", null, eventType);
       arguments.add(p);
     }
     List< japa.parser.ast.body.Parameter > parameters =
