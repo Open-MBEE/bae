@@ -2989,7 +2989,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         if ( compare == 0 ) return compare;
         if ( onlyCheckId ) return compare;
     }
-    int compare = super.compareTo( o, checkId );
+    int compare = super.compareTo( o, checkId, onlyCheckId, loosely );
     if ( compare != 0 ) return compare;
 //    compare = Utils.compareTo(getClass().getName(), o.getClass().getName());
 //    if (compare != 0) return compare;

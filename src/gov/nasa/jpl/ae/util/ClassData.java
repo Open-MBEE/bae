@@ -691,14 +691,16 @@ ClassData {
                                    boolean lookOutsideClassData,
                                    boolean complainIfNotFound ) {
     Param ppp = lookupMemberByName(className, paramName, lookOutsideClassData, complainIfNotFound);
-    if ( ppp == null ) return null;
-    if ( !Utils.isNullOrEmpty(ppp.scope) ) {
+    //if ( ppp == null ) return null;
+    if ( ppp != null && !Utils.isNullOrEmpty(ppp.scope) ) {
       return ppp.scope;
     }
-    String classNameWithScope = getClassNameWithScope(className);
-    Map<String, Param> params = paramTable.get(classNameWithScope);
-    if ( params.values().contains( ppp ) ) {
-      return className;
+    if ( ppp != null ) {
+      String classNameWithScope = getClassNameWithScope(className);
+      Map<String, Param> params = paramTable.get(classNameWithScope);
+      if (params.values().contains(ppp)) {
+        return className;
+      }
     }
     if ( isInnerClass( className ) ) {
       String enclosingClassName = getEnclosingClassName(className);
@@ -887,7 +889,7 @@ ClassData {
    */
   public boolean isInnerClass( String className ) {
     // TODO -- should have a ClassDeclaration stub class to collect this info.
-    boolean is = !isClassStatic( className ) && isNested( className );
+    boolean is = (!knowIfClassIsStatic(className) || !isClassStatic( className )) && isNested( className );
     if ( Debug.isOn() ) Debug.outln( "ClassData.isInnerClass( " + className + ") = " + is );
     return is;
   }

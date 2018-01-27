@@ -303,17 +303,15 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Class< ? >[] paramTypes = getParameterTypes();
     int az = arguments == null ? 0 : arguments.size();
     int pz = paramTypes == null ? 0 : paramTypes.length;
+    boolean hasErrors = false;
     if ( !isVarArgs() ) {
       //Assert.assertEquals( arguments.size(), paramTypes.length );
-      if ( arguments == null || paramTypes == null ) {
-        Debug.error("Error!  arguments or paramTypes is null in " + this);
-      }
       if ( az != pz ) {
-        return true;
+        hasErrors = true;
       }
     } else if ( az < pz - 1 ) {
       //this.compareTo( this );  // why was this here? to see if any exceptions would be raised?
-      return true;
+      hasErrors = true;
     }
     // Code below is not right! The arguments may be expressions, the results of
     // whose evaluations may match, but they cannot be checked without evaluating.
@@ -321,7 +319,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 //      Class< ? > c = paramTypes[ i ];
 //      Assert.assertTrue( c.isAssignableFrom( arguments.get( i ).getClass() ) );
 //    }
-    return false;
+    if ( hasErrors && !isVarArgs() && ( arguments == null || paramTypes == null ) ) {
+      Debug.error("Error!  arguments or paramTypes is null in " + this);
+    }
+    return hasErrors;
   }
 
   @Override

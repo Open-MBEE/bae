@@ -150,7 +150,7 @@ public class Dependency< T > extends HasIdImpl
     Object val = null;
     T value = null;
     try {
-      val = expression.evaluate(propagate);
+      val = expression == null ? null : expression.evaluate(propagate);
       value = Expression.evaluate( val, getType(), propagate, true );
     } catch ( IllegalAccessException e ) {
       // TODO Auto-generated catch block

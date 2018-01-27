@@ -63,7 +63,7 @@ public class JavaForFunctionCall {
   protected Boolean isTimeVarying = null;
   protected Boolean timeVaryingCall = null;
 
-  private Duration dummyForClassLoader = new Duration();
+  //private Duration dummyForClassLoader = new Duration();
 
   // /**
   // * When expressions are passed to functions that are expecting parameters, a
@@ -889,10 +889,14 @@ public class JavaForFunctionCall {
       Debug.out("getMatchingMethod(): m2 = " + m2);
       Member[] methods = new Member[]{m1, m2};
       ClassUtils.ArgTypeCompare atc = new ClassUtils.ArgTypeCompare(null, null, getArgTypes());
+      String callNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(callName));
       if (methods != null) {
         for (Member m : methods) {
           if (m != null && m.getName() != null ) {
-            if ( m.getName().equals(callName) ) {
+            String mNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(m.getName()));
+
+            if ( mNameNoParams.equals(callNameNoParams) ) {
+            //if ( m.getName().equals(callName) ) {
               Class<?>[] params = m instanceof Method ? ((Method)m).getParameterTypes() : ((Constructor<?>)m).getParameterTypes();
               boolean isVarArgs = m instanceof Method ? ((Method)m).isVarArgs() : ((Constructor<?>)m).isVarArgs();
               atc.compare(m, params, isVarArgs);
