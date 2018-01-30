@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.xml;
 
+import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 import org.json.XML;
 
@@ -3035,6 +3036,14 @@ public class EventXmlToJava {
       }
     }
 
+    public static byte[] classToBytes( Class<?> cls ) throws IOException {
+      String className = cls.getName();
+      String classAsPath = className.replace('.', '/') + ".class";
+      InputStream stream = cls.getClassLoader().getResourceAsStream(classAsPath);
+      byte[] b = IOUtils.toByteArray(stream);
+      return b;
+    }
+
     public static String toFilePath(String name) {
       return name.replaceAll("\\.", "/") + ".class";
     }
@@ -3090,6 +3099,21 @@ public class EventXmlToJava {
       if ( Debug.isOn()) Debug.outln("calling loadClass(" + name + ")");
       //Class<?> clazz = defineClass(name, classData, 0, classData.length);
       //Class<?> clazz = defineClass(name, classData, 0, classData.length);
+
+//      // Check to see if we are walking into a LinkageError: loader (instance of  gov/nasa/jpl/ae/xml/EventXmlToJava$CL): attempted  duplicate class definition for name: "somepackage/SomeClass".
+//      List< Class< ? > > classList = ClassUtils.classesCache.get( name );
+//      if ( classList != null ) {
+//        for ( Class<?> c : classList ) {
+//          try {
+//            byte[] b = classToBytes( c );
+//            if ( Arrays.equals( classData, b ) ) {
+//              return c;
+//            }
+//          } catch (IOException e) {
+//          }
+//        }
+//      }
+
       Class<?> clazz = defineClass(null, classData, 0, classData.length);
       String realName = clazz.getName();
       if ( Debug.isOn()) Debug.outln("real name = '" + realName + "'; expected name = '" + name + "'; equal = " + name.equals(realName));
@@ -3103,6 +3127,20 @@ public class EventXmlToJava {
       return clazz;
     }
 
+    public boolean seesClass(String className) {
+      try {
+        Class<?> x = findClass(className);
+        if  ( x != null ) {
+          return true;
+        }
+      } catch (ClassNotFoundException e) {
+      }
+      Class<?> y = findLoadedClass(className);
+      if  ( y != null ) {
+        return true;
+      }
+      return false;
+    }
   }
 
   public Pair<Boolean, Class<?>> loadClasses(String javaPath, String packageName ) {
@@ -3177,7 +3215,7 @@ public class EventXmlToJava {
       if ( path2Package != null ) {
         String packagePath = packageName.replaceAll("[.]", File.separator);
         if ( path2Package.endsWith(File.separator + packagePath) ) {
-          path2Package = path2Package.substring((File.separator + packagePath).length());
+          path2Package = path2Package.substring(0,path2Package.length() - (File.separator + packagePath).length());
         }
       }
       else path2Package = generatedCodeLocation;
@@ -3201,13 +3239,26 @@ public class EventXmlToJava {
         } else
         */
         if ( classLoader instanceof CL ) {
+          // check if class has already been loaded first:
+//          for ( Class<?> c : ((CL)classLoader).classes ) {
+          if ( ((CL)classLoader).seesClass(className) ) {
+            continue;
+          }
+//          }
+
           if ( Debug.isOn()) Debug.outln("passing " + className + " to CL!");
           try {
             System.out.println("passing " + className + " to CL!  f.getName() = " + f.getName() + "; f.getPath() = " + f.getPath() + "; f.getCanonicalPath() = " + f.getCanonicalPath());
           } catch (IOException e) {
             e.printStackTrace();
           }
-          cls = ((CL) classLoader).loadClass(f, packageName);
+          String oldPackageName = ((CL) classLoader).packageName;
+          ((CL) classLoader).packageName = packageName;
+          try {
+            cls = ((CL) classLoader).loadClass(f, packageName);
+          } finally {
+            ((CL) classLoader).packageName = packageName;
+          }
         } else {
           cls = classLoader.loadClass(className);
         }
