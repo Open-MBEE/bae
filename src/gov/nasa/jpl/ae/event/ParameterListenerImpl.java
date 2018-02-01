@@ -39,7 +39,7 @@ import org.json.JSONObject;
 public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    Groundable, Satisfiable, ParameterListener,
                                    HasConstraints, HasTimeVaryingObjects,
-                                   HasOwner,
+                                   HasOwner, HasEvents,
                                    Comparable< ParameterListenerImpl > {
 
   public static boolean usingArcConsistency = true;
@@ -1953,6 +1953,20 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return owner;
   }
 
+  public ParameterListenerImpl getOwningObject() {
+    Object o = getOwner();
+    if ( o instanceof ParameterListenerImpl ) {
+      return (ParameterListenerImpl)o;
+    }
+    if ( o instanceof Parameter && ((Parameter)o).getValueNoPropagate() == this ) {
+      Object oo = ((Parameter)o).getOwner();
+      if ( oo instanceof  ParameterListenerImpl ) {
+        return (ParameterListenerImpl)oo;
+      }
+    }
+    return null;
+  }
+
   @Override
   public void setOwner( Object owner ) {
     this.owner = owner;
@@ -1979,6 +1993,85 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     // TODO -- need to recurse into other objects
     varList.addAll( varSet );
     return varList;
+  }
+
+  @Override
+  public Set<Event> getEvents(boolean deep, Set<HasEvents> seen) {
+    Set<ParameterListenerImpl> objects = getObjects(deep, seen);
+    Set< Event > set = Utils.asSet( objects, Event.class);
+
+    return set;
+//
+//    Pair< Boolean, Set< HasEvents > > pair = Utils.seen( this, deep, seen );
+//    if ( pair.first ) return Utils.getEmptySet();
+//    seen = pair.second;
+//    Set< Event > set = new LinkedHashSet< Event >();
+//
+//    // Get Events in parameters, too.
+//    for ( Parameter p: getParameters() ) {
+//      if ( p == null ) continue;
+//      Object o = p.getValueNoPropagate();
+//      Object deo = null;
+//      try {
+//        deo = Expression.evaluate(o, Event.class, false);
+//      } catch (IllegalAccessException e) {
+//      } catch (InvocationTargetException e) {
+//      } catch (InstantiationException e) {
+//      }
+//      if ( deo instanceof Event ) {
+//        set.add((Event) deo );
+//      }
+//      if ( deep ) {
+//        deo = null;
+//        try {
+//          deo = Expression.evaluate(o, HasEvents.class, false);
+//        } catch (IllegalAccessException e) {
+//        } catch (InvocationTargetException e) {
+//        } catch (InstantiationException e) {
+//        }
+//        if ( deo instanceof HasEvents ) {
+//          set = Utils.addAll( set, ( (HasEvents)deo ).getEvents( deep, seen ) );
+//        }
+//      }
+//    }
+//    return set;
+  }
+
+  public Set<ParameterListenerImpl> getObjects(boolean deep, Set<HasEvents> seen) {
+    Pair< Boolean, Set< HasEvents > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return Utils.getEmptySet();
+    seen = pair.second;
+    Set< ParameterListenerImpl > set = new LinkedHashSet< ParameterListenerImpl >();
+
+    // Get Events in parameters, too.
+    for ( Parameter p: getParameters() ) {
+      if ( p == null ) continue;
+      Object o = p.getValueNoPropagate();
+      Object deo = null;
+      try {
+        deo = Expression.evaluate(o, ParameterListenerImpl.class, false);
+      } catch (IllegalAccessException e) {
+      } catch (InvocationTargetException e) {
+      } catch (InstantiationException e) {
+      }
+      if ( deo instanceof ParameterListenerImpl ) {
+        set.add((ParameterListenerImpl) deo );
+      }
+      if ( deep ) {
+        // FIXME -- TODO -- Is this not the same as starting from line 2031.
+        deo = null;
+        try {
+          deo = Expression.evaluate(o, ParameterListenerImpl.class, false);
+        } catch (IllegalAccessException e) {
+        } catch (InvocationTargetException e) {
+        } catch (InstantiationException e) {
+        }
+        if ( deo instanceof ParameterListenerImpl ) {
+          set = Utils.addAll( set, ( (ParameterListenerImpl)deo ).getObjects( deep, seen ) );
+        }
+      }
+    }
+    return set;
   }
 
 }

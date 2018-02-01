@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.TimeZone;
 
 import gov.nasa.jpl.ae.solver.LongDomain;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.TimeUtils;
 import gov.nasa.jpl.mbee.util.TimeUtils.Units;
 
@@ -35,25 +36,25 @@ public class Duration extends LongParameter { // TODO -- LongParameter
   }
 
   /**
-   * @param o 
    * @param name
+   * @param o owning object
    */
   public Duration(String name, ParameterListener o) {
     super(name, defaultDomain, o);
   }
 
 	/**
-	 * @param o 
-	 * @param v
-	 */
+	 * @param value
+     * @param o owning object
+     */
 	public Duration(Long value, ParameterListener o) {
 		super( "duration", defaultDomain, value, o );
 	}
 
   /**
-   * @param o 
-   * @param n
-   * @param v
+   * @param name
+   * @param value
+   * @param o owning object
    */
   public Duration(String name, Long value, ParameterListener o) {
     super( name, defaultDomain, value, o );
@@ -115,9 +116,14 @@ public class Duration extends LongParameter { // TODO -- LongParameter
 	  return s + getValueNoPropagate() + units.toShortString();
 	}
 	
-	public long toMillis() {
-    return ticksToMillis( getValue(false) );
-	}
+  public long toMillis() {
+    Long v = getValue(false);
+    if ( v == null ) {
+      Debug.error( true, true, "ERROR!  Cannot evaluate toMillis() for null value in " + this + ". toMillis() will returning zero.");
+      return 0L;
+    }
+    return ticksToMillis( v );
+  }
 	
   public String toFormattedString() {
     return toFormattedString( toMillis() );
@@ -127,6 +133,9 @@ public class Duration extends LongParameter { // TODO -- LongParameter
   }
   public static String toFormattedStringForIdentifier( long millis ) {
     return fixYear(toFormattedString( millis, durationFormatForIdentifier ));
+  }
+  public String toShortFormattedStringForIdentifier() {
+    return toShortFormattedStringForIdentifier( toMillis() );
   }
   public static String toShortFormattedStringForIdentifier( long millis ) {
     String s = fixYear(toFormattedString( millis, durationFormatForIdentifier ));
@@ -193,6 +202,7 @@ public class Duration extends LongParameter { // TODO -- LongParameter
     return durationToMillis( d );
   }
   public static long durationToMillis( Long d ) {
+    if ( d == null ) return 0L;
     return (long)( ((double)d)
                    * Timepoint.conversionFactor( TimeUtils.Units.milliseconds ) );
   }

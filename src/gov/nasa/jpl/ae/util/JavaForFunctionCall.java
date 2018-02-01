@@ -262,7 +262,9 @@ public class JavaForFunctionCall {
 
     //String prefix = (Boolean.TRUE.equals((getTimeVaryingCall())) ? "TimeVarying" : "");
     String prefix = (isATimeVaryingCall() ? "TimeVarying" : "");
-    if ( !isMethodOrConstructor() ) return prefix + "ConstructorCall";
+    if ( !isMethodOrConstructor() ) {
+      return prefix + "ConstructorCall";
+    }
     if ( isEffectFunction() ) {
       if ( Boolean.TRUE.equals(timeVaryingCall) ) {
         Debug.error("TimeVarying EffectFunction not supported!!! " + expression);
@@ -544,11 +546,11 @@ public class JavaForFunctionCall {
 
   public String findClassNameWithMatchingMethod() {
     Debug.out("findClassNameWithMatchingMethod()");
-    String s = "this";
+    String s = null;
     // Check if method is in class
     if ( getMethodDeclInClass( getClassName() ) != null ) {
       Debug.out("findClassNameWithMatchingMethod(): returning this");
-      return s;
+      return "this";
     }
     String prevClassName = getClassName();
     String className =
@@ -597,22 +599,31 @@ public class JavaForFunctionCall {
         // exprXlator.getClassData().isInnerClass( getObjectTypeName() ) ) {
         if ( isMethodOrConstructor() ) {
           String className = findClassNameWithMatchingMethod();
-          if (className.equals("this")) {
+          if (className == null ) {
+            // Check and see if it's really a constructor.
+            if ( exprXlator.getClassData().isClassName( getCallName() ) ) {
+              setMethodOrConstructor( false );
+              // Try again now as a constructor.
+              return getObject();
+            }
+          } else if (className.equals("this")) {
             setObject( className );
           } else {
             setObject(className + ".this");
           }
           
 
-        } else if ( getMethodCallExpr() != null
-                    || exprXlator.getClassData() //need to fix this whole stuff 
-                                 .isInnerClass( getObjectCreationExpr().getType() 
-                                                                       .toString() )
-                       && exprXlator.getClassData()
-                                    .getEnclosingClassName( getObjectCreationExpr().getType()
-                                                                                   .toString() )
-                                    .equals( getClassName() ) ) {
-          setObject( "this" );
+//        } else if ( getMethodCallExpr() != null ) {
+//          setObject( "this" );
+        } else if ( exprXlator.getClassData() //need to fix this whole stuff
+                                 .isInnerClass( getCallName() ) ) {
+          String enclosingClass = exprXlator.getClassData()
+                  .getEnclosingClassName( getCallName() );
+          if ( enclosingClass.equals( getClassName() ) ) {
+            setObject( "this" );
+          } else {
+            setObject( enclosingClass + ".this" );
+          }
         } else {
           setObject( "null" );
         }
@@ -1097,6 +1108,9 @@ public class JavaForFunctionCall {
             }
           } else {
             classNameString = findClassNameWithMatchingMethod();
+            if ( classNameString == null ) {
+              classNameString = className;
+            }
           }
           if ( classNameString == null ) {
             classNameString = "null";
@@ -1447,6 +1461,7 @@ public class JavaForFunctionCall {
      * 3. The Functions.java and ae.event package (assume its a
      * ConstructorCall)
      * 4. Common Java classes (assume its a FunctionCall)
+     * 4. Timepoint class
      * 5. The mbee.util package (assume its a FunctionCall)
      * 
      */
@@ -1525,6 +1540,15 @@ public class JavaForFunctionCall {
         } else {
           method = ClassUtils.getJavaMethodForCommonFunction(operationName.toString(),
                                                              argumentss == null ? new Object[]{} : argumentss.toArray());
+        }
+        if ( method == null ) {
+          // 4.5 Timepoint class
+          if ( argsEmpty && !argTypesEmpty ) {
+            method = ClassUtils.getMethodForArgTypes(Timepoint.class, operationName.toString(), argTypeArray, false);
+          } else {
+            method = ClassUtils.getMethodForArgs( Timepoint.class, operationName.toString(),
+                                                  argumentss == null ? new Object[]{} : argumentss.toArray(), false );
+          }
         }
 
         // 5.

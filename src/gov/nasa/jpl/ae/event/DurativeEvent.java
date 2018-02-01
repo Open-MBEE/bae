@@ -2388,53 +2388,65 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
    */
   @Override
   public Set< Event > getEvents( boolean deep, Set< HasEvents > seen ) {
-    if ( elaborations == null ) return Utils.getEmptySet();
-    Pair< Boolean, Set< HasEvents > > pair = Utils.seen( this, deep, seen );
-    if ( pair.first ) return Utils.getEmptySet();
-    seen = pair.second;
-    Set< Event > set = new HashSet< Event >();
-    for ( Entry< ElaborationRule, Vector< Event > > e : elaborations.entrySet() ) {
-      if ( e.getValue() == null ) continue;
-      for ( Event event : e.getValue() ) {
-        set.add( event );
-        if ( deep ) {
-          if ( event instanceof HasEvents ) set =
-              Utils.addAll( set, ( (HasEvents)event ).getEvents( deep, seen ) );
-        }
-      }
-    }
-
-    // Get Events in parameters, too.
-    for ( Parameter p: getParameters() ) {
-        if ( p == null ) continue;
-        Object o = p.getValueNoPropagate();
-        Object deo = null;
-        try {
-            deo = Expression.evaluate(o, Event.class, false);
-        } catch (IllegalAccessException e) {
-        } catch (InvocationTargetException e) {
-        } catch (InstantiationException e) {
-        }
-        if ( deo instanceof Event ) {
-            set.add((Event) deo );
-        }
-        if ( deep ) {
-            deo = null;
-            try {
-                deo = Expression.evaluate(o, HasEvents.class, false);
-            } catch (IllegalAccessException e) {
-            } catch (InvocationTargetException e) {
-            } catch (InstantiationException e) {
-            }
-            if ( deo instanceof HasEvents ) {
-                set = Utils.addAll( set, ( (HasEvents)deo ).getEvents( deep, seen ) );
-            }
-        }
-    }
-    return set;
+      return super.getEvents( deep, seen );
+    //if ( elaborations == null ) return Utils.getEmptySet();
+//    Pair< Boolean, Set< HasEvents > > pair = Utils.seen( this, deep, seen );
+//    if ( pair.first ) return Utils.getEmptySet();
+//    seen = pair.second;
+//
+//      Set< Event > set = new LinkedHashSet< Event >();
+//    if ( elaborations != null ) {
+//        for (Entry<ElaborationRule, Vector<Event>> e : elaborations.entrySet()) {
+//            if (e.getValue() == null) continue;
+//            for (Event event : e.getValue()) {
+//                set.add(event);
+//                if (deep) {
+//                    if (event instanceof HasEvents) set =
+//                            Utils.addAll(set, ((HasEvents) event).getEvents(deep, seen));
+//                }
+//            }
+//        }
+//    }
+//
+//    if ( seen != null ) {
+//        seen.remove(this);
+//    }
+//    Set<Event> moreEvents = super.getEvents(deep, seen);
+//    set.addAll( moreEvents );
+//
+//    return set;
   }
 
-  // Conditionally create child event instances from this event instance.
+    public Set<ParameterListenerImpl> getObjects(boolean deep, Set<HasEvents> seen) {
+        Pair<Boolean, Set<HasEvents>> pair = Utils.seen(this, deep, seen);
+        if (pair.first) return Utils.getEmptySet();
+        seen = pair.second;
+        Set<ParameterListenerImpl> set = new LinkedHashSet<ParameterListenerImpl>();
+        if ( elaborations != null ) {
+            for (Entry<ElaborationRule, Vector<Event>> e : elaborations.entrySet()) {
+                if (e.getValue() == null) continue;
+                for (Event event : e.getValue()) {
+                    if ( event instanceof ParameterListenerImpl ) {
+                        ParameterListenerImpl obj = (ParameterListenerImpl) event;
+                        set.add( obj );
+                        if (deep) {
+                            set = Utils.addAll(set, obj.getObjects(deep, seen));
+                        }
+                    }
+                }
+            }
+        }
+
+        if ( seen != null ) {
+            seen.remove(this);
+        }
+        Set<ParameterListenerImpl> moreEvents = super.getObjects(deep, seen);
+        set.addAll( moreEvents );
+
+        return set;
+    }
+
+        // Conditionally create child event instances from this event instance.
   /*
    * (non-Javadoc)
    * 
