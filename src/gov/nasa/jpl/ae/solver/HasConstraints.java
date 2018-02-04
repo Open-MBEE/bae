@@ -4,6 +4,7 @@
 package gov.nasa.jpl.ae.solver;
 
 import gov.nasa.jpl.ae.event.Parameter;
+import gov.nasa.jpl.ae.event.TimeVarying;
 import gov.nasa.jpl.mbee.util.HasId;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
@@ -60,7 +61,8 @@ public interface HasConstraints extends HasId<Integer> {
         set.addAll( oSet );
       }
       if ( o instanceof Parameter ) {
-        set = Utils.addAll( set, getConstraints(((Parameter)o).getValueNoPropagate(), deep, seen ) );
+        Set<Constraint> s1 = getConstraints(((Parameter) o).getValueNoPropagate(), deep, seen);
+        set = Utils.addAll( set, s1 );
       }
       return set;
     }
@@ -69,10 +71,17 @@ public interface HasConstraints extends HasId<Integer> {
                                                              boolean deep,
                                                              Set< HasConstraints > seen ) {
       Set< Constraint > set = new HashSet< Constraint >();
-      for ( Map.Entry< K, V > me : map.entrySet() ) {
-        set = Utils.addAll( set, getConstraints( me.getKey(), deep, seen ) );
-        set = Utils.addAll( set, getConstraints( me.getValue(), deep, seen ) );
-      }
+//      if ( map instanceof TimeVarying) {
+//      } else {
+        for (Map.Entry<K, V> me : map.entrySet()) {
+          if ( !( map instanceof TimeVarying ) ) {
+            Set<Constraint> s1 = getConstraints(me.getKey(), deep, seen);
+            set = Utils.addAll(set, s1);
+          }
+          Set<Constraint> s2 = getConstraints(me.getValue(), deep, seen);
+          set = Utils.addAll(set, s2);
+        }
+//      }
       return set;
     }
 
@@ -81,7 +90,8 @@ public interface HasConstraints extends HasId<Integer> {
                                                           Set< HasConstraints > seen ) {
       Set< Constraint > set = new HashSet< Constraint >();
       for ( T t : c ) {
-        set = Utils.addAll( set, getConstraints( t, deep, seen ) );
+        Set<Constraint> s1 = getConstraints(t, deep, seen);
+        set = Utils.addAll( set, s1 );
       }
       return set;
     }
@@ -91,7 +101,8 @@ public interface HasConstraints extends HasId<Integer> {
                                                        Set< HasConstraints > seen ) {
       Set< Constraint > set = new HashSet< Constraint >();
       for ( Object t : c ) {
-        set = Utils.addAll( set, getConstraints( t, deep, seen ) );
+        Set<Constraint> s1 = getConstraints(t, deep, seen);
+        set = Utils.addAll( set, s1 );
       }
       return set;
     }
@@ -102,8 +113,10 @@ public interface HasConstraints extends HasId<Integer> {
                                                                   boolean deep,
                                                                   Set< HasConstraints > seen ) {
       Set< Constraint > set = new HashSet< Constraint >();
-      set = Utils.addAll( set, getConstraints( p.first, deep, seen ) );
-      set = Utils.addAll( set, getConstraints( p.second, deep, seen ) );
+      Set<Constraint> s1 = getConstraints(p.first, deep, seen);
+      set = Utils.addAll( set, s1 );
+      Set<Constraint> s2 = getConstraints(p.second, deep, seen);
+      set = Utils.addAll( set, s2 );
       return set;
     }
 

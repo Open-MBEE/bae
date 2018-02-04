@@ -241,14 +241,14 @@ public class JavaForFunctionCall {
 
   public boolean isATimeVaryingCall() {
     if ( hasUnexpectedTimeVaryingObject() ) {
-      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
       return true;
     }
     if ( hasUnexpectedTimeVaryingArgs() ) {
-      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
       return true;
     }
-    System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+    //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
     return false;
   }
 
@@ -515,7 +515,7 @@ public class JavaForFunctionCall {
                 this.exprXlator.getClassData().getClassMethodsWithName(getCallName(),
                         clsName);
         if ( moreClassMethods != null ) {
-          System.out.println("WWWWWWWWWWWWWW   MORE CLASS METHODS  WWWWWWWWWWWWWW");
+          //System.out.println("WWWWWWWWWWWWWW   MORE CLASS METHODS  WWWWWWWWWWWWWW");
           if ( classMethods == null ) {
             classMethods = moreClassMethods;
           } else {
@@ -565,6 +565,19 @@ public class JavaForFunctionCall {
           exprXlator.getClassData().getEnclosingClassName( prevClassName );
 
     }
+
+    Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
+    Call c = searchForCall(getCallName(), getArgs(), types);
+    if ( c != null && c.getMember() != null ) {
+      className = c.getMember().getDeclaringClass().getCanonicalName();
+      setClassName(className);
+      if ( matchingMethod == null && c.getMember() instanceof Method ) {
+        setMatchingMethod((Method)c.getMember());
+      }
+      if ( this.call == null ) setCall( call );
+      return this.className;
+    }
+
     Debug.out("findClassNameWithMatchingMethod(): no match; returning " + s);
 
     return s;
@@ -609,7 +622,11 @@ public class JavaForFunctionCall {
           } else if (className.equals("this")) {
             setObject( className );
           } else {
-            setObject(className + ".this");
+            if ( this.matchingMethod != null && ClassUtils.isStatic(this.matchingMethod) ) {
+              setObject("null");
+            } else {
+              setObject(className + ".this");
+            }
           }
           
 
@@ -628,7 +645,7 @@ public class JavaForFunctionCall {
           setObject( "null" );
         }
       }
-      Debug.out("getObject(): returning " + className);
+      Debug.out("getObject(): returning " + object);
     }
     return object;
   }
@@ -737,6 +754,15 @@ public class JavaForFunctionCall {
         setClassName( getObjectTypeName() );
       } else {
         setClassName( this.exprXlator.getCurrentClass() );
+        Method m = ClassUtils.getMethodForArgTypes(className, getPreferredPackageName(), getCallName(), getArgTypes());
+        if (m != null && this.matchingMethod == null ) this.matchingMethod = m;
+        if ( m == null ) {
+          Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
+          Call c = searchForCall(getCallName(), getArgs(), types);
+          if ( c != null ) {
+
+          }
+        }
       }
     }
     return className;
@@ -887,7 +913,7 @@ public class JavaForFunctionCall {
       if ( clsName == null  && cls != null ) {
         clsName = cls.getName();
       }
-      System.out.println("WWWWWWWWWWWWWWWWWWWW    Wrapped Type = " + clsName + "   WWWWWWWWWWWWWWWWWWWW");
+     // System.out.println("WWWWWWWWWWWWWWWWWWWW    Wrapped Type = " + clsName + "   WWWWWWWWWWWWWWWWWWWW");
 
       Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
       Call call = searchForCall(getCallName(), null, types);
@@ -913,7 +939,7 @@ public class JavaForFunctionCall {
               atc.compare(m, params, isVarArgs);
             }
           } else {
-            System.out.println("WWWWWWWWWWWWWWWWWWWW    method has no name!!! " + m + "    WWWWWWWWWWWWWWWWWWWW");
+            //System.out.println("WWWWWWWWWWWWWWWWWWWW    method has no name!!! " + m + "    WWWWWWWWWWWWWWWWWWWW");
           }
         }
       }

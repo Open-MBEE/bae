@@ -168,13 +168,14 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
    */
   @Override
   public T getValue( boolean propagate ) {
-    if ( this.size() == 1 ) {
-      if ( getLowerBound() != null && lowerIncluded ) return getLowerBound();
-      if ( getUpperBound() != null && upperIncluded ) return getUpperBound();
-      return getLowerBound();
-    }
-    Debug.error( true ,"" );
-    return null;
+    return getLowerBound();
+//    if ( this.size() == 1 ) {
+//      if ( getLowerBound() != null && lowerIncluded ) return getLowerBound();
+//      if ( getUpperBound() != null && upperIncluded ) return getUpperBound();
+//      return getLowerBound();
+//    }
+//    //Debug.error( true , false, "Getting a value of a range is not supported.  Returning null." );
+//    return null;
   }
 
   /* (non-Javadoc)

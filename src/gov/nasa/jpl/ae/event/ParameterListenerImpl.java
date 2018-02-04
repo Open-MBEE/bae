@@ -43,7 +43,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    Comparable< ParameterListenerImpl > {
 
   public static boolean usingArcConsistency = true;
-  public static boolean arcConsistencyQuiet = true;
+  public static boolean arcConsistencyQuiet = false;
 
   // Constants
 

@@ -170,8 +170,53 @@ public class Consistency {
       lastConstraintSet = new LinkedHashSet< Constraint >( constraints );
     }
     return lastSucceeded;
-  }  
-  
+  }
+
+  public boolean restrictDomainsForConstraintExpression(ConstraintExpression cx, boolean quiet) {
+    Pair<Domain<Boolean>,Boolean> p = cx.restrictDomain( BooleanDomain.trueDomain, true, null );
+    if ( p!= null && !quiet && Boolean.TRUE.equals(p.second) ) {
+      System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
+    }
+    boolean restrictedSomething = (p!=null && Boolean.TRUE.equals(p.second));
+    return restrictedSomething;
+  }
+
+  public long restrictDomainsForConstraint(Constraint c, boolean quiet) {
+    //boolean restrictedSomething = false;
+    long cct = 0;
+    Set<Variable<?>> vars = c.getVariables();
+    for (Variable<?> v : vars) {
+      if (v.getDomain() != null) {
+        boolean b = c.restrictDomain(v);
+        if (!quiet && b) {
+          System.out.println("Restricted domain of " + MoreToString.Helper.toLongString(v) + " to " + v.getDomain() + " in constraint " + c);
+        }
+        cct += b ? 1 : 0;
+        //restrictedSomething = restrictedSomething || b;
+      }
+    }
+    return cct;
+  }
+
+  public boolean restrictDomainsForConstraints(Collection<Constraint> constraints, boolean quiet) {
+      boolean restrictedSomething = false;
+      long cct = 0;
+      for ( Constraint c : constraints ) {
+        //System.out.println( "arc consistency constraint #" + (++cct) + ": " + c);
+        if ( c instanceof ConstraintExpression ) {
+          ConstraintExpression cx = (ConstraintExpression)c;
+          restrictedSomething = restrictDomainsForConstraintExpression(cx, quiet);
+          if ( restrictedSomething ) ++cct;
+        } else {
+          long num = restrictDomainsForConstraint(c, quiet);
+          restrictedSomething = restrictedSomething || num > 0;
+          cct += num;
+        }
+      }
+      System.out.println("At least " + cct + " domain changes.");
+      return cct > 0;
+  }
+
   public boolean arcConsistencySolve(boolean quiet) {
     if ( !quiet ) {
       System.out.println( "Arc consistency problem:\n" + toString() );
@@ -183,38 +228,10 @@ public class Consistency {
     System.out.println("arc consistency max rounds = " + maxCount);
     while ( ct < maxCount && ct < 100 ) {
       System.out.println("arc consistency round " + (ct+1));
-      boolean restrictedSomething = false;
-      int cct = 0;
-      for ( Constraint c : constraints ) {
-        //System.out.println( "arc consistency constraint #" + (++cct) + ": " + c);
-        if ( c instanceof ConstraintExpression ) {
-          ConstraintExpression cx = (ConstraintExpression)c;
-          Pair<Domain<Boolean>,Boolean> p = cx.restrictDomain( BooleanDomain.trueDomain, true, null );
-          if ( p!= null && !quiet && Boolean.TRUE.equals(p.second) ) {
-            System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
-          }
-          cct += (p !=null && Boolean.TRUE.equals(p.second)) ? 1 : 0;
-
-          restrictedSomething = restrictedSomething || (p!=null && Boolean.TRUE.equals(p.second));
-        } else {
-          Set< Variable< ? > > vars = c.getVariables();
-          for ( Variable< ? > v : vars ) {
-            if ( v.getDomain() != null ) {
-              boolean b = c.restrictDomain( v );
-              if ( !quiet && b ) {
-                System.out.println( "Restricted domain of " + MoreToString.Helper.toLongString( v ) + " to " + v.getDomain() + " in constraint " + c  );
-              }
-              cct += b ? 1 : 0;
-              restrictedSomething = restrictedSomething || b;
-            }
-          }
-        }
-      }
-      System.out.println("At least " + cct + " domain changes.");
+      boolean restrictedSomething = restrictDomainsForConstraints(constraints, quiet);
       if ( !restrictedSomething ) {
         succeeded = true;
         break;
-        //return true;
       }
       ++ct;
     }

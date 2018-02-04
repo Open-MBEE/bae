@@ -250,6 +250,11 @@ public class Timepoint extends LongParameter implements TimeVariable {//FIXME --
     Calendar cal = gmtCalendar;
     return toTimestamp(t, TimeUtils.timestampFormat, cal);
   }
+  public static String toDoyTimestamp( long t ) {
+    Calendar cal = gmtCalendar;
+    return toTimestamp(t, TimeUtils.dayOfYearTimestampFormat, cal);
+  }
+  // REVIEW -- TODO -- FIXME -- Does this assume milliseconds since the epoch?!
   public static String toTimestamp( long t, String dateFormat, Calendar cal) {
     double cf = conversionFactor( Units.milliseconds );
     //DateFormat df = new Da
@@ -280,7 +285,13 @@ public class Timepoint extends LongParameter implements TimeVariable {//FIXME --
 ////        new SimpleDateFormat( "yyyy-MM-dd'T'HH:mm:ss.SSSXXX" ).format( cal.getTime() );
 ////    return timeString;
   }
-  
+
+  public String toDoyTimestamp() {
+    Long val = getValue(false);
+    if (val == null) return null;
+    return toDoyTimestamp(val);
+  }
+
   public static long timeSinceMidnight( Date start ) {
     Calendar c1 = Calendar.getInstance(TimeZone.getTimeZone( "GMT" ));
     Calendar c2 = Calendar.getInstance(TimeZone.getTimeZone( "GMT" ));

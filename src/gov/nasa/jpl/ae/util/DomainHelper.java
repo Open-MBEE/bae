@@ -272,6 +272,8 @@ public class DomainHelper {
         objDomain = ((HasDomain)obj).getDomain( false, null );
       } else if ( obj instanceof Domain ) {
         objDomain = (Domain<?>)obj;
+      } else if (obj instanceof Comparable ) {
+        objDomain = getDomain( obj );
       }
       if ( objDomain != null ) {
         domains.add( objDomain );

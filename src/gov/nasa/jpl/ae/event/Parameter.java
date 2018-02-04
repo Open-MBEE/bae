@@ -901,16 +901,17 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
 
     // check for cached constraints
-    if ( !Utils.isNullOrEmpty( constraintList ) ) return constraintList;
-    if ( constraintList == null ) {
+//    if ( !Utils.isNullOrEmpty( constraintList ) ) return constraintList;
+//    if ( constraintList == null ) {
       constraintList = new ArrayList< Constraint >();
-    }
+//    }
 
     // get domain constraints
     Method method;
     if ( domain != null && domain instanceof AbstractRangeDomain
          && ( value == null || value instanceof Comparable ) ) {
-      constraintList.addAll( ( (AbstractRangeDomain<T>)domain ).getConstraints( this ) );
+      Collection<Constraint> s = ((AbstractRangeDomain<T>) domain).getConstraints(this);
+      constraintList.addAll( s );
     } else {
       try {
         method = getClass().getMethod( "inDomain", (Class< ? >[])null );
@@ -937,7 +938,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 //        cList.addAll( ((ParameterListenerImpl)v).getConstraints( deep, seen ) );
 //      } else if ( v != null &&
                   v instanceof HasConstraints ) {
-        constraintList.addAll( ((HasConstraints)v).getConstraints( deep, seen ) );
+        Collection<Constraint> s = ((HasConstraints) v).getConstraints(deep, seen);
+        constraintList.addAll( s );
       }
     }
     return constraintList;

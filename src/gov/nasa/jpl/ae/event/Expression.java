@@ -312,7 +312,7 @@ public class Expression< ResultType > extends HasIdImpl
       } catch ( InstantiationException e ) {
         e.printStackTrace();
       }
-      if ( o != null && cls.isInstance( o ) ) {
+      if ( o != null && cls != null && cls.isInstance( o ) ) {
         return (TT)o;
       }
     }

@@ -63,7 +63,9 @@ public class BooleanDomain extends AbstractFiniteRangeDomain<Boolean> {
 	 */
 	@Override
 	public Boolean pickRandomValue() {
-		return Random.global.nextBoolean();
+	  if ( size() == 1 ) return getLowerBound();
+      if ( size() == 0 ) return null;
+      return Random.global.nextBoolean();
 	}
 
 //	@Override

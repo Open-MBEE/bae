@@ -6,33 +6,12 @@ package gov.nasa.jpl.ae.event;
 import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.BoolOp;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality;
-import gov.nasa.jpl.ae.solver.AbstractFiniteRangeDomain;
-import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
-import gov.nasa.jpl.ae.solver.BooleanDomain;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.DoubleDomain;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.IntegerDomain;
-import gov.nasa.jpl.ae.solver.MultiDomain;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
 import gov.nasa.jpl.ae.util.distributions.Distribution;
 import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
-import gov.nasa.jpl.mbee.util.Random;
-import gov.nasa.jpl.ae.solver.RangeDomain;
-import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.util.DomainHelper;
-import gov.nasa.jpl.mbee.util.Infinity;
-import gov.nasa.jpl.mbee.util.NegativeInfinity;
-import gov.nasa.jpl.mbee.util.NegativeOne;
-import gov.nasa.jpl.mbee.util.One;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Zero;
-import gov.nasa.jpl.mbee.util.Wraps;
 import org.apache.commons.math3.distribution.*;
 
 import java.lang.Math;
@@ -332,6 +311,17 @@ public class Functions {
         return;
       }
       Object cObj = null;
+      if ( inverse instanceof HasDomain ) {
+        Domain<?> d = inverse.getDomain(false, null);
+        if ( d == null && inverse.getMethod() != null && inverse.getMethod().getName().contains("newList") ) {
+          d = DomainHelper.combineDomains(inverse.getArguments(), null, false);
+        }
+        List<Object> values = DomainHelper.getRepresentativeValues(d, null);
+        if ( values != null && values.size() > 0 ) {
+          listOfInverseResults.addAll(values);
+          return;
+        }
+      }
       try {
         cObj = inverse.evaluate( false, true );
       } catch ( IllegalAccessException e ) {
@@ -378,7 +368,7 @@ public class Functions {
           }
         }
       }
-      this.domain = (Domain< T >)getDomain( propagate, seen );
+      this.domain = (Domain< T >)getDomain( propagate, null );
       return new Pair( this.domain, changed );
     }
   }
@@ -2805,6 +2795,7 @@ public class Functions {
     return null;
   }
 
+
   // Inequality functions
 
   public static class EQ< T > extends BooleanBinary< T > {
@@ -2825,31 +2816,14 @@ public class Functions {
       return new EQ< T >( this );
     }
 
-    // @Override
-    // public < T > Domain< T > restrictDomain( Domain< T > domain,
-    // boolean propagate,
-    // Set< HasDomain > seen ) {
-    // Object o1 = this.arguments.get( 0 );
-    // Object o2 = this.arguments.get( 1 );
-    // if (o1 instanceof HasDomain && o2 instanceof HasDomain){
-    // HasDomain hd1 = (HasDomain)o1;
-    // HasDomain hd2 = (HasDomain)o2;
-    // Domain d1 = hd1.getDomain( propagate, seen );
-    // Domain d2 = hd2.getDomain( propagate, seen );
-    // hd1.restrictDomain( d2, propagate, seen );
-    // hd2.restrictDomain( d1, propagate, seen );
-    // }
-    // return (Domain< T >)getDomain(propagate, seen );
-    // }
-
-    // public FunctionCall inverse( Object returnValue, Object arg ) {
-    // //Variable<?> variable ) {
-    // FunctionCall singleValueFcn = inverseSingleValue( returnValue, arg );
-    // if ( singleValueFcn == null ) return null;
-    // return new FunctionCall(null,
-    // ClassUtils.getMethodsForName( Utils.class, "newList" )[0],
-    // new Object[] { singleValueFcn }, (Class<?>)null );
-    // }
+    @Override
+    public Domain<?> inverseDomain(Domain<?> returnValue, Object argument) {
+      if ( returnValue.magnitude() > 1 ) return DomainHelper.getDomain( argument );
+      boolean retVal = Utils.isTrue(returnValue.pickRandomValue());
+      FunctionCall inverseCall = invert(retVal, argument);
+      Domain<?> d =  inverseCall.getDomain(false, null);
+      return d;
+    }
 
     @Override
     public FunctionCall inverse( Object returnValue, Object arg ) {
@@ -2865,17 +2839,30 @@ public class Functions {
       // return f.evaluate();
     }
 
-    // TODO should handle returnValue = false
     public FunctionCall invert( final boolean eqReturnValue,
                                 final Object arg ) {
       LinkedHashSet< Object > otherArgs = getOtherArgs( arg );
       // should only be one
       final Object otherArg = otherArgs.iterator().next();
+      boolean isArgFirst = arguments.firstElement() == arg;
 
       try {
         return new FunctionCall( (Method)Functions.class.getMethod( "not",
                                                                     new Class< ? >[] { Expression.class } ),
                                  (Class< ? >)null ) {
+          /**
+           * Invocation of this inverse function returns the other arg if the return value is true, else
+           * a value not equal to the other arg.
+           * TODO -- REVIEW -- Should this be returning a set of values or a domain?
+           * TODO -- REVIEW -- Does anything calls this, or is it just for getDomain()?
+           * @param evaluatedObject
+           * @param evaluatedArgs
+           * @return
+           * @throws IllegalArgumentException
+           * @throws InstantiationException
+           * @throws IllegalAccessException
+           * @throws InvocationTargetException
+           */
           @Override
           public Object
                  invoke( Object evaluatedObject,
@@ -2883,66 +2870,84 @@ public class Functions {
                                                   InstantiationException,
                                                   IllegalAccessException,
                                                   InvocationTargetException {
-            return otherArg;
+            //Object argEval = null;
+            Object otherArgEval = null;
+            // Try using already evaluated args first.
+            if ( evaluatedArgs != null && evaluatedArgs.length == 2 ) {
+              //argEval = evaluatedArgs[isArgFirst ? 0 : 1];
+              if (eqReturnValue) {
+                otherArgEval = evaluatedArgs[isArgFirst ? 1 : 0];
+                return otherArgEval;
+//              } else {
+//                if (Expression.valuesEqual(argEval, otherArgEval)) {
+//                  return null;
+//                }
+//                return argEval;
+              }
+            }
+
+            // use arg and otherArg and evaluate result
+            Object x = null;
+            if ( eqReturnValue ) {
+              x = otherArg;
+            } else {
+              Domain<?> d = getDomain(false, null);
+              x = DomainHelper.getRepresentativeValues( d, null );
+//              x = d.pickRandomValue();
+//              if (x == null) {
+//                x = arg;
+//              }
+//            }
+//            if ( x instanceof Evaluatable ) {
+//              return ((Evaluatable) x).evaluate(null, false);
+            }
+            return x;
           }
 
+          /**
+           * If the return value is true, then the domain is the domain of the other arg.
+           * If false, we need to return the domain of the arg hat includes values that
+           * are possibly not equal to the other arg.  So, if the other arg has a domain
+           * with multiple values, then arg can be anything in its domain beause it will
+           * always be not equal to one or more of the values in the other arg's domain.
+           * If the other arg has a single value in its domain, the return the argDomain
+           * with the value of the other arg's domain removed.
+           * @param propagate
+           * @param seen
+           * @return
+           */
           @Override
           public Domain< ? > getDomain( boolean propagate,
                                         Set< HasDomain > seen ) {
-            if ( otherArg instanceof HasDomain ) {
-              Domain< ? > otherDomain =
-                  ( (HasDomain)otherArg ).getDomain( propagate, seen );
-              if ( eqReturnValue || otherDomain.magnitude() > 1 ) {
-                return otherDomain;
-              }
-              // need to return the arg.getDomain() excluding the single value
-              if ( arg instanceof HasDomain ) {
-                Domain< ? > domain =
-                    ( (HasDomain)arg ).getDomain( propagate, seen );
-                domain = domain.subtract( otherDomain );
-                return domain;
-              } else {
-                // TODO??!!
-              }
-              return null;
-            } else {
-              // TODO??!!
+            //if ( otherArg instanceof HasDomain ) {
+            Domain< ? > argDomain = DomainHelper.getDomain( arg );
+            if ( argDomain == null ) {
+              return DomainHelper.emptyDomain();
             }
-            return null;
+            if ( argDomain.isEmpty() ) {
+              return argDomain;
+            }
+            Domain< ? > otherDomain = DomainHelper.getDomain( otherArg );
+            if ( otherDomain == null || otherDomain.isEmpty() ) {
+              return argDomain;
+            }
+            if ( eqReturnValue || otherDomain.magnitude() > 1 ) {
+              return otherDomain;
+            }
+            // Since the tests above failed, it must be the case that other arg
+            // has a single value in its domain that needs to be removed from
+            // arg's domain.
+            Domain<?> newDomain =  argDomain.subtract( otherDomain );
+            return newDomain;
           }
-        };
-      } catch ( NoSuchMethodException e ) {
-        e.printStackTrace();
-      } catch ( SecurityException e ) {
+        };  // end of anonymous FunctionCall
+
+      } catch ( Throwable e ) {
         e.printStackTrace();
       }
 
       return null;
-      // LinkedHashSet< Object > values = new LinkedHashSet< Object >();
-      // Class<?> type = arg.getClass();
-      // if ( arg instanceof Wraps ) {
-      // type = ((Wraps)arg).getType();
-      // }
-      // for ( Object o : otherArgs ) {
-      // try {
-      // Object r = Expression.evaluate( o, type, true );
-      // values.add(r);
-      // } catch ( ClassCastException e ) {
-      // // TODO Auto-generated catch block
-      // e.printStackTrace();
-      // } catch ( IllegalAccessException e ) {
-      // // TODO Auto-generated catch block
-      // e.printStackTrace();
-      // } catch ( InvocationTargetException e ) {
-      // // TODO Auto-generated catch block
-      // e.printStackTrace();
-      // } catch ( InstantiationException e ) {
-      // // TODO Auto-generated catch block
-      // e.printStackTrace();
-      // }
-      // }
-      // return values;
-    }
+    }  // end of invert(retVal, arg)
 
     @Override
     public Domain< ? > calculateDomain( boolean propagate,

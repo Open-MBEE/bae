@@ -6,6 +6,7 @@ package gov.nasa.jpl.ae.solver;
 import gov.nasa.jpl.ae.event.ConstructorCall;
 import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.Groundable;
+import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Evaluatable;
@@ -267,11 +268,16 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
   public < TT > boolean restrictTo( Domain< TT > domain ) {
     if ( domain instanceof SingleValueDomain ) {
       return this.restrictToValue( ((SingleValueDomain< T >)domain).value );
-    } else {
-      // TODO???
-      Debug.error("");
+    } else {//if ( domain instanceof ObjectDomain ) {
+      boolean changed = false;
+      for ( T o : this.clone() ) {
+        if ( !DomainHelper.contains( domain, o ) ) {
+          remove( o );
+          changed = true;
+        }
+      }
+      return changed;
     }
-    return false;
   }
 
   @Override
