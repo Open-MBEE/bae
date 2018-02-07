@@ -802,8 +802,11 @@ public class DomainHelper {
     return representativeValues;
   }
 
-  
+
   public static List<Object> getRepresentativeValues(Domain<?> domain, MathOperation op ) {
+    return getRepresentativeValues( domain, op, false );
+  }
+  public static List<Object> getRepresentativeValues(Domain<?> domain, MathOperation op, boolean flatten ) {
     LinkedHashSet<Object> representativeValues = new LinkedHashSet<Object>();
     Object odlb = null;
     Object odub = null;
@@ -818,7 +821,7 @@ public class DomainHelper {
           if ( ddo instanceof Domain ) {
             Domain< ? > dd = (Domain< ? >)ddo;
             List< Object > vals = getRepresentativeValues( dd, op );
-            representativeValues.addAll( vals );
+            addAll(representativeValues, vals, flatten);
           }
         }
       }
@@ -830,7 +833,7 @@ public class DomainHelper {
       odub = odlb;
     } else if ( domain instanceof ObjectDomain ) {
       ObjectDomain<?> objectDomain = (ObjectDomain<?>)domain;
-      representativeValues.addAll( objectDomain );
+      addAll(representativeValues, objectDomain, flatten);
 //      if ( objectDomain.size() == 1 ) {
 //        odlb = objectDomain.iterator().next();
 //        odub = odlb;
@@ -841,8 +844,9 @@ public class DomainHelper {
 //      }
     }
     if ( odlb != null || odub != null ) {
-      if ( odlb != null ) representativeValues.add( odlb );
-      if ( odub != null && !odub.equals(odlb) ) representativeValues.add( odub );
+
+      if ( odlb != null ) addAll(representativeValues, odlb, flatten);
+      if ( odub != null && !odub.equals(odlb) ) addAll(representativeValues, odub, flatten);
       if ( op == MathOperation.DIVIDE || op == MathOperation.LOG ) {
         if ( contains( domain, 0 ) ) {
           Number lb = ClassUtils.evaluate( odlb, Number.class, false );
@@ -867,7 +871,16 @@ public class DomainHelper {
 
     return Utils.asList( representativeValues );
   }
-  
+
+  protected static void addAll( Set<Object> representativeValues, Collection<?> c, boolean flatten ) {
+    if ( !flatten ) representativeValues.addAll( c );
+  }
+  protected static void addAll( Set<Object> representativeValues, Object o, boolean flatten ) {
+    if ( !flatten ) representativeValues.add( o );
+    List<?> flattened = Utils.flatten( o, null );
+    representativeValues.addAll( flattened );
+  }
+
   public static <T> boolean contains( Domain<T> d, Object o ) {
     if ( d == null || o == null ) return false;
     if ( d.getType() != null ) {

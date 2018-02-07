@@ -2691,7 +2691,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   @Override
   public String executionToString() {
     StringBuffer sb = new StringBuffer();
-    Set< Event > events = new HashSet< Event >();
+    Set< Event > events = new TreeSet< Event >();
     events.add( this );
     events = Utils.addAll( events, getEvents( true, null ) );
     for ( Event e : events ) {

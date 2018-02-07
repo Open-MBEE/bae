@@ -40,7 +40,7 @@ public class Timepoint extends LongParameter implements TimeVariable {//FIXME --
   protected static TimeUtils.Units units = TimeUtils.Units.seconds;
 
   protected static int counter = 0;
-  protected static long horizonDuration = 24L * 3600 * 200 * (4 * 365 + 1) / 4;  // 200 years
+  protected static long horizonDuration = 24L * 3600;// * 200 * (4 * 365 + 1) / 4;  // 200 years
   
   private final static Timepoint epochTimepoint = new Timepoint( "", 0L, null );
   private static Timepoint horizonTimepoint = null;

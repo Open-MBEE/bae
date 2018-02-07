@@ -316,7 +316,8 @@ public class Functions {
         if ( d == null && inverse.getMethod() != null && inverse.getMethod().getName().contains("newList") ) {
           d = DomainHelper.combineDomains(inverse.getArguments(), null, false);
         }
-        List<Object> values = DomainHelper.getRepresentativeValues(d, null);
+        boolean flatten = (inverse.getMethod().getName().contains("newList") && d != null && !d.isEmpty());
+        List<Object> values = DomainHelper.getRepresentativeValues(d, null, flatten);
         if ( values != null && values.size() > 0 ) {
           listOfInverseResults.addAll(values);
           return;

@@ -3191,11 +3191,13 @@ public class EventXmlToJava {
       }
     }
     LinkedHashSet<File> files = new LinkedHashSet<File>();
-    for ( String fs : javaFiles ) {
-      fs = fs.endsWith(".java") ? fs.substring(0, fs.length() - ".java".length() ) + ".class" : fs;
-      File ff = new File( fs );
-      if ( ff.exists() ) {
-        files.add( ff );
+    if ( javaFiles != null ) {
+      for (String fs : javaFiles) {
+        fs = fs.endsWith(".java") ? fs.substring(0, fs.length() - ".java".length()) + ".class" : fs;
+        File ff = new File(fs);
+        if (ff.exists()) {
+          files.add(ff);
+        }
       }
     }
     if ( fileArr != null ) {
