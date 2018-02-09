@@ -3320,7 +3320,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   }
 
   public TimeVaryingMap< Boolean > validStartIntervals() {
-    TimeVaryingMap< Boolean > overallValidTimes = null;
+    TimeVaryingMap< Boolean > overallValidTimes =
+            new TimeVaryingMap<>("", Boolean.TRUE, Boolean.class);
     boolean hasRelevantEffects = false;
     List< Pair< Parameter< ? >, Set< Effect > > > fects = getEffects();
     for ( Pair< Parameter< ? >, Set< Effect > > p : fects ) {

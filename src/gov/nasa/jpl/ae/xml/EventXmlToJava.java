@@ -2942,6 +2942,17 @@ public class EventXmlToJava {
             cc = updateClassesCache(fqn, c);
             if (cc) changedCache = true;
           }
+          Package p = c.getPackage();
+          if ( p != null && fqn != null ) {
+            String pn = p.getName();
+            if ( fqn.length() > pn.length() + 1 && fqn.startsWith(pn) ) {
+              String nameNoPackage = fqn.substring(pn.length()+1);
+              if ( nameNoPackage.contains(".") ) {
+                cc = updateClassesCache(nameNoPackage, c);
+                if (cc) changedCache = true;
+              }
+            }
+          }
         } catch ( Throwable t ) {}
         try {
           String sn = c.getSimpleName();

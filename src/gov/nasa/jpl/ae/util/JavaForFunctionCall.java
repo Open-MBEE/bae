@@ -754,15 +754,24 @@ public class JavaForFunctionCall {
         setClassName( getObjectTypeName() );
       } else {
         setClassName( this.exprXlator.getCurrentClass() );
-        Method m = ClassUtils.getMethodForArgTypes(className, getPreferredPackageName(), getCallName(), getArgTypes());
+        Method m = ClassUtils.getMethodForArgTypes(className, getPreferredPackageName(), getCallName(), false, getArgTypes());
         if (m != null && this.matchingMethod == null ) this.matchingMethod = m;
         if ( m == null ) {
           Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
           Call c = searchForCall(getCallName(), getArgs(), types);
-          if ( c != null ) {
-
+          if ( c != null && c.getMember() != null ) {
+            setClassName(c.getMember().getDeclaringClass().getCanonicalName());
+            if ( matchingMethod == null && c.getMember() instanceof Method ) {
+              setMatchingMethod((Method)c.getMember());
+            }
+            if ( this.call == null ) setCall( call );
           }
         }
+      }
+      if ( Utils.isNullOrEmpty( className ) ) {
+        System.err.println( "Couldn't find the class for method "
+                + callName
+                + ( argTypes == null ? "" : Utils.toString( argTypes, false ) ) );
       }
     }
     return className;
