@@ -546,6 +546,27 @@ public class JavaForFunctionCall {
 
   public String findClassNameWithMatchingMethod() {
     Debug.out("findClassNameWithMatchingMethod()");
+
+    // First see if what we already have is correct.
+    if ( this.matchingMethod != null && this.className != null ) {
+      // Do what should be fast memory reference comparisons, and only do string comparisons if they fail.
+      if ( this.className == matchingMethod.getDeclaringClass().getSimpleName() ) {
+        return this.className;
+      }
+      if ( this.className == matchingMethod.getDeclaringClass().getName() ) {
+        return this.className;
+      }
+      String cName = matchingMethod.getDeclaringClass().getCanonicalName();
+      if ( this.className == cName ) {
+        return this.className;
+      }
+      // The expensive string operation:
+      if ( ClassUtils.noParameterName(cName).contains(ClassUtils.noParameterName(className)) ) {
+        return className;
+      }
+    }
+
+    // Now check in parsed class data.
     String s = null;
     // Check if method is in class
     if ( getMethodDeclInClass( getClassName() ) != null ) {
@@ -566,6 +587,7 @@ public class JavaForFunctionCall {
 
     }
 
+    // Now check in Java libraries.
     Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
     Call c = searchForCall(getCallName(), getArgs(), types);
     if ( c != null && c.getMember() != null ) {
@@ -839,7 +861,7 @@ public class JavaForFunctionCall {
     if ( matchingConstructor == null ) {
       // Try using reflection to find the method, but class may not exist.
       Constructor<?> c = ClassUtils.getConstructorForArgTypes(getCallName(), getArgTypes(),
-              getPreferredPackageName());
+              getPreferredPackageName(), false);
       setMatchingConstructor( c );
     }
     return matchingConstructor;
