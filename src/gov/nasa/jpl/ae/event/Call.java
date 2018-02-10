@@ -865,9 +865,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
          if (pair.first) return Utils.getEmptySet();
          seen = pair.second;
        }
+       // need to remove from seen set because HasParameters.Helper.getParameters()
+       // is passing true for checkIfHasParameters.
+       if ( seen != null ) seen.remove(exp);
        set = getMemberParameters( exp, deep, seen );
-    }
-    if ( deep || o instanceof Call ) {
+    } else if ( deep || o instanceof Call ) {
       set = HasParameters.Helper.getParameters( o, deep, seen, true );
     } else if ( set == null ) {
       set = new HashSet< Parameter< ? > >();

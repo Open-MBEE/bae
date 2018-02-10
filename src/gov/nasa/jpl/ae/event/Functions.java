@@ -18,6 +18,8 @@ import java.lang.Math;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1667,6 +1669,9 @@ public class Functions {
           result = Math.min( n1.floatValue(), n2.floatValue() );
         } else if ( n1 instanceof Long || n2 instanceof Long ) {
           result = Math.min( n1.longValue(), n2.longValue() );
+          // TODO
+//        } else if ( n1 instanceof BigDecimal || n2 instanceof BigDecimal ) {
+//        } else if ( n1 instanceof BigInteger || n2 instanceof BigInteger ) {
         } else {
           result = Math.min( n1.intValue(), n2.intValue() );
         }
@@ -2645,6 +2650,16 @@ public class Functions {
       result = ( (Double)n ) * -1.0;
     } else if ( n.getClass().isAssignableFrom( java.lang.Integer.class ) ) {
       result = ( (Integer)n ) * -1;
+    } else if ( n.getClass().isAssignableFrom( java.lang.Long.class ) ) {
+      result = ( (Long)n ) * -1;
+    } else if ( n.getClass().isAssignableFrom( java.lang.Float.class ) ) {
+      result = ( (Float)n ) * -1.0;
+    } else if ( n.getClass().isAssignableFrom( java.lang.Short.class ) ) {
+      result = ( (Short)n ) * -1;
+    } else if ( n.getClass().isAssignableFrom( BigDecimal.class ) ) {
+      result = ( (BigDecimal)n ).negate();
+    } else if ( n.getClass().isAssignableFrom( BigInteger.class ) ) {
+      result = ( (BigInteger)n ).negate();
     }
     return result;
   }
