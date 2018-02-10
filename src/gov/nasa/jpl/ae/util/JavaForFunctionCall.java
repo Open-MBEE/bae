@@ -1581,7 +1581,7 @@ public class JavaForFunctionCall {
           if ( argsEmpty && !argTypesEmpty ) {
             method = ClassUtils.getMethodForArgTypes(Timepoint.class, operationName.toString(), argTypeArray, false);
           } else {
-            method = ClassUtils.getMethodForArgs( Timepoint.class, operationName.toString(),
+            method = ClassUtils.getMethodForArgs( Timepoint.class, operationName.toString(), false,
                                                   argumentss == null ? new Object[]{} : argumentss.toArray(), false );
           }
         }

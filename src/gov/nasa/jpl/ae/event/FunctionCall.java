@@ -108,7 +108,7 @@ public class FunctionCall extends Call {
     if ( !Utils.isNullOrEmpty( arguments ) ) {
       argArr = arguments.toArray();
     }
-    this.method = ClassUtils.getMethodForArgs( cls, methodName, argArr );
+    this.method = ClassUtils.getMethodForArgs( cls, methodName, true, argArr );
     this.arguments = arguments;
     this.returnType = returnType;
     hasTypeErrors();
@@ -195,7 +195,7 @@ public class FunctionCall extends Call {
   public FunctionCall( Object object , Class<?> cls , String methodName ,
                        Object argumentsA[] , Class< ? > returnType  ) {
     this.object = object;
-    this.method = ClassUtils.getMethodForArgs( cls, methodName, argumentsA );
+    this.method = ClassUtils.getMethodForArgs( cls, methodName, true, argumentsA );
     this.arguments = new Vector<Object>();
     if ( argumentsA != null ) {
       for ( Object o : argumentsA ) {
