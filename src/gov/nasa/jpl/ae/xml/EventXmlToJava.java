@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.xml;
 
+import javassist.compiler.Javac;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 import org.json.XML;
@@ -2419,7 +2420,7 @@ public class EventXmlToJava {
   }
 
 
-  public static String generatedCodeLocation = "generatedSrc";
+  public static String generatedCodeLocation = "src";
 
   public static String packagePath( String pathName, String packageName ) {
     return packagePath( pathName, packageName, true );
@@ -2791,9 +2792,13 @@ public class EventXmlToJava {
 
     List<String> optionList = new ArrayList<String>();
 // set compiler's classpath to be same as the runtime's
-    String cp = System.getProperty("java.class.path");
+    String cp = getClassPath();
     if ( Debug.isOn()) Debug.outln("cp = " + cp);
-    optionList.addAll(Arrays.asList("-classpath",cp));
+    if ( Utils.isNullOrEmpty( cp ) ) {
+      Debug.error(true, false, "No classpath found for compiling java files!");
+    } else {
+      optionList.addAll(Arrays.asList("-classpath", cp));
+    }
 
 //// any other options you want
 //    optionList.addAll(Arrays.asList(options));
@@ -2814,6 +2819,28 @@ public class EventXmlToJava {
     System.out.println( "compileJavaFiles(" + javaPath + 
                         "): compilation success=" + succ );
     return succ;
+  }
+
+  public static String getClassPath() {
+    String cp = System.getProperty("java.class.path");
+    if ( cp.length() > 100 ) {
+      return cp;
+    }
+    String sysCp = cp;
+    // This code is copied from stackoverflow on how to get classpath when running maven.
+    ClassLoader sys = ClassLoader.getSystemClassLoader();
+    ClassLoader cl = Javac.class.getClassLoader();
+    for (; cl != null & cl != sys; cl = cl.getParent())
+      if (cl instanceof java.net.URLClassLoader) {
+        java.net.URLClassLoader ucl = (java.net.URLClassLoader) cl;
+        for (java.net.URL url : ucl.getURLs())
+          cp += File.pathSeparator + url.getPath();
+      }
+    cp = cp.length()==0 ? null : cp.substring(1);
+    if ( cp == null || cp.length() < sysCp.length() ) {
+      cp = sysCp;
+    }
+    return cp;
   }
 
   static class CL extends ClassLoader {
