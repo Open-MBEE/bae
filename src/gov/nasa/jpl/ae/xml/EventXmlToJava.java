@@ -2420,7 +2420,7 @@ public class EventXmlToJava {
   }
 
 
-  public static String generatedCodeLocation = "src";
+  public static String generatedCodeLocation = "generatedSrc";
 
   public static String packagePath( String pathName, String packageName ) {
     return packagePath( pathName, packageName, true );
