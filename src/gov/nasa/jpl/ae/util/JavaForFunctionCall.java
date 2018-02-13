@@ -438,7 +438,8 @@ public class JavaForFunctionCall {
     Class<?>[] types = getArgTypes();
     boolean mOrC = isMethodOrConstructor();
     Member member = mOrC ? getMatchingMethod() : getMatchingConstructor();
-    if ( member == null ) {
+    if ( member == null || ( DurativeEvent.class.isAssignableFrom(member.getDeclaringClass()) &&
+                             member.getName().contains("elaborate") ) ) {
       return false;
     }
     Class<?>[] paramTypes = mOrC ? ((Method)member).getParameterTypes() : ((Constructor)member).getParameterTypes();
@@ -573,6 +574,18 @@ public class JavaForFunctionCall {
       Debug.out("findClassNameWithMatchingMethod(): returning this");
       return "this";
     }
+
+    // Try lookupMethodByName.
+    Map<String, List<Object>> decls = exprXlator.getClassData().lookupMethodByName(className, getCallName(), true, false);
+    if ( !Utils.isNullOrEmpty( decls ) ) {
+      className = decls.keySet().iterator().next();
+      if ( !Utils.isNullOrEmpty(className) ) {
+        return className;
+      }
+    }
+    // TODO -- REVIEW -- return here?  Will code below ever find anything that lookupMethodByName() didn't?
+
+    // Try enclosing class
     String prevClassName = getClassName();
     String className =
         exprXlator.getClassData().getEnclosingClassName( prevClassName );
@@ -643,14 +656,16 @@ public class JavaForFunctionCall {
             }
           } else if (className.equals("this")) {
             setObject( className );
-          } else {
-            if ( this.matchingMethod != null && ClassUtils.isStatic(this.matchingMethod) ) {
-              setObject("null");
-            } else {
+          } else if ( this.matchingMethod != null && ClassUtils.isStatic(this.matchingMethod) ) {
+            setObject("null");
+          } else if ( exprXlator.getClassData().isMemberStatic( className, getCallName() ) ) {
+            setObject("null");
+          } else if ( exprXlator.getClassData().getAllEnclosingClassNames(this.className).contains(className) ) {
               setObject(className + ".this");
-            }
+          } else {
+            // a Java superclass of a parsed class, like DurativeEvent
+            setObject("this");
           }
-          
 
 //        } else if ( getMethodCallExpr() != null ) {
 //          setObject( "this" );

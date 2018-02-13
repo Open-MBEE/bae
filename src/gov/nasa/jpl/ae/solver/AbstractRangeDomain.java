@@ -125,7 +125,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
 	public abstract boolean isInfinite();
 
 	/* (non-Javadoc)
-	 * @see event.Domain#size()
+	 * @see event.RangeDomain#size()
 	 */
 	@Override
 	public abstract long size();
@@ -713,7 +713,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
       upperBound = ub;
       if ( !o.isUpperBoundIncluded() ) excludeUpperBound();
     }
-    return this.size() != 0;
+    return this.magnitude() != 0;
   }
 
   /**
@@ -782,7 +782,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
         new MultiDomain< T >( (Class< T >)getType(), (Set< Domain< T > >)newSet,
                               (Set< Domain< T > >)null );
     newSet = md.getFlattenedSet();
-    if ( newSet.size() == 0 ) {
+    if ( newSet.isEmpty() ) {
       if ( !isEmpty() ) {
         this.clearValues();
         changed = true;
@@ -1048,12 +1048,12 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   @Override
   public boolean excludeLowerBound() {
     lowerIncluded = false;
-    return this.size() != 0;
+    return this.magnitude() != 0;
   }
   @Override
   public boolean includeLowerBound() {
     lowerIncluded = true;
-    return this.size() != 0;
+    return this.magnitude() != 0;
   }
   @Override
   public boolean isLowerBoundIncluded() {
@@ -1063,12 +1063,12 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   @Override
   public boolean excludeUpperBound() {
     upperIncluded = false;
-    return this.size() != 0;
+    return this.magnitude() != 0;
   }
   @Override
   public boolean includeUpperBound() {
     upperIncluded = true;
-    return this.size() != 0;
+    return this.magnitude() != 0;
   }
   @Override
   public boolean isUpperBoundIncluded() {
@@ -1198,10 +1198,10 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     V v = Evaluatable.Helper.evaluate( this, cls, true, propagate, false, null );
     if ( v != null ) return v;
     
-    if ( size() == 1 ) {
+    if ( magnitude() == 1 ) {
       T t = null;
       if ( cls == null || getType() == null || cls.isAssignableFrom( getType() ) ) {
-        t = getValue( propagate );
+        t = getNthValue(0);//getValue( propagate );
         if ( cls == null || cls.isInstance( t ) ) {
           return (V)t;
         }

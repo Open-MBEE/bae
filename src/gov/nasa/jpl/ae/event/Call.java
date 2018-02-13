@@ -269,7 +269,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( gotErrors || evaluatedArgs == null || numEvalArgs == 0 ) return gotErrors;
     for ( int i = 0; !gotErrors && i < evaluatedArgs.length; i++ ) {
       //Class< ? > c = getParameterTypes()[ i ];
-      Class< ? > c = getParameterTypes()[ Math.min(i,getParameterTypes().length-1) ];
+      Class< ? > oc = getParameterTypes()[ Math.min(i,getParameterTypes().length-1) ];
+      Class< ? > c = oc;
       if ( c != null ) {
           Class< ? > np = ClassUtils.classForPrimitive( c );
           if ( np != null ) c = np;
@@ -283,7 +284,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         }
       }
       if ( evaluatedArgs[ i ] == null ) {
-        if ( c.isPrimitive() ) {
+        if ( oc.isPrimitive() ) {
           gotErrors = true; 
         }
       } else if ( !c.isAssignableFrom( evaluatedArgs[ i ].getClass() )

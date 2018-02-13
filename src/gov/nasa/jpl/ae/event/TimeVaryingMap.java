@@ -1750,24 +1750,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       // TODO better message for null case ..  if ( valueBefore==nu)
       if ( valueBefore != value ) {
         String warningMsg = null;
-        if ( value == null ) {
-          warningMsg =
-          "Warning: tried to insert value of wrong type. Expected type is "
-              + getType().getSimpleName() + ".  Inserting null.";
-        } else {
-          warningMsg =
-              "Warning: tried to insert value of wrong type, "
-                  + valueBefore.getClass().getSimpleName()
-                  + ". Expected type is " + getType().getSimpleName()
-                  + ".  Inserting value of type "
-                  + value.getClass().getSimpleName() + " instead. value = "
-                  + MoreToString.Helper.toLongString( value ) + "; this = "
-                  + this.toString( true, true, null );
-        }
         if ( value != null && !getType().isAssignableFrom( value.getClass() ) ) {
-          Debug.error( false, warningMsg );
+          Debug.error( false, warningMsg1(valueBefore, value) );
         } else {
-          if ( Debug.isOn() ) Debug.errln( warningMsg );
+          if ( Debug.isOn() ) {
+            Debug.errln( warningMsg1(valueBefore, value) );
+          }
         }
       }
     }
@@ -1789,6 +1777,24 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return oldValue;
   }
 
+  protected String warningMsg1(Object valueBefore, Object value) {
+    String warningMsg = null;
+    if ( value == null ) {
+      warningMsg =
+              "Warning: tried to insert value of wrong type. Expected type is "
+                      + (getType() == null ? "null" : getType().getSimpleName()) + ".  Inserting null.";
+    } else {
+      warningMsg =
+              "Warning: tried to insert value of wrong type, "
+                      + valueBefore.getClass().getSimpleName()
+                      + ". Expected type is " + (getType() == null ? "null" : getType().getSimpleName())
+                      + ".  Inserting value of type "
+                      + value.getClass().getSimpleName() + " instead. value = "
+                      + MoreToString.Helper.toLongString(value) + "; this = "
+                      + this.toString(true, true, null);
+    }
+    return warningMsg;
+  }
   // Change non-Long timepoint value to Long
   public static Parameter<Long> fixTimepoint( Object tp ) {
     if ( tp instanceof Parameter ) {

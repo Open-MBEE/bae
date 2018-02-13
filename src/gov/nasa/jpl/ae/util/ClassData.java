@@ -22,6 +22,7 @@ import japa.parser.ast.type.ClassOrInterfaceType;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public class
@@ -818,6 +819,117 @@ ClassData {
                                           boolean complainIfNotFound ) {
     return lookupMemberByName( currentClass, memberName, lookOutsideClassDataForTypes,
                                complainIfNotFound );
+  }
+
+  public Map<String, List<Object>> lookupMethodByName( String className, String methodName,
+                                                       boolean lookOutsideClassData,
+                                                       boolean complainIfNotFound ) {
+    Map<String, List<Object> > decls = new LinkedHashMap<>();
+    if ( Debug.errorOnNull( complainIfNotFound, complainIfNotFound,
+            "Passing null in lookupMethodByName(" + className
+                    + ", " + methodName + ")", className, methodName ) ) {
+      return decls;
+    }
+    if ( className.equals( "this" ) ) {
+      className = currentClass;
+    }
+    // Check if the className is known.
+    Map< String, Set< MethodDeclaration > > methods = methodTable.get(className);
+    // If the name is not in the table, make sure it's the scoped name.
+    String classNameWithScope = null;
+    if ( methods == null ) {
+      classNameWithScope = getClassNameWithScope( className );
+      if ( classNameWithScope != null
+              || ( !lookOutsideClassData && complainIfNotFound && !Debug.errorOnNull( false,
+              "Error! Could not find a class definition for "
+                      + className
+                      + " when looking for member "
+                      + methodName
+                      + ".",
+              classNameWithScope ) ) ) {
+        // if ( Utils.isNullOrEmpty( classNameWithScope ) ) {
+        methods = methodTable.get( classNameWithScope );
+      }
+    }
+    //Param p = null;
+    Set<MethodDeclaration> p = null;
+    //Object decl = null;
+    if ( methods != null ) {
+      p = methods.get( methodName );
+      if ( !Utils.isNullOrEmpty(p) ) {
+        decls.put( classNameWithScope != null ? classNameWithScope : className,
+                   Utils.asList(p, Object.class) );
+      }
+    }
+
+    // check superclasses
+    if ( decls.isEmpty() ) {
+      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
+      if ( clsDecl != null ) {
+        List<ClassOrInterfaceType> superclasses =
+                clsDecl.getExtends();
+        if ( superclasses != null ) {
+          for (ClassOrInterfaceType ciType : superclasses) {
+            String superclassName = ciType.toString();
+            decls = lookupMethodByName(superclassName, methodName, lookOutsideClassData,
+                    complainIfNotFound && lookOutsideClassData);
+            if ( decls != null && !decls.isEmpty() ) break;
+          }
+        }
+      }
+    }
+
+    // If not in the table and an inner class, check enclosing class's scope.
+    if ( Utils.isNullOrEmpty( decls ) && isInnerClass( className ) ) {
+      String enclosingClassName = getEnclosingClassName( className );
+      if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
+        decls = lookupMethodByName( enclosingClassName, methodName, lookOutsideClassData,
+                        complainIfNotFound && lookOutsideClassData );
+      }
+    }
+    Class< ? > classForName = null;
+    if ( Utils.isNullOrEmpty( decls ) && lookOutsideClassData ) {
+      classForName =
+              ClassUtils.getClassForName( className, methodName, getPackageName(),
+                      false );
+      if ( classForName != null ) {
+        Method[] m = ClassUtils.getMethodsForName( classForName, methodName );
+        if ( m != null && m.length > 0 ) {
+          decls.put(classForName.getCanonicalName(), Utils.arrayAsList( m, Object.class ) );
+        }
+      }
+    }
+
+    if ( Debug.isOn() ) Debug.outln( "lookupMethodByName( className="
+            + className + ", paramName=" + methodName
+            + ") returning " + decls );
+    if ( Utils.isNullOrEmpty( decls ) && complainIfNotFound ) {
+      Debug.errorOnNull( false, "lookupMethodByName(" + className + ", "
+              + methodName
+              + "): no parameter found\n  methodTable =\n"
+              + paramTable + "\n  enclosingClasses =\n"
+              + nestedToEnclosingClassNames, p );
+    }
+    return decls;
+  }
+
+  public Set< String > getAllEnclosingClassNames(String className ) {
+    Set<String> all = new LinkedHashSet<>();
+    String encloser = className;
+    int ct = 0;
+    while (true) {
+      encloser = getEnclosingClassName( encloser );
+      if ( encloser == null || all.contains( encloser) ) {
+        break;
+      }
+      all.add( encloser );
+      ++ct;
+      if ( ct > 10000 ) {
+        Debug.error(true, true, "How can there be 10000 enclosing classes?!");
+        break;
+      }
+    }
+    return all;
   }
 
   /**

@@ -60,7 +60,11 @@ public interface RangeDomain< T > extends ComparableDomain< T > {
    *         bounds; for example, the width of the range, [1.2, 1.5], is 0.3
    */
   public Number width();
-  
+
+  /**
+   * @return the size of the domain as the difference in the lower and upper
+   *         bounds; for example, the width of the range, [1.2, 1.5], is 0.3
+   */
   public long size();
 
   public RangeDomain< T > clone();

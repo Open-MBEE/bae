@@ -713,7 +713,8 @@ public class Functions {
                 this.domain = ( (HasDomain)o2 ).getDomain( propagate, null );
               }
             } else {
-              ard2.restrictTo( domain );
+              boolean cc = ard2.restrictTo(domain);
+              changed = changed || cc;
             }
           }
         } else if ( condo.contains( Boolean.FALSE ) ) {
@@ -726,7 +727,8 @@ public class Functions {
                 this.domain = ( (HasDomain)o3 ).getDomain( propagate, null );
               }
             } else {
-              ard3.restrictTo( domain );
+              boolean cc = ard3.restrictTo( domain );
+              changed = changed || cc;
             }
           }
         } else {

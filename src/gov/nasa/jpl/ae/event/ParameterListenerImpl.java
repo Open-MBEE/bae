@@ -418,6 +418,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return toString( withHash, deep, seen, null );
   }
 
+  public static boolean setUsingArcConsistency(boolean b) {
+    usingArcConsistency = b;
+    return true;
+  }
+
   public < T1, T2 > Dependency< ? > addDependency( Parameter< T1 > p, Call e,
                                                    boolean fire ) {
     return addDependency( p, new Expression< T2 >( e ), fire );
