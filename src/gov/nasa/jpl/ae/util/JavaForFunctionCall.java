@@ -427,7 +427,7 @@ public class JavaForFunctionCall {
     } else {
       Class<?> cls = getMatchingConstructor().getDeclaringClass();
       Class<?> enclosingClass = cls.getEnclosingClass();
-      if ( !TimeVarying.class.isAssignableFrom(enclosingClass) ) {
+      if ( enclosingClass != null && !TimeVarying.class.isAssignableFrom(enclosingClass) ) {
         return true;
       }
     }

@@ -711,7 +711,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                              boolean getParameterValue,
                              boolean complainIfDeclNotFound,
                              boolean evaluateCall ) {
-    
+    if ( expr == null ) return null;
+
     Class<?> returnType = null;  // TODO?
     String returnTypeString = "(Class<?>)null";
     

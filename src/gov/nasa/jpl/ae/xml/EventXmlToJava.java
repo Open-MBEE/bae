@@ -2793,6 +2793,8 @@ public class EventXmlToJava {
     List<String> optionList = new ArrayList<String>();
 // set compiler's classpath to be same as the runtime's
     String cp = getClassPath();
+//    System.out.println("cp = " + cp);
+//    System.err.println("cp = " + cp);
     if ( Debug.isOn()) Debug.outln("cp = " + cp);
     if ( Utils.isNullOrEmpty( cp ) ) {
       Debug.error(true, false, "No classpath found for compiling java files!");
@@ -2821,9 +2823,15 @@ public class EventXmlToJava {
     return succ;
   }
 
+  /**
+   * Get the classpath or reconstruct it if replaced by something like maven.
+   * @return a string with the OS-dependent path separator separating paths in the current classpath.
+   */
   public static String getClassPath() {
     String cp = System.getProperty("java.class.path");
-    if ( cp.length() > 100 ) {
+    // Maven replaces the classpath with their own stuff, mainly a "plexus-classworlds" library.
+    // In this case, we need to reconstruct the classpath using the class loader.
+    if ( cp.length() > 100 && !cp.contains("plexus-classworlds") ) {
       return cp;
     }
     String sysCp = cp;
