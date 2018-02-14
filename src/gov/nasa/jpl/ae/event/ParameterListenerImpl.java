@@ -330,6 +330,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     List<String> reqs = JSONArrToReqs(kSolutionJSONArr());
     ArrayList<String> arr = new ArrayList<String>();
     for (String s : reqs) {
+      // TODO -- For arrays with size less than maybe 10, toString()
+      // TODO -- hides details and writes "( ... 23604 entries  ... )."
+      // TODO -- If these constraints are going to be usable (to add
+      // TODO -- to a model, for example), then they need to be complete.
       arr.add( "req " + s );
     }
     return arr;
