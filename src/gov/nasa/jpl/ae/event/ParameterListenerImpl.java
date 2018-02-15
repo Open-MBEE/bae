@@ -156,9 +156,6 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( obj instanceof ParameterListenerImpl ) {
       ParameterListenerImpl opl = (ParameterListenerImpl) obj;
       int comp = compareTo(opl, true, false, true );
-      if ( comp != 0 ) {
-        System.out.println("not equal: " + this + " and " + opl );
-      }
       return comp == 0;
     }
     return false;
@@ -746,7 +743,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   @Override
   public boolean isSatisfied( boolean deep, Set< Satisfiable > seen ) {
-    for ( Constraint c : getConstraints( true, null ) ) { // REVIEW -- why is
+    Collection<Constraint> constraints = getConstraints(true, null);
+    for ( Constraint c : constraints ) { // REVIEW -- why is
                                                           // true passed in?
       if ( Debug.isOn() ) Debug.outln( "ParameterListenerImpl.isSatisfied(): checking "
                                        + c );

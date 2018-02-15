@@ -817,7 +817,7 @@ public class Functions {
    * @throws InvocationTargetException
    * @throws IllegalAccessException
    */
-  public static < T > T
+  public static < T > Object
          ifThenElse( Expression< ? > conditionExpr, Expression< T > thenExpr,
                      Expression< T > elseExpr ) throws IllegalAccessException,
                                                 InvocationTargetException,
@@ -4928,7 +4928,7 @@ public class Functions {
           return true;
         }
       } else {
-        return false;
+        return tvmResult;
       }
     }
     return eq( r1, r2 );

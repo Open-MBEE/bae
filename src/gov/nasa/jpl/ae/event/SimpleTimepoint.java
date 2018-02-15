@@ -18,6 +18,8 @@ import gov.nasa.jpl.mbee.util.Utils;
 
 public class SimpleTimepoint extends Timepoint {
 
+  public static SimpleTimepoint zero = new SimpleTimepoint("zero", 0L, null);
+
   /**
    * @param name
    * @param o

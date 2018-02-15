@@ -1010,7 +1010,10 @@ public class Expression< ResultType > extends HasIdImpl
     }
     Object result = evaluateDeep( object, cls, propagate, allowWrapping );
     if ( result != null && (cls == null || cls.isInstance( result ) ) ) return (TT)result;
-    if ( result != null && result != object ) {
+    if ( result != null && result != object &&
+         (!(result instanceof TimeVarying) ||
+          (((TimeVarying) result).getType() != null &&
+           !cls.isAssignableFrom(((TimeVarying) result).getType()))) ) {
       Object result2 = Evaluatable.Helper.evaluate( result, cls, propagate, true );
       if ( result2 != null ) return (TT)result2;
     }

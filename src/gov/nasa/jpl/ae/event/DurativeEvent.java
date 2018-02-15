@@ -2317,7 +2317,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     }
     seen = pair.second;
     if ( seen != null ) seen.remove( this );
-    Collection< Constraint > set = new HashSet< Constraint >();
+    Collection< Constraint > set = new LinkedHashSet< Constraint >();
     set = Utils.addAll( set, super.getConstraints( deep, seen ) );
     // if ( set.equals( Utils.getEmptySet() ) ) return set;
     set.add( elaborationsConstraint );

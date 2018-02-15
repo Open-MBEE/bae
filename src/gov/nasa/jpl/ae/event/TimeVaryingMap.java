@@ -2489,14 +2489,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if (this.isEmpty()) {
       return true;
     }
-    boolean first = false;
-    Object firstVal = null;
+    Object firstVal = this.getValue(0L);
     for ( Map.Entry< Parameter< Long >, ? > e : this.entrySet() ) {
       Object mapVal = this.getValue( e.getKey() );
-      if (! first) {
-        first = true;
-        firstVal = mapVal;
-      } else if (!firstVal.equals(mapVal)) {
+      if (firstVal != mapVal && (firstVal == null || !firstVal.equals(mapVal))) {
         return false;
       }
     }
@@ -4393,12 +4389,22 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   
   public static TimeVaryingMap<Boolean> compare(TimeVaryingMap<?> map, Number n, boolean reverse, Inequality i) {
-    if ( map == null || n == null ) return null;
+    if ( map == null ) return null;
     TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
+    // handle time zero
+    if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
+      Object mapVal = map.getValue( 0L );
+      Boolean value = null;
+      if ( (mapVal != null && n != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
+        value = reverse ? doesInequalityHold( n, mapVal, i )
+                : doesInequalityHold( mapVal, n, i );
+      }
+      result.setValue( SimpleTimepoint.zero, value );
+    }
     for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
       Object mapVal = map.getValue( e.getKey() );
       Boolean value = null;
-      if ( mapVal != null ) {
+      if ( (mapVal != null && n != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
         value = reverse ? doesInequalityHold( n, mapVal, i )
                         : doesInequalityHold( mapVal, n, i );
       }
@@ -4409,12 +4415,22 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   
   public static TimeVaryingMap<Boolean> compare(TimeVaryingMap<?> map, Object o, boolean reverse, Inequality i) {
-    if ( map == null || o == null ) return null;
+    if ( map == null ) return null;
     TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
+    // handle time zero
+    if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
+      Object mapVal = map.getValue( 0L );
+      Boolean value = null;
+      if ( (mapVal != null && o != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
+        value = reverse ? doesInequalityHold( o, mapVal, i )
+                : doesInequalityHold( mapVal, o, i );
+      }
+      result.setValue( SimpleTimepoint.zero, value );
+    }
     for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
       Object mapVal = map.getValue( e.getKey() );
       Boolean value = null;
-      if ( mapVal != null ) {
+      if ( (mapVal != null && o != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
         value = reverse ? doesInequalityHold( o, mapVal, i )
                         : doesInequalityHold( mapVal, o, i );
       }
@@ -4432,14 +4448,16 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Set< Parameter< Long > > keys =
         new TreeSet< Parameter< Long > >(map1.keySet());
     keys.addAll( map2.keySet() );
+    // handle time zero
+    if ( keys.isEmpty() || keys.iterator().next().getValueNoPropagate() != 0L) {
+      keys.add(SimpleTimepoint.zero);
+    }
     for ( Parameter< Long> t : keys ) {
       Object v1 = map1.getValue(t);
       Object v2 = map2.getValue(t);
       Boolean value = false;
-      if ( v1 != null && v2 != null ) {
+      if ( (v1 != null && v2 != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
         value = doesInequalityHold( v1, v2, i );
-      } else if ( v1 == v2 ) {
-        value = true;
       }
       result.setValue( t, value );
     }
@@ -4514,13 +4532,21 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                                       BoolOp boolOp ) {
     if ( map == null ) return null;
     TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
+
+    // handle zero
+    if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L ) {
+      Object mapVal = map.getValue( 0L );
+      Boolean value = null;
+      value = reverse ? applyOp( n, mapVal, boolOp )
+                      : applyOp( mapVal, n, boolOp );
+      result.setValue( SimpleTimepoint.zero, value );
+    }
+
     for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
       Object mapVal = map.getValue( e.getKey() );
       Boolean value = null;
-      if ( mapVal != null ) {
-        value = reverse ? applyOp( n, mapVal, boolOp )
-                        : applyOp( mapVal, n, boolOp );
-      }
+      value = reverse ? applyOp( n, mapVal, boolOp )
+                      : applyOp( mapVal, n, boolOp );
       result.setValue( e.getKey(), value );
     }
     result.removeDuplicates();
@@ -4535,13 +4561,15 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Set< Parameter< Long > > keys =
         new TreeSet< Parameter< Long > >(map1.keySet());
     keys.addAll( map2.keySet() );
+    // handle zero
+    if ( keys.isEmpty() || keys.iterator().next().getValueNoPropagate() != 0L ) {
+      keys.add(SimpleTimepoint.zero);
+    }
     for ( Parameter< Long> t : keys ) {
       Object v1 = map1.getValue(t);
       Object v2 = map2.getValue(t);
       Boolean value = null;
-      if ( v1 != null && v2 != null ) {
-        value = applyOp( v1, v2, boolOp );
-      }
+      value = applyOp( v1, v2, boolOp );
       result.setValue( t, value );
     }
     result.removeDuplicates();
