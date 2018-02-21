@@ -441,11 +441,17 @@ public class FunctionCall extends Call {
     boolean areAllArgsSingleValueDomains = true;
     for ( Object arg : arguments ) {
         Domain<?> d = DomainHelper.getDomain( arg );
-      if ( d != null
-           && ( d.magnitude() > 1
-                || ( ( d.magnitude() < 0 || d.magnitude() >= Long.MAX_VALUE )&& !d.isEmpty() && d.isInfinite() )
-                || ( d instanceof RangeDomain
-                     && ( (RangeDomain< ? >)d ).size() > 1 ) ) ) {
+        try {
+          if (d != null
+              && (d.magnitude() > 1
+                  || ((d.magnitude() < 0 || d.magnitude() >= Long.MAX_VALUE) && !d.isEmpty() && d.isInfinite())
+                  || (d instanceof RangeDomain
+                      && ((RangeDomain<?>) d).size() > 1)
+                  || !DomainHelper.contains(d, arg))) {
+            areAllArgsSingleValueDomains = false;
+            break;
+          }
+        } catch (Throwable t) {
           areAllArgsSingleValueDomains = false;
           break;
         }

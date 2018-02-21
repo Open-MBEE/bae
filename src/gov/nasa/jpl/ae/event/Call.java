@@ -284,7 +284,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         }
       }
       if ( evaluatedArgs[ i ] == null ) {
-        if ( oc.isPrimitive() ) {
+        if ( c.isPrimitive() ) {
           gotErrors = true; 
         }
       } else if ( !c.isAssignableFrom( evaluatedArgs[ i ].getClass() )

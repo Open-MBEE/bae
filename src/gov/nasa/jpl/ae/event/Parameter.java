@@ -311,7 +311,16 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   }
 
   public <T1> boolean valueEquals( T1 otherValue ) {
-    return value == otherValue || ( value != null && value.equals( otherValue ) );
+    if ( value == otherValue || this == otherValue ) return true;
+    //if ( value == null || otherValue == null ) return false;
+    if ( value != null && value != this && value.equals( otherValue ) ) return true;
+    if ( otherValue instanceof Wraps ) {
+      Object w = ((Wraps)otherValue).getValue(false);
+      if ( otherValue != w ) {
+        return valueEquals( w );
+      }
+    }
+    return false;
   }
 
   public Class< ? > getType() {

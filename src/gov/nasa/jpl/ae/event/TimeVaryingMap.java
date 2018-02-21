@@ -2170,7 +2170,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       boolean same = toKey.equals(fromKey);  // include the key if same
       map = subMap( fromKey, true, toKey, same );
     }
-    if ( !map.isEmpty() && n.doubleValue() < 0.0 || n.doubleValue() != n.longValue() ) {
+    if ( !map.isEmpty() && ( n.doubleValue() < 0.0 || n.doubleValue() != n.longValue() ) ) {
       Class<?> cls = ClassUtils.mostSpecificCommonSuperclass( new Class<?>[]{Double.class, getType()} );
       setType( cls );
     }
@@ -3131,7 +3131,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                            + " in TimeVaryingMap: "
                            + MoreToString.Helper.toLongString( this ) );
       }
-      if ( k == tt || ( equalValuesOk && k.equals( tt ) ) ) return k;
+      if ( k == tt || ( equalValuesOk && k.valueEquals( tt ) ) ) return k;
     }
 
     if ( !equalValuesOk ) return null;
@@ -3208,13 +3208,21 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
     for ( Map.Entry< Parameter< Long >, V > e : map.entrySet() ) {
       if ( e.getValue() instanceof Double ) {
-        Double v = (Double)e.getValue();
+        Double v = (Double) e.getValue();
         v = v + n.doubleValue();
         try {
-          e.setValue( tryCastValue( v ) );
-        } catch ( Exception exc ) {
+          e.setValue(tryCastValue(v));
+        } catch (Exception exc) {
           // ignore
         }
+      } else if ( e.getValue() instanceof Float ) {
+          Float v = (Float)e.getValue();
+          v = v + n.floatValue();
+          try {
+            e.setValue( tryCastValue( v ) );
+          } catch ( Exception exc ) {
+            // ignore
+          }
       } else if ( e.getValue() instanceof Long ) {
         Long v = (Long)e.getValue();
         // TODO -- handle Long?
@@ -6358,7 +6366,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     V value = firstValue();
     if ( size() > 1 ) {
       if (!this.allValuesEqual()) {
-        Debug.error(true, false, "Warning! Calling getValue() on TimeVaryingMap with multiple values.  Returning first " + value  + ": " + this );
+        Debug.error(true, false, "Warning! Calling getValue() on TimeVaryingMap with multiple values.  Returning null for " + this );
         return null;
       }
     }

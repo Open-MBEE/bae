@@ -743,8 +743,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       // non-zero value.
       NavigableMap< Parameter< Long >, ? > mapToT =
           tvm.subMap( null, true, t.getValue(), true );
-      Parameter< Long > last = mapToT.lastKey();
-      if ( last.getValue() == t.getValue() ) {
+      if ( mapToT.isEmpty() ) {
+          Debug.error(true, true, "subMap does not include entry with same value!");
+      }
+      Parameter< Long > last = mapToT.isEmpty() ? t : mapToT.lastKey();
+      if ( last != null && last.getValue() == t.getValue() ) {
         t = last;
       }
       Object v = tvmCopy.get( t );

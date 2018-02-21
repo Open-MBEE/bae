@@ -1255,7 +1255,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                                                    true ) ) {
         if ( deep ) {
           s.addAll( getNonEventObjects( p.getValueNoPropagate(), deep, seen ) );
-        } else if ( p.getValueNoPropagate() instanceof ParameterListenerImpl ) {
+        } else if ( p.getValueNoPropagate() instanceof ParameterListenerImpl &&
+                    !(p.getValueNoPropagate() instanceof Event) ) {
           s.add( (ParameterListenerImpl)p.getValueNoPropagate() );
         }
       }

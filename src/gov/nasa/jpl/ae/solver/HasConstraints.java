@@ -9,10 +9,7 @@ import gov.nasa.jpl.mbee.util.HasId;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  *
@@ -50,7 +47,7 @@ public interface HasConstraints extends HasId<Integer> {
         }
       }
 
-      Set< Constraint > set = new HashSet< Constraint >();
+      Set< Constraint > set = new LinkedHashSet< Constraint >();
       if ( o instanceof Constraint ) {
         set.add( (Constraint)o );
       }
@@ -70,7 +67,7 @@ public interface HasConstraints extends HasId<Integer> {
     public static < K, V > Set< Constraint > getConstraints( Map< K, V > map,
                                                              boolean deep,
                                                              Set< HasConstraints > seen ) {
-      Set< Constraint > set = new HashSet< Constraint >();
+      Set< Constraint > set = new LinkedHashSet< Constraint >();
 //      if ( map instanceof TimeVarying) {
 //      } else {
         for (Map.Entry<K, V> me : map.entrySet()) {
@@ -88,7 +85,7 @@ public interface HasConstraints extends HasId<Integer> {
     public static < T > Set< Constraint > getConstraints( Collection< T > c,
                                                           boolean deep,
                                                           Set< HasConstraints > seen ) {
-      Set< Constraint > set = new HashSet< Constraint >();
+      Set< Constraint > set = new LinkedHashSet< Constraint >();
       for ( T t : c ) {
         Set<Constraint> s1 = getConstraints(t, deep, seen);
         set = Utils.addAll( set, s1 );
@@ -99,7 +96,7 @@ public interface HasConstraints extends HasId<Integer> {
     public static Set< Constraint > getConstraints( Object[] c,
                                                        boolean deep,
                                                        Set< HasConstraints > seen ) {
-      Set< Constraint > set = new HashSet< Constraint >();
+      Set< Constraint > set = new LinkedHashSet< Constraint >();
       for ( Object t : c ) {
         Set<Constraint> s1 = getConstraints(t, deep, seen);
         set = Utils.addAll( set, s1 );
@@ -112,7 +109,7 @@ public interface HasConstraints extends HasId<Integer> {
     public static < T1, T2 > Set< Constraint > getConstraints( Pair< T1, T2 > p,
                                                                   boolean deep,
                                                                   Set< HasConstraints > seen ) {
-      Set< Constraint > set = new HashSet< Constraint >();
+      Set< Constraint > set = new LinkedHashSet< Constraint >();
       Set<Constraint> s1 = getConstraints(p.first, deep, seen);
       set = Utils.addAll( set, s1 );
       Set<Constraint> s2 = getConstraints(p.second, deep, seen);
