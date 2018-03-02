@@ -18,16 +18,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 
 /**
  * 
@@ -711,7 +702,7 @@ public class FunctionCall extends Call {
                                         Comparator< V > comparator,
                                         int indexOfObjectArgument ) {
       List< K > result = new ArrayList< K >( objects );
-      Map< K, V > map = new HashMap< K, V >();
+      Map< K, V > map = new LinkedHashMap< K, V >();
       try {
       for ( K o : objects ) {
           sub( indexOfObjectArgument, o );

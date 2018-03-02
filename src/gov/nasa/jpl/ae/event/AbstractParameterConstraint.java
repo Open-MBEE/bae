@@ -13,6 +13,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import junit.framework.Assert;
@@ -31,7 +32,7 @@ public abstract class AbstractParameterConstraint implements ParameterConstraint
     Pair< Boolean, Set< HasConstraints > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
-    Set< Constraint > set = new HashSet< Constraint >();
+    Set< Constraint > set = new LinkedHashSet< Constraint >();
     set.add( this );
     return set;
   }

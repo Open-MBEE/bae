@@ -3,14 +3,7 @@ package gov.nasa.jpl.ae.sysml;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 
 import gov.nasa.jpl.ae.event.Call;
 import gov.nasa.jpl.ae.event.ConstructorCall;
@@ -89,7 +82,7 @@ public class SystemModelToAeExpression< C, T, P, N, U, SM extends SystemModel< ?
      * Maps the parsed Expression Parameters to the Parameter objects
      * we create for them.
      */
-    private Map<P, Parameter<Object>> exprParamMap = new HashMap<P,Parameter<Object>>();
+    private Map<P, Parameter<Object>> exprParamMap = new LinkedHashMap<P,Parameter<Object>>();
 
     public Map< P, Parameter< Object >> getExprParamMap() {
       return exprParamMap;
@@ -99,7 +92,7 @@ public class SystemModelToAeExpression< C, T, P, N, U, SM extends SystemModel< ?
      * Maps the parsed Expression Parameters to the Parameter objects
      * we create for them.
      */
-    private Map<Parameter<Object>, P> paramExprMap = new HashMap<Parameter<Object>,P>();
+    private Map<Parameter<Object>, P> paramExprMap = new LinkedHashMap<Parameter<Object>,P>();
 
     public Map< Parameter< Object >, P > getParamExprMap() {
       return paramExprMap;
@@ -134,7 +127,7 @@ public class SystemModelToAeExpression< C, T, P, N, U, SM extends SystemModel< ?
     public enum ArgsUsed {UNKNOWN, ae, raw};
     // Cache doesn't work because the clone isn't deep enough.
     public static Map< String, Map< String, Map< Object, Pair<CallCase, ArgsUsed> > > > callCache =
-        Collections.synchronizedMap( new HashMap< String, Map< String, Map< Object, Pair<CallCase, ArgsUsed> > > >() );
+        Collections.synchronizedMap( new LinkedHashMap< String, Map< String, Map< Object, Pair<CallCase, ArgsUsed> > > >() );
 
     public static Pair< CallCase, ArgsUsed > callCacheGet( Object object,
                                                            String operationName,

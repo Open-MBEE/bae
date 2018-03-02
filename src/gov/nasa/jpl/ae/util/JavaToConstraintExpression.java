@@ -927,7 +927,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     return prefix + middle + suffix;
   }
   
-  private static HashSet<String> someNumberTypes = new HashSet<String>( Utils.newList( "Long", "Double", "Float" ) ); 
+  private static HashSet<String> someNumberTypes = new LinkedHashSet<String>( Utils.newList( "Long", "Double", "Float" ) );
   
   public Object //gov.nasa.jpl.ae.event.Expression< ? >
       astToAeExpression( Expression expr, boolean convertFcnCallArgsToExprs,

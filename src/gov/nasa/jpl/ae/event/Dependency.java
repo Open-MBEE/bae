@@ -1,13 +1,7 @@
 
 package gov.nasa.jpl.ae.event;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.event.Functions.Equals;
@@ -355,7 +349,7 @@ public class Dependency< T > extends HasIdImpl
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? > >();
     if ( parameter != null ) {
       set.add( parameter );
     }
@@ -739,7 +733,7 @@ public class Dependency< T > extends HasIdImpl
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Constraint > set = new HashSet< Constraint >();
+    Set< Constraint > set = new LinkedHashSet< Constraint >();
     set.add( this );
     if ( deep ) {
       Set< Constraint > pSet =
@@ -774,7 +768,7 @@ public class Dependency< T > extends HasIdImpl
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+    Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
     set = Utils.addAll( set, HasTimeVaryingObjects.Helper.getTimeVaryingObjects( parameter, deep, seen ) );
     set = Utils.addAll( set, HasTimeVaryingObjects.Helper.getTimeVaryingObjects( expression, deep, seen ) );
     return set;

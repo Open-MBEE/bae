@@ -7,19 +7,8 @@ import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.AbstractCollection;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.Stack;
-import java.util.TreeMap;
 
 /**
  * The CollectionTree is meant to act as a collection for gathering objects of
@@ -124,7 +113,7 @@ import java.util.TreeMap;
    */
     public class Iterator implements java.util.Iterator<C> {
 
-      public Set<?> seen = null;//new HashSet<Object>();
+      public Set<?> seen = null;//new LinkedHashSet<Object>();
       
       public Stack< CollectionTree.IterationState< ? > > stack =
           new Stack< CollectionTree.IterationState< ? > >();
@@ -240,7 +229,7 @@ import java.util.TreeMap;
    * Objects whose types are in {@code types} are considered part of the
    * collection.
    */
-  protected Collection< Class< ? > > types = new HashSet< Class< ? >>();
+  protected Collection< Class< ? > > types = new LinkedHashSet< Class< ? >>();
 
   /**
    * {@code branchMethods} specify how to get sub-collections, collections
@@ -250,7 +239,7 @@ import java.util.TreeMap;
    * {@code (HasConstraints.class=HasConstraints.getConstraintCollection())}.
    */
   protected Map< Class< ? >, Method > branchMethods = 
-      new HashMap< Class< ? >, Method >();    
+      new LinkedHashMap< Class< ? >, Method >();
   
 
   protected boolean allowDuplicates = false;
@@ -684,7 +673,7 @@ import java.util.TreeMap;
       ct.types.add( Double.class );
       ct.add( (Double)3.14 );
       ct.add( "pi" );
-      HashSet<Object> h = new HashSet<Object>();
+      HashSet<Object> h = new LinkedHashSet<Object>();
       ct.add(h);
       h.add( "e" );
       h.add( (Double)2.71 );

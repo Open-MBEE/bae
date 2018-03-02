@@ -97,12 +97,12 @@
           <function>
             <![CDATA[
   void add( String state, String[] signals, String[] nextStates ) {
-    Set< String > nextSet = new HashSet< String >();
+    Set< String > nextSet = new LinkedHashSet< String >();
     for ( String nextState : nextStates ) nextSet.add( nextState );
     Map< String, Set< String > > stateTransitions = transitionMap.get( state );
     if ( stateTransitions == null ) {
       stateTransitions = 
-          new HashMap< String, Set< String > >();
+          new LinkedHashMap< String, Set< String > >();
       transitionMap.put( state, stateTransitions );
     }
     for ( String signal : signals ) {
@@ -136,7 +136,7 @@
             <![CDATA[
   void initializeTransitionMap() {
     transitionMap =
-        new HashMap< String, Map< String, Set< String > > >();
+        new LinkedHashMap< String, Map< String, Set< String > > >();
 
     // region operating
     // state logged off
@@ -170,12 +170,12 @@
           <function>
             <![CDATA[
   void initializeRegionToStates() {
-    Set< String > states = new HashSet< String >();
+    Set< String > states = new LinkedHashSet< String >();
     regionToStates.put("operating", states );
     states.add( "logged off" );
     states.add( "logged on" );
     states.add( "operating join_1" );
-    states = new HashSet< String >();
+    states = new LinkedHashSet< String >();
     
     regionToStates.put("route maintenance", states );
     states.add( "idle" );

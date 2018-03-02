@@ -4,10 +4,7 @@ import gov.nasa.jpl.mbee.util.HasId;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
   public Set< TimeVarying< ?, ? > > getTimeVaryingObjects( boolean deep,
@@ -37,7 +34,7 @@ public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
           return getTimeVaryingObjects( (Pair< ?, ? >)o, deep, seen );
         }
       }
-      Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+      Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
       if ( o instanceof TimeVarying< ?, ? > ) {
         set.add( (TimeVarying< ?, ? >)o );
       }
@@ -58,7 +55,7 @@ public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
     public static < K, V > Set< TimeVarying< ?, ? > >
         getTimeVaryingObjects( Map< K, V > map, boolean deep,
                                Set< HasTimeVaryingObjects > seen ) {
-      Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+      Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
       if ( map != null ) {
         for ( Map.Entry< K, V > me : map.entrySet() ) {
           set.addAll( getTimeVaryingObjects( me.getKey(), deep, seen ) );
@@ -71,7 +68,7 @@ public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
     public static < T > Set< TimeVarying< ?, ? > >
         getTimeVaryingObjects( Collection< T > c, boolean deep,
                                Set< HasTimeVaryingObjects > seen ) {
-      Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+      Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
       for ( T t : c ) {
         set = Utils.addAll( set, getTimeVaryingObjects( t, deep, seen ) );
       }
@@ -81,7 +78,7 @@ public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
     public static Set< TimeVarying< ?, ? > >
         getTimeVaryingObjects( Object[] c, boolean deep,
                                Set< HasTimeVaryingObjects > seen ) {
-      Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+      Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
       for ( Object t : c ) {
         set = Utils.addAll( set, getTimeVaryingObjects( t, deep, seen ) );
       }
@@ -93,7 +90,7 @@ public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
     public static < T1, T2 > Set< TimeVarying< ?, ? > >
         getTimeVaryingObjects( Pair< T1, T2 > p, boolean deep,
                                Set< HasTimeVaryingObjects > seen ) {
-      Set< TimeVarying< ?, ? > > set = new HashSet< TimeVarying< ?, ? > >();
+      Set< TimeVarying< ?, ? > > set = new LinkedHashSet< TimeVarying< ?, ? > >();
       set = Utils.addAll( set, getTimeVaryingObjects( p.first, deep, seen ) );
       set = Utils.addAll( set, getTimeVaryingObjects( p.second, deep, seen ) );
       return set;

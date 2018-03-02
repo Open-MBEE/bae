@@ -71,7 +71,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   public Timepoint endTime = new Timepoint( "endTime", this );
   // TODO -- REVIEW -- create TimeVariableParameter and EffectMap classes for
   // effects?
-  // protected Set< Effect > effects = new HashSet< Effect >();
+  // protected Set< Effect > effects = new LinkedHashSet< Effect >();
   protected List< Pair< Parameter< ? >, Set< Effect > > > effects =
       new ArrayList< Pair< Parameter< ? >, Set< Effect > > >();
   protected Map< ElaborationRule, Vector< Event > > elaborations =
@@ -183,7 +183,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           if ( pair.first ) return Utils.getEmptySet();
           seen = pair.second;
           // if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-          Set< Parameter< ? > > s = new HashSet< Parameter< ? > >();
+          Set< Parameter< ? > > s = new LinkedHashSet< Parameter< ? > >();
           for ( Entry< ElaborationRule, Vector< Event > > er : elaborations.entrySet() ) {
             s = Utils.addAll( s, er.getKey().getCondition()
                                    .getParameters( deep, seen ) );
@@ -365,7 +365,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           if ( pair.first ) return Utils.getEmptySet();
           seen = pair.second;
           // if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-          Set< Parameter< ? > > s = new HashSet< Parameter< ? > >();
+          Set< Parameter< ? > > s = new LinkedHashSet< Parameter< ? > >();
           for ( Set< Effect > set : Pair.getSeconds( getEffects() ) ) {// .values()
                                                                        // ) {
             for ( Effect e : set ) {
@@ -608,7 +608,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   public static int debugCt = 0;
 
   private void debugElaborationsToCsvFile() {
-    Set< Event > events = new HashSet< Event >();
+    Set< Event > events = new LinkedHashSet< Event >();
     for ( Entry< ElaborationRule, Vector< Event > > e : elaborations.entrySet() ) {
       events.addAll( e.getValue() );
     }
@@ -646,7 +646,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     Set< ElaborationRule > elaborationsToProcess =
         new LinkedHashSet< ElaborationRule >( elaborations.keySet() );
     Set< ElaborationRule > elaborationsToDelete =
-        new HashSet< ElaborationRule >();
+        new LinkedHashSet< ElaborationRule >();
     // Map< ElaborationRule, Vector< Event > > newElaborations =
     // new LinkedHashMap< ElaborationRule, Vector<Event> >();
 
@@ -951,7 +951,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     // for ( Map.Entry< Parameter< ? >, Set< Effect > > e :
     // durativeEvent.effects.entrySet() ) {
     for ( Pair< Parameter< ? >, Set< Effect > > p : durativeEvent.effects ) {
-      Set< Effect > newSet = new HashSet< Effect >();
+      Set< Effect > newSet = new LinkedHashSet< Effect >();
       try {
         for ( Effect eff : p.second ) {
           checkIfEffectVariableMatches( p.first, eff );
@@ -1017,13 +1017,13 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     }
 
     // A map to remember which field is which
-    HashMap< String, Integer > fieldMap = new HashMap< String, Integer >();
+    HashMap< String, Integer > fieldMap = new LinkedHashMap< String, Integer >();
 
     // TODO -- Get the header if there is one to help determine fields by name.
 
     // process lines
     boolean fieldMapInitialized = false;
-    // HashMap<Object, Integer> fieldMapI = new HashMap<Object, Integer>();
+    // HashMap<Object, Integer> fieldMapI = new LinkedHashMap<Object, Integer>();
     for ( ArrayList< String > fields : lines ) {
       Date start = null;
       Date end = null;
@@ -1940,7 +1940,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     // effectSet = p.second; //effects.get( sv );
     // }
     if ( effectSet == null ) {
-      effectSet = new HashSet< Effect >();
+      effectSet = new LinkedHashSet< Effect >();
       effects.add( new Pair< Parameter< ? >, Set< Effect > >( sv, effectSet ) );
     }
     if ( Debug.isOn() ) Debug.outln( getName() + "'s effect (" + e
@@ -1968,7 +1968,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       }
     }
     if ( effectSet == null ) {
-      effectSet = new HashSet< Effect >();// set;
+      effectSet = new LinkedHashSet< Effect >();// set;
       effects.add( new Pair< Parameter< ? >, Set< Effect > >( sv, effectSet ) );
     }
     if ( set != null ) {
@@ -2458,7 +2458,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   @Override
   public void elaborate( boolean force ) {
     if ( elaborations == null ) {
-      elaborations = new HashMap< ElaborationRule, Vector< Event > >();
+      elaborations = new LinkedHashMap< ElaborationRule, Vector< Event > >();
     }
     for ( Entry< ElaborationRule, Vector< Event > > er : elaborations.entrySet() ) {
       if ( Debug.isOn() ) Debug.outln( getName() + " trying to elaborate "
@@ -2706,22 +2706,23 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     // for ( TimeVarying<?> tv : getTimeVaryingObjects( true, null ) ) {
     // sb.append( MoreToString.Helper.toString( tv, true, true, null ) + "\n" );
     // }
-    Set< Object > seen = new HashSet< Object >();
-    for ( Object o : getTimeVaryingObjectMap( true, null ).values() ) {
+    Set< Object > seen = new LinkedHashSet< Object >();
+    Map<String, Object> tvoMap = getTimeVaryingObjectMap(true, null);
+    for ( Object o : tvoMap.values() ) {
       if ( o == null ) continue;
       if ( seen.contains( o ) ) continue;
       TimeVaryingMap< ? > tvm = Functions.tryToGetTimelineQuick( o );
-      if ( seen.contains( tvm ) ) continue;
       if ( tvm != null ) {
-        Object owner = tvm.getOwner();
-        if ( owner instanceof Parameter ) {
-          // if ( seen.contains( owner ) ) continue;
-          if ( !seen.contains( owner ) ) {
-            seen.add( o );
-            seen.add( owner );
-            o = owner;
-          }
-        }
+          if ( seen.contains( tvm ) ) continue;
+//        Object owner = tvm.getOwner();
+//        if ( owner instanceof Parameter ) {
+//          // if ( seen.contains( owner ) ) continue;
+//          if ( !seen.contains( owner ) ) {
+//            seen.add( o );
+//            seen.add( owner );
+//            o = owner;
+//          }
+//        }
         seen.add( tvm );
       }
       // Object value = o;
@@ -2807,7 +2808,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     mdl.println( "};\n" );
 
     // write events
-    Set< Event > events = new HashSet< Event >();
+    Set< Event > events = new LinkedHashSet< Event >();
     events.add( this );
     events = Utils.addAll( events, getEvents( true, null ) );
     // final int typeDepth = 2; // the nested class depth, for which types will
@@ -3303,7 +3304,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   @Override
   public Set< Parameter< ? > >
          getDependentParameters( boolean deep, Set< HasParameters > seen ) {
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? > >();
     ArrayList< Dependency< ? > > s =
         new ArrayList< Dependency< ? > >( dependencies );
     if ( startTimeDependency != null ) s.remove( startTimeDependency );

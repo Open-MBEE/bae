@@ -149,7 +149,7 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     return (TimeVaryingPlottableMap< VV >)emptyClone();
   };
 
-  public double add( Parameter< Long> t, Double delta ) {
+  public Double add( Parameter< Long> t, Double delta ) {
     
     Double valBefore = getValueBefore( t );
     setValue( t, valBefore );  // we're going to add delta to this below.
@@ -169,6 +169,8 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     }
     double valueSet = getValue( t );
     return valueSet;
+    //return delta != 0; // valueSet;
+
   }
 
   /**
@@ -337,8 +339,8 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
   // As is, setValue() effectively is an add of the difference with the prior
   // map value.  It might be smart to somehow disallow the use of this in effects.
   @Override
-  public Double setValue( Parameter< Long > t, Double value ) {
-    if ( value == null ) return null;
+  public boolean setValue( Parameter< Long > t, Double value ) {
+    if ( value == null ) return false;//null;
     if ( minCap != null && maxCap != null ) {
       assert minCap <= maxCap;
     }

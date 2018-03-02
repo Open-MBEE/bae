@@ -84,7 +84,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected Solver solver = new ConstraintLoopSolver();
 
   protected Set< TimeVarying< ?, ? > > timeVaryingObjects =
-      new HashSet< TimeVarying< ?, ? > >();
+      new LinkedHashSet< TimeVarying< ?, ? > >();
   protected boolean usingCollectionTree = false;
   protected Object owner = null;
   protected Object enclosingInstance = null;
@@ -591,7 +591,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public Set< Parameter< ? > >
          getDependentParameters( boolean deep, Set< HasParameters > seen ) {
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? > >();
 
     Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return set;
@@ -711,7 +711,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    */
   public Set< Parameter< Long > > getTimepoints( boolean deep,
                                                  Set< HasParameters > seen ) {
-    Set< Parameter< Long > > set = new HashSet< Parameter< Long > >();
+    Set< Parameter< Long > > set = new LinkedHashSet< Parameter< Long > >();
     for ( Parameter< ? > p : getParameters( deep, seen ) ) {
       if ( p instanceof Timepoint || p.getValueNoPropagate() instanceof Long ) {
         set.add( (Parameter< Long >)p );
@@ -1008,13 +1008,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         Debug.error(true, false, "Error! Arc consistency failed.");
         t.printStackTrace();
       }
-
-      // restore domains of things that are not simple variables
-      if ( ac != null ) {
-        for (Entry<Variable<?>, Domain<?>> e : ac.savedDomains.entrySet()) {
-          if (Boolean.FALSE.equals(isSimpleVar(e.getKey()))) {
-            e.getKey().setDomain((Domain) e.getValue());
-          }
+    }
+    // restore domains of things that are not simple variables
+    if ( ac != null ) {
+      for (Entry<Variable<?>, Domain<?>> e : ac.savedDomains.entrySet()) {
+        if (Boolean.FALSE.equals(isSimpleVar(e.getKey()))) {
+          e.getKey().setDomain((Domain) e.getValue());
         }
       }
     }
@@ -1208,7 +1207,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     // if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< TimeVarying< ?, ? > > s = new HashSet< TimeVarying< ?, ? > >();
+    Set< TimeVarying< ?, ? > > s = new LinkedHashSet< TimeVarying< ?, ? > >();
     s.addAll( timeVaryingObjects );
     s = Utils.addAll( s,
                       HasTimeVaryingObjects.Helper.getTimeVaryingObjects( getParameters( false,
@@ -1240,7 +1239,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public static HashSet< ParameterListenerImpl >
          getNonEventObjects( Object o, boolean deep,
                              Set< HasParameters > seen ) {
-    HashSet< ParameterListenerImpl > s = new HashSet< ParameterListenerImpl >();
+    HashSet< ParameterListenerImpl > s = new LinkedHashSet< ParameterListenerImpl >();
     if ( o instanceof ParameterListenerImpl ) {
       ParameterListenerImpl pl = (ParameterListenerImpl)o;
       if ( !( o instanceof Event ) ) {
@@ -1277,7 +1276,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
 
-    Set< ParameterListenerImpl > s = new HashSet< ParameterListenerImpl >();
+    Set< ParameterListenerImpl > s = new LinkedHashSet< ParameterListenerImpl >();
 
     for ( Parameter< ? > p : getParameters( false, null ) ) {
       s.addAll( getNonEventObjects( p.getValueNoPropagate(), deep, seen ) );

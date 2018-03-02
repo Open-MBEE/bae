@@ -2855,8 +2855,8 @@ public class EventXmlToJava {
     List<String> paths = new ArrayList<String>();
     String packageName = null;
     ClassLoader parent = CL.class.getClassLoader();
-    Set<String> loadedClasses = new HashSet<>();
-    Set<String> unavaiClasses = new HashSet<>();
+    Set<String> loadedClasses = new LinkedHashSet<>();
+    Set<String> unavaiClasses = new LinkedHashSet<>();
 
 
     public CL() {

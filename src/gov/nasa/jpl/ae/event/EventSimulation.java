@@ -150,13 +150,13 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
   Set<Event> events = new LinkedHashSet<Event>();
   Map< Object, Object > currentPlottableValues =
       new TreeMap< Object, Object >( new CompareUtils.GenericComparator< Object >() );
-  Map< Object, String > categories = new HashMap< Object, String >();
+  Map< Object, String > categories = new LinkedHashMap< Object, String >();
   
   SocketClient plotSocket = null;
   Process plotProcess = null;
   List<Executor> executors = new ArrayList<Executor>();
   //public Collection<Plottable> plottables = new ArrayList<Plottable>();
-  protected Set<Plottable> projections = new HashSet< Plottable >();
+  protected Set<Plottable> projections = new LinkedHashSet< Plottable >();
     
   // New Constructors
   
@@ -245,8 +245,8 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
    * Write the plottable timelines out to CSV files.
    */
   public void writeTimelines() {
-    Set<String> fileNames = new HashSet<String>();
-    Set<String> cats = new HashSet<String>();
+    Set<String> fileNames = new LinkedHashSet<String>();
+    Set<String> cats = new LinkedHashSet<String>();
 
 //    // Use category names for file names if they are unique.
     boolean areCategoriesUnique = false; //true

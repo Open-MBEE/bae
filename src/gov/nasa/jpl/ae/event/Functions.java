@@ -827,7 +827,7 @@ public class Functions {
         booleanOrTimeline( conditionExpr.expression );
     if ( p != null && p.second != null ) {
       Object thenObj = thenExpr.evaluate( true );
-      Object elseObject = elseExpr.evaluate( true );
+      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
       T result =
           (T)( new TimeVaryingPlottableMap() ).ifThenElse( p.second, thenObj,
                                                            elseObject );
@@ -6022,7 +6022,7 @@ public class Functions {
     SuggestiveFunctionCall fCall = getSuggestiveFunctionCall( arg.expression );
     if ( fCall == null ) { // arg.expression instanceof SuggestiveFunctionCall )
                            // {
-      return t1;
+      return null;
     }
     // fCall=Plus(x,y)
     // SuggestiveFunctionCall fCall = (SuggestiveFunctionCall)arg.expression;

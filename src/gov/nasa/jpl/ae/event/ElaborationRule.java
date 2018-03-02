@@ -12,11 +12,7 @@ import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 
 import junit.framework.Assert;
 
@@ -278,7 +274,7 @@ public class ElaborationRule extends HasIdImpl implements Comparable<Elaboration
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter< ? > > s = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > s = new LinkedHashSet< Parameter< ? > >();
     if ( condition != null ) {
       s = Utils.addAll( s, condition.getParameters( deep, seen ) );
     }
@@ -295,7 +291,7 @@ public class ElaborationRule extends HasIdImpl implements Comparable<Elaboration
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter< ? > > s = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > s = new LinkedHashSet< Parameter< ? > >();
     if ( condition != null ) {
       s = Utils.addAll( s, condition.getFreeParameters( deep, seen ) );
     }

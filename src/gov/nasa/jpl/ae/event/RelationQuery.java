@@ -2,11 +2,7 @@ package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.solver.IntegerDomain;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.eclipse.emf.ecore.EObject;
 
@@ -123,7 +119,7 @@ public class RelationQuery extends Query {
   public static < R, T > Map< Object, Object >
       relations( R relation, IntegerDomain chainLength, List< T > tuple,
                  Expression< Boolean > whereClause, EObject model ) {
-    HashMap< Object, Object > result = new HashMap< Object, Object >();
+    HashMap< Object, Object > result = new LinkedHashMap< Object, Object >();
     List<Object> objects = new ArrayList< Object >();
     objects.add(relation);
     objects.addAll(tuple);

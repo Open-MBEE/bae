@@ -34,26 +34,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.TypeVariable;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.NavigableMap;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -209,8 +191,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   protected String name;
 
   protected Class<V> type = null;
+  protected boolean sureAboutType = false;
 
-  protected Set<Effect> appliedSet = new HashSet<Effect>();
+  protected Set<Effect> appliedSet = new LinkedHashSet<Effect>();
 
   protected static Map< Method, Integer > effectMethods = initEffectMethods();
 
@@ -413,6 +396,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public TimeVaryingMap( String name, Class<V> type ) {
     this(name);
     this.type = type;
+    if ( type != null ) this.sureAboutType = true;
     if ( domain == null && type != null ) {
       domain = DomainHelper.getDomainForClass( type );
     }
@@ -453,7 +437,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
     Parameter< Long> t = new Parameter< Long>(null, null, 0L, this);
     Debug.errorOnNull(true,"this should neeeever be null", t.getValue(false) );
-    put( t, valueToInsert );
+    if ( valueToInsert != null ) {
+      put(t, valueToInsert);
+    }
     if ( domain == null && type != null ) {
       domain = DomainHelper.getDomainForClass( type );
     }
@@ -885,7 +871,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         TimeVaryingMap<?> tv = (TimeVaryingMap<?>)a;
         // If the TVM values are compatible with the method's class or, in the case that the TVM value type is not known, and the TVM itself is not compatible with the method's class, then assume that the TVM values are meant to be the instance of the call.
         if ( pType != null && ( ( tv.getType() != null && pType.isAssignableFrom( tv.getType() ) ) ||
-            (tv.getType() == null && !pType.isInstance( a ) ) ) ) {
+            ( (tv.getType() == null || tv.getType() ==  Object.class) && !pType.isInstance( a ) ) ) ) {
           argMaps.add( tv );
           timePoints.addAll( tv.keySet() );
         } else {
@@ -1298,8 +1284,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public Set< Parameter< ? > > getParameters() {
     return getParameters( false, null );
     // Not allowing public access since some are not owned by this object.
-//    HashSet< HasParameters > seen = new HashSet< HasParameters >();
-//    Set< Parameter< ? > > params = new HashSet< Parameter< ? > >();
+//    HashSet< HasParameters > seen = new LinkedHashSet< HasParameters >();
+//    Set< Parameter< ? > > params = new LinkedHashSet< Parameter< ? > >();
 //    params = Utils.addAll( params, HasParameters.Helper.getParameters( keySet(), false, seen, true ) );
 //    params = Utils.addAll( params, HasParameters.Helper.getParameters( values(), false, seen, true ) );
 //    params = Utils.addAll( params, HasParameters.Helper.getParameters( floatingEffects, false, seen, true ) );
@@ -1417,6 +1403,16 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 //    if ( o instanceof ParameterListener ) {
 //      ((ParameterListener)o).setStaleAnyReferencesTo( changedParameter, seen );
 //    }
+  }
+
+//  @Override
+//  public V get(Object key) {
+//    return super.get(key);
+//  }
+
+  @Override
+  public V put(Parameter<Long> key, V value) {
+    return super.put(key, value);
   }
 
   /* (non-Javadoc)
@@ -1697,16 +1693,16 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @see gov.nasa.jpl.ae.event.TimeVarying#setValue(gov.nasa.jpl.ae.event.Parameter< Long>, java.lang.Object)
    */
   @Override
-  public V setValue( Parameter< Long > t, V value ) {
+  public boolean setValue( Parameter< Long > t, V value ) {
     breakpoint();
     if ( Debug.isOn() ) Debug.outln( getName() + " setValue(" + t + ", " + value + ")" );
     if ( t == null ) {
       if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> into the map!" );
-      return null;
+      return false;//null;
     }
     if ( t.getValueNoPropagate() == null ) {
       if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
-      return null;
+      return false;//null;
     }
 //    if ( t.getValueNoPropagate() == 12050959643L ) {
 //      System.out.println( getQualifiedName( null ) + " setValue(" + t + ", " + value + ")\n" + Debug.stackTrace() );
@@ -1763,7 +1759,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       Parameter<Long> tt = tryCastTimepoint( t );
       if (tt == null) {
         Debug.error( false, "Could not cast input time to Long" );
-        return null;
+        return false; //null;
       }
       oldValue = put( t, value );
       if ( value != null &&
@@ -1774,7 +1770,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( Debug.isOn() || checkConsistency ) isConsistent();
     if ( Debug.isOn() ) Debug.outln( getName() + "setValue(" + t + ", " + value
                                      + ") returning oldValue=" + oldValue );
-    return oldValue;
+    return Utils.valuesEqual(oldValue, value);  // oldValue;
+
   }
 
   protected String warningMsg1(Object valueBefore, Object value) {
@@ -3082,7 +3079,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( c > 0 ) return Collections.emptySet();
     if ( c == 0 ) {
       if ( tpe.valueEquals( t ) ) {
-        Set< Parameter< Long >> s = new HashSet< Parameter< Long >>();
+        Set< Parameter< Long >> s = new LinkedHashSet< Parameter< Long >>();
         s.add( tpe );
         return s;
       }
@@ -4964,7 +4961,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( parameter instanceof Parameter ) {
       remove( parameter );
     }
-    Set<Parameter<?>> detachSet = new HashSet< Parameter<?> >();
+    Set<Parameter<?>> detachSet = new LinkedHashSet< Parameter<?> >();
     for ( Entry< Parameter< Long>, V > e : this.clone().entrySet() ) {
       if ( e.getValue() instanceof HasParameters ) {
         if ( ( (HasParameters)e.getValue() ).hasParameter( parameter, false,
@@ -6300,6 +6297,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    */
   @SuppressWarnings( "unchecked" )
   public void setType( Class< ? > type ) {
+    if ( this.type == type || (type != null && sureAboutType ) ) {
+      return;
+    }
     Class<V> oldType = this.type;
     while ( type != null && this.type == oldType ) {
       try {
@@ -7012,7 +7012,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     System.out.println( "\nmap6 = map3 - map2 = " + doubleMap3 + " - " + doubleMap2
                         + " = " + doubleMap6 );
 
-    HashMap< String, TimeVaryingMap<?> > tvmapMap = new HashMap< String, TimeVaryingMap<?> >();
+    HashMap< String, TimeVaryingMap<?> > tvmapMap = new LinkedHashMap< String, TimeVaryingMap<?> >();
     tvmapMap.put( "map1", intMap1 );
     tvmapMap.put( "map2", doubleMap2 );
     tvmapMap.put( "map3", doubleMap3 );

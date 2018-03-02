@@ -873,7 +873,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     } else if ( deep || o instanceof Call ) {
       set = HasParameters.Helper.getParameters( o, deep, seen, true );
     } else if ( set == null ) {
-      set = new HashSet< Parameter< ? > >();
+      set = new LinkedHashSet< Parameter< ? > >();
     }
     if ( o instanceof Parameter ) set.add( (Parameter<?> )o);
 
@@ -1618,7 +1618,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       closedSet.addAll( initialSet );
       ArrayList< XX > queue =
               new ArrayList< XX >( initialSet );
-      Set< XX > seen = new HashSet< XX >();
+      Set< XX > seen = new LinkedHashSet< XX >();
       try {
       while ( !queue.isEmpty() ) {
           XX item = queue.get( 0 );
@@ -1672,7 +1672,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
                                                               int maximumSetSize ) {
       ArrayList< XX > queue =
               new ArrayList< XX >( relationMapToClose.keySet() );
-//      Set< XX > seen = new HashSet< XX >();
+//      Set< XX > seen = new LinkedHashSet< XX >();
       try {
       while ( !queue.isEmpty() ) {
           XX item = queue.get( 0 );

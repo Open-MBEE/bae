@@ -17,11 +17,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import junit.framework.Assert;
 
@@ -611,7 +607,7 @@ public class Expression< ResultType > extends HasIdImpl
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter<?> > set = new HashSet< Parameter<?> >();
+    Set< Parameter<?> > set = new LinkedHashSet< Parameter<?> >();
     if ( form == Form.Parameter ) {
       if ( expression != null ) {
         Parameter<?> p = (Parameter<?>) this.expression; 
@@ -637,7 +633,7 @@ public class Expression< ResultType > extends HasIdImpl
     // REVIEW -- this assumes that the parameters of the constraint and their
     // freedom never change.
     if ( freeParameters == null ) {
-      freeParameters = new HashSet< Parameter< ? > >();
+      freeParameters = new LinkedHashSet< Parameter< ? > >();
       for ( Parameter< ? > p : getParameters( false, null ) ) {
         if ( p.getOwner() != null && 
              p.getOwner().isFreeParameter( p, false, null ) ) {
@@ -948,7 +944,7 @@ public class Expression< ResultType > extends HasIdImpl
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< TimeVarying<?,?> > set = new HashSet< TimeVarying<?,?> >();
+    Set< TimeVarying<?,?> > set = new LinkedHashSet< TimeVarying<?,?> >();
     set = Utils.addAll( set, HasTimeVaryingObjects.Helper.getTimeVaryingObjects( expression, deep, seen ) );
     // REVIEW -- We could make Call extend HasTimeVaryingObject, but it seems
     // like everybody has to know about everybody!

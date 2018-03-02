@@ -43,7 +43,7 @@ public class TimeVaryingPlottableMap< V > extends TimeVaryingMap< V > implements
 
   public StringParameter category = new StringParameter( "category", "", this );
   
-  public Set<Parameter<?>> parameters = new HashSet<Parameter<?>>() {
+  public Set<Parameter<?>> parameters = new LinkedHashSet<Parameter<?>>() {
     private static final long serialVersionUID = 3251438984877026858L;
     {
     add(category);

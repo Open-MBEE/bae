@@ -9,10 +9,7 @@ import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Utils;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 import junit.framework.Assert;
 
@@ -79,7 +76,7 @@ public class EffectInstance extends HasIdImpl implements HasParameters {
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
-    Set< Parameter< ? > > set = new HashSet< Parameter< ? > >();
+    Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? > >();
     set.add( startTime );
     set.add( duration );
     if ( deep ) {
