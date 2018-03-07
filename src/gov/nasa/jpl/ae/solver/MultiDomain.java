@@ -302,6 +302,14 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
     return null;
   }
 
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return !isEmpty();
+  }
+
   @Override
   public void setValue( T value ) {
     includeSet = new LinkedHashSet< Domain< T > >();

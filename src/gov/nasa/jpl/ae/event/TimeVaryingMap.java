@@ -6395,6 +6395,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
   }
 
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return !isEmpty();
+  }
+
   /*  Getting the average is painful.  Should probably integrate.  TODO
    * 
   public Number zero() {

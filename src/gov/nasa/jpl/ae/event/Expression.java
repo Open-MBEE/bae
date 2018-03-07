@@ -1255,6 +1255,18 @@ public class Expression< ResultType > extends HasIdImpl
     return null;
   }
 
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    if ( expression instanceof Wraps ) {
+      return ((Wraps) expression).hasValue();
+    }
+    return expression != null || form == Form.Value;
+  }
+
+
   @Override
   public void setValue( ResultType value ) {
     if ( expression instanceof Wraps ) {

@@ -262,6 +262,14 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return getValueNoPropagate();
   }
 
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return value != null || (domain != null && domain.isNullInDomain());
+  }
+
   public T getValue() {
     if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() start: " + this );
     if ( Debug.isOn() ) assert mayPropagate;
@@ -311,8 +319,18 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   }
 
   public <T1> boolean valueEquals( T1 otherValue ) {
-    if ( value == otherValue || this == otherValue ) return true;
+    if ( this == otherValue ) return true;
+    if ( !hasValue() ) {
+      if ( otherValue instanceof Wraps ) {
+        return !((Wraps) otherValue).hasValue();
+      }
+      return otherValue == null;  // REVIEW -- not sure about this
+    } else if ( otherValue instanceof Wraps && !((Wraps) otherValue).hasValue()) {
+      return false;
+    }
+    if ( value == otherValue ) return true;
     //if ( value == null || otherValue == null ) return false;
+
     if ( value != null && value != this && value.equals( otherValue ) ) return true;
     if ( otherValue instanceof Wraps ) {
       Object w = ((Wraps)otherValue).getValue(false);

@@ -113,6 +113,14 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
   }
 
   /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return !isEmpty();
+  }
+
+  /* (non-Javadoc)
    * @see gov.nasa.jpl.mbee.util.Wraps#setValue(java.lang.Object)
    */
   @Override

@@ -235,8 +235,7 @@ public class SystemModelSolver extends HasIdImpl implements Solver, Satisfiable,
 
   @Override
   public Class< ? > getType() {
-    // TODO Auto-generated method stub
-    return null;
+    return solver == null ? Solver.class : solver.getClass();
   }
 
   @Override
@@ -247,20 +246,25 @@ public class SystemModelSolver extends HasIdImpl implements Solver, Satisfiable,
 
   @Override
   public Class< ? > getPrimitiveType() {
-    // TODO Auto-generated method stub
     return null;
   }
 
   @Override
   public Solver getValue( boolean propagate ) {
-    // TODO Auto-generated method stub
-    return null;
+    return solver;
+  }
+
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return solver != null;
   }
 
   @Override
   public void setValue( Solver value ) {
-    // TODO Auto-generated method stub
-    
+    solver = value;
   }  
   
   

@@ -179,6 +179,14 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   }
 
   /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    return !isEmpty();
+  }
+
+  /* (non-Javadoc)
    * @see gov.nasa.jpl.mbee.util.Wraps#setValue(java.lang.Object)
    */
   @Override

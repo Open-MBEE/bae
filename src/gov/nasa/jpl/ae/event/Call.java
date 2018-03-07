@@ -761,6 +761,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return c;
   }
 
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#getValue(boolean)
+   */
   @Override
   public Object getValue( boolean propagate ) {
     try {
@@ -777,6 +780,18 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     return null;
   }
+
+  /* (non-Javadoc)
+   * @see gov.nasa.jpl.mbee.util.Wraps#hasValue()
+   */
+  @Override
+  public boolean hasValue() {
+    boolean r =  returnValue != null ||
+                 didEvaluationSucceed();
+    return r;
+  }
+
+
 
   @Override
   public void setValue( Object value ) {
