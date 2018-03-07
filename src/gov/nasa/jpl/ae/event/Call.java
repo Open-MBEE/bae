@@ -1094,7 +1094,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( object != null && !isStatic() ) {
       TimeVaryingMap tvm = Functions.tryToGetTimelineQuick( object );
       if ( tvm != null ) {
-        sb.append(MoreToString.Helper.toString(object, withHash, false, seen, otherOptions));
+        sb.append(MoreToString.Helper.toString(object, withHash, false, seen, otherOptions) + ".");
       } else {
         if ( object instanceof DurativeEvent ) {
           sb.append( ((DurativeEvent)object).getName() + "." );

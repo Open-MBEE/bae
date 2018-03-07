@@ -16,7 +16,7 @@ import gov.nasa.jpl.mbee.util.Wraps;
 public interface TimeVarying< T, V > extends Comparable< TimeVarying< T, V > >, HasId<Integer>, Wraps< V > { //extends Map< Timepoint, T > {
   public V getValue( Parameter< T > t );
   public V getValue( T t );
-  public boolean setValue( Parameter< T > t, V value );
+  public V setValue( Parameter< T > t, V value );
   public V unsetValue( Parameter< T > t, V value );
 //  public Iterator< ? > iterator();
 ////  public T getValueAtTime( Timepoint t );

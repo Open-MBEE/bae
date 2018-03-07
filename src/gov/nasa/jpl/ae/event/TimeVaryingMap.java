@@ -1688,7 +1688,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
 //  public V setValue( Long t, V value ) {
 //  }
-  
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.TimeVarying#setValue(gov.nasa.jpl.ae.event.Parameter< Long>, java.lang.Object)
    */
@@ -1698,15 +1698,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( Debug.isOn() ) Debug.outln( getName() + " setValue(" + t + ", " + value + ")" );
     if ( t == null ) {
       if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> into the map!" );
-      return false;//null;
+      return null;
     }
     if ( t.getValueNoPropagate() == null ) {
       if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
-      return false;//null;
+      return null;
     }
-//    if ( t.getValueNoPropagate() == 12050959643L ) {
-//      System.out.println( getQualifiedName( null ) + " setValue(" + t + ", " + value + ")\n" + Debug.stackTrace() );
-//    }
     if ( Debug.isOn() ) {
       if ( t.getOwner() == null ) {
         Debug.error( false, "Warning: inserting a Parameter< Long> with null owner into the map--may be detached!" );
@@ -1770,7 +1767,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( Debug.isOn() || checkConsistency ) isConsistent();
     if ( Debug.isOn() ) Debug.outln( getName() + "setValue(" + t + ", " + value
                                      + ") returning oldValue=" + oldValue );
-    return Utils.valuesEqual(oldValue, value);  // oldValue;
+    return oldValue;
 
   }
 

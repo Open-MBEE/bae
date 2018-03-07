@@ -1906,27 +1906,37 @@ public class EventXmlToJava {
 
   public List< Pair< String, FieldDeclaration > > createEffectField( Node effectNode,
                                                                      MethodDeclaration initMembers ) {
-    if ( effectNode == null ) return null;
-    ClassOrInterfaceType fieldType =
-        new ClassOrInterfaceType( "Effect" );
-    ClassOrInterfaceType varFieldType =
-            new ClassOrInterfaceType( "Parameter" ); 
-    FieldDeclaration f = null;
-    String effectText = expressionTranslator.fixValue( effectNode.getTextContent() );
+    if (effectNode == null) return null;
+    String effectText = expressionTranslator.fixValue(effectNode.getTextContent());
 
     // parse the effect text as a MethodCallExpr
-    if ( Debug.isOn() ) Debug.outln( "trying to parse effect as Java expression\"" + effectText
-                        + "\"" );
-    Expression expr = expressionTranslator.parseExpression( effectText );
+    if (Debug.isOn()) Debug.outln("trying to parse effect as Java expression\"" + effectText
+            + "\"");
+    Expression expr = expressionTranslator.parseExpression(effectText);
+    return createEffectField( expr, initMembers );
+  }
 
+  public List< Pair< String, FieldDeclaration > > createEffectField( Expression expr,
+                                                                     MethodDeclaration initMembers ) {
+    return createEffectField(expr, initMembers, expressionTranslator);
+  }
+  public static List< Pair< String, FieldDeclaration > > createEffectField( Expression expr,
+                                                                            MethodDeclaration initMembers,
+                                                                            JavaToConstraintExpression expressionTranslator ) {
+    ClassOrInterfaceType fieldType =
+            new ClassOrInterfaceType("Effect");
+    ClassOrInterfaceType varFieldType =
+            new ClassOrInterfaceType("Parameter");
+    FieldDeclaration f = null;
     // If a method call, break it down into its parts.
     // String exprClassName = expr.getClass().getSimpleName();
     if ( expr instanceof MethodCallExpr ||
          expr instanceof ObjectCreationExpr ) {
 //      MethodCallExpr mcExpr = (MethodCallExpr)expr;
 
-      JavaForFunctionCall jffc = new JavaForFunctionCall( expressionTranslator, expr, true,
-                                                          packageName, (Class<?>)null );
+      JavaForFunctionCall jffc =
+              new JavaForFunctionCall( expressionTranslator, expr, true,
+                      expressionTranslator.getClassData().getPackageName(), (Class<?>)null );
 
       int myNum = counter++;
       String effectName = "effect" + myNum;
