@@ -6400,7 +6400,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    */
   @Override
   public boolean hasValue() {
-    return !isEmpty();
+    // We have to always have a value in order to not equal a null parameter.  An effect variable will not initialize if the empty map equals null.
+    return true;
+    //return !isEmpty();
   }
 
   /*  Getting the average is painful.  Should probably integrate.  TODO
