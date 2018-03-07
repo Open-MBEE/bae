@@ -1693,7 +1693,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @see gov.nasa.jpl.ae.event.TimeVarying#setValue(gov.nasa.jpl.ae.event.Parameter< Long>, java.lang.Object)
    */
   @Override
-  public boolean setValue( Parameter< Long > t, V value ) {
+  public V setValue( Parameter< Long > t, V value ) {
     breakpoint();
     if ( Debug.isOn() ) Debug.outln( getName() + " setValue(" + t + ", " + value + ")" );
     if ( t == null ) {
