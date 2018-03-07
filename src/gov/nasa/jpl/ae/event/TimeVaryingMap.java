@@ -1756,7 +1756,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       Parameter<Long> tt = tryCastTimepoint( t );
       if (tt == null) {
         Debug.error( false, "Could not cast input time to Long" );
-        return false; //null;
+        return null;
       }
       oldValue = put( t, value );
       if ( value != null &&
