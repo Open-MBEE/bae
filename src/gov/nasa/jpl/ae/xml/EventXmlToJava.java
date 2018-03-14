@@ -1169,9 +1169,16 @@ public class EventXmlToJava {
   }
 
   private List< Statement >
-      createEffectStmtsFromFieldCollection( String prefix,
-                                            Collection< Pair< String, FieldDeclaration > > fieldCollection,
-                                            String suffix ) {
+  createEffectStmtsFromFieldCollection( String prefix,
+                                        Collection< Pair< String, FieldDeclaration > > fieldCollection,
+                                        String suffix ) {
+    return createEffectStmtsFromFieldCollection(prefix, fieldCollection, suffix, getClassData());
+  }
+  public static List< Statement >
+  createEffectStmtsFromFieldCollection( String prefix,
+                                         Collection< Pair< String, FieldDeclaration > > fieldCollection,
+                                         String suffix,
+                                         ClassData classData ) {
     Map< String, Set< FieldDeclaration > > map = new TreeMap< String, Set< FieldDeclaration > >();
     for ( Pair< String, FieldDeclaration > p : fieldCollection ) {
       if ( !p.second.getType().toString().equals( "Effect" ) ) continue;
@@ -1195,9 +1202,9 @@ public class EventXmlToJava {
       sb.append( prefix + e.getKey() + ", " + effectSetName + suffix );
     }
     if ( madeSet ) {
-      addImport("java.util.Set");
-      addImport("java.util.TreeSet");
-      addImport("gov.nasa.jpl.ae.event.EffectFunction");
+      addImport("java.util.Set", classData);
+      addImport("java.util.TreeSet", classData);
+      addImport("gov.nasa.jpl.ae.event.EffectFunction", classData);
     }
     return stringToStatementList( sb.toString() );
   }
@@ -1553,18 +1560,25 @@ public class EventXmlToJava {
     return getClassData().getCurrentCompilationUnit();
   }
 
-  private void addImport( String impName ) {
+  protected void addImport( String impName ) {
+    addImport( impName, getClassData() );
+  }
+  public static void addImport( String impName, ClassData classData ) {
+    if ( classData == null ) {
+      Debug.error( true, true, "null ClassData passed to EventXmlToJava.addImport()!");
+      return;
+    }
     NameExpr ne = new NameExpr( impName );
     ImportDeclaration d = new ImportDeclaration( ne, false, false );
-    if ( getClassData().getCurrentCompilationUnit().getImports() == null ) {
-      getClassData().getCurrentCompilationUnit().setImports( new ArrayList< ImportDeclaration >() );
+    if ( classData.getCurrentCompilationUnit().getImports() == null ) {
+      classData.getCurrentCompilationUnit().setImports( new ArrayList< ImportDeclaration >() );
     }
     // check for duplicates -- REVIEW - inefficient linear search
     // TODO -- never finds duplicates!
-    for ( ImportDeclaration i : getClassData().getCurrentCompilationUnit().getImports() ) {
+    for ( ImportDeclaration i : classData.getCurrentCompilationUnit().getImports() ) {
       if ( i.getName().getName().equals( impName ) ) return;
     }
-    getClassData().getCurrentCompilationUnit().getImports().add( d );
+    classData.getCurrentCompilationUnit().getImports().add( d );
   }
 
   public List< ClassOrInterfaceType > getInheritsFrom( Node cls ) {
