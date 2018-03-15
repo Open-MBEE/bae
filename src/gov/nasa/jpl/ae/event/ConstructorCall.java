@@ -64,7 +64,7 @@ public class ConstructorCall extends Call {
   /**
    * Construct a call to a static constructor.
    * @param cls
-   * @param constructorName
+   * @param returnType
    */
   public ConstructorCall( Class<?> cls,
                           Class<?> returnType ) {
@@ -111,8 +111,8 @@ public class ConstructorCall extends Call {
   /**
    * @param object
    * @param cls
-   * @param constructorName
    * @param arguments
+   * @param returnType
    */
   public ConstructorCall( Object object, Class<?> cls,
                           Vector< Object > arguments,
@@ -131,6 +131,7 @@ public class ConstructorCall extends Call {
    * @param constructor
    * @param arguments
    * @param nestedCall
+   * @param returnType
    */
   public ConstructorCall( Object object, Constructor<?> constructor, Vector< Object > arguments,
                           Call nestedCall,
@@ -144,6 +145,7 @@ public class ConstructorCall extends Call {
    * @param constructor
    * @param arguments
    * @param nestedCall
+   * @param returnType
    */
   public ConstructorCall( Object object, Constructor<?> constructor, Vector< Object > arguments,
                        Parameter<Call> nestedCall,
@@ -155,9 +157,9 @@ public class ConstructorCall extends Call {
   /**
    * @param object
    * @param cls
-   * @param constructorName
    * @param arguments
    * @param nestedCall
+   * @param returnType
    */
   public ConstructorCall( Object object, Class<?> cls,
                        Vector< Object > arguments,
@@ -178,7 +180,8 @@ public class ConstructorCall extends Call {
   /**
    * @param object
    * @param constructor
-   * @param arguments
+   * @param argumentsA
+   * @param returnType
    */
   public ConstructorCall( Object object, Constructor<?> constructor,
                           Object argumentsA[],
@@ -200,6 +203,7 @@ public class ConstructorCall extends Call {
    * @param object
    * @param cls
    * @param argumentsA
+   * @param returnType
    */
   public ConstructorCall( Object object, Class<?> cls,
                           Object argumentsA[],
@@ -347,8 +351,8 @@ public class ConstructorCall extends Call {
       }
     }
     try {
-      returnValue = constructor.newInstance( args );
-      //returnValue = newObject;
+      Object newValue = constructor.newInstance( args );
+      setReturnValue(newValue);
       if ( Debug.isOn() ) {
           System.out.println("ConstructorCall constructor = " + constructor.toGenericString());
           System.out.println("ConstructorCall args = " + args);
@@ -371,6 +375,27 @@ public class ConstructorCall extends Call {
       }
     }
     return returnValue; //newObject;
+  }
+
+  @Override
+  public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
+//    Object oldValue = returnValue;
+    Object newValue = super.evaluate(propagate);
+//    if ( returnValue != oldValue && oldValue instanceof Deconstructable ) {
+//      ((Deconstructable) oldValue).deconstruct();
+//    }
+    return newValue;
+  }
+
+  protected Object lastReturnValue = null;
+
+  protected void setReturnValue( Object value ) {
+    if ( value != lastReturnValue &&
+         lastReturnValue instanceof Deconstructable ) {
+      ((Deconstructable) lastReturnValue).deconstruct();
+    }
+    returnValue = value;
+    lastReturnValue = value;
   }
 
   @Override
@@ -461,7 +486,7 @@ public class ConstructorCall extends Call {
     if ( constructor != null ) {
       this.thisClass = constructor.getDeclaringClass();
     }
-    this.returnValue = null;
+    setReturnValue(null);
  }
 
   /* (non-Javadoc)

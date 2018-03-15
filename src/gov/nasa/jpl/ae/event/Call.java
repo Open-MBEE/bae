@@ -129,9 +129,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       }
       }
       this.arguments.clear();
-      //arguments = null;
     }
-    this.returnValue = null;
+    setReturnValue(null);
     this.evaluatedArguments = null;
     this.argHelper = null;
     this.alternativeArguments.clear();
@@ -364,7 +363,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         return returnValue;
 //      }
     }
-    returnValue = null;
+    setReturnValue(null);
 
     return evaluate(propagate, true);
   }
@@ -492,8 +491,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       evaluatedArgs = fixArgsForVarArgs( evaluatedArgs, false );
       
       try {
-        returnValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
-
+        Object newValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
+        setReturnValue(newValue);
       } catch (Exception e) {
         e.printStackTrace();
         System.err.println( "something went wrong with evaluating " + this );
@@ -856,7 +855,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( subbed ) {
       setStale(true);
       if ( retVal != null ) {
-        returnValue = retVal;
+        setReturnValue(retVal);
       }
       if ( evalArgs != null ) {
         evaluatedArguments = evalArgs;
@@ -1266,8 +1265,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return getMember() != null && getMember().getName() != null && getMember().getName().contains("getMember");
   }
 
+  protected void setReturnValue( Object value ) {
+    returnValue = value;
+  }
+
   protected void clearCache() {
-    returnValue = null;
+    setReturnValue(null);
     evaluatedArguments = null;
   }
   

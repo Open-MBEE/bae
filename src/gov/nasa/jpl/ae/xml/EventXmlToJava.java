@@ -2000,6 +2000,21 @@ public class EventXmlToJava {
   }
 
   public FieldDeclaration
+  createElaborationField( String name, String enclosingInstance,
+                          String eventType,
+                          String eventName, List< ClassData.Param > arguments,
+                          String fromTimeVarying,
+                          String conditionExpression,
+                          String applicableStartTime,
+                          String applicableEndTime,
+                          MethodDeclaration initMembers ) {
+    return createElaborationField(name, enclosingInstance, eventType, eventName,
+            arguments, fromTimeVarying, conditionExpression, applicableStartTime,
+            applicableEndTime, initMembers,
+            getExpressionTranslator(), getClassData());
+  }
+
+  public static FieldDeclaration
       createElaborationField( String name, String enclosingInstance,
                               String eventType,
                               String eventName, List< ClassData.Param > arguments,
@@ -2007,7 +2022,9 @@ public class EventXmlToJava {
                               String conditionExpression,
                               String applicableStartTime,
                               String applicableEndTime,
-                              MethodDeclaration initMembers ) {
+                              MethodDeclaration initMembers,
+                              JavaToConstraintExpression expressionTranslator,
+                              ClassData classData ) {
     ClassOrInterfaceType fieldType =
         new ClassOrInterfaceType( "ElaborationRule" );
     FieldDeclaration f = null;
@@ -2033,7 +2050,7 @@ public class EventXmlToJava {
       String type = JavaToConstraintExpression.typeToClass( p.type );
       if ( Utils.isNullOrEmpty( type ) ) {
         ClassData.Param param = 
-            getClassData().lookupMemberByName( eventType, p.name,
+            classData.lookupMemberByName( eventType, p.name,
                                                                true, false );
         if ( param != null ) {
           type = param.type;
@@ -2062,7 +2079,7 @@ public class EventXmlToJava {
                                                                                            "TimeVaryingMap<?>",
                                                                                            true );
 
-    String scopeName = getClassData().getClassNameWithScope( eventType );
+    String scopeName = classData.getClassNameWithScope( eventType );
     stmtsString.append( name + " = addElaborationRule( " + conditionName + ", "
                         + enclosingInstance + ", "
                         + ClassUtils.noParameterName( scopeName  )

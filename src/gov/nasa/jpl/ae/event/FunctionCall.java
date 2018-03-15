@@ -328,7 +328,7 @@ public class FunctionCall extends Call {
       return null;
     }
     //Object result = null;
-    returnValue = null;
+    setReturnValue(null);
 // TODO -- Try this shorter form?
 //    Pair< Boolean, Object > p =
 //        ClassUtils.runMethod( false, evaluatedObject, method, evaluatedArgs );
@@ -341,7 +341,8 @@ public class FunctionCall extends Call {
     // Utils.newList(new Object[]{(Object)null}).
 //    Debug.turnOn();
     try {
-      returnValue = method.invoke( evaluatedObject, evaluatedArgs );
+      Object newValue = method.invoke( evaluatedObject, evaluatedArgs );
+      setReturnValue(newValue);
       if ( Debug.isOn() ) {
           System.out.println("FunctionCall method = " + method.toGenericString());
           System.out.println("FunctionCall args = " + arguments);

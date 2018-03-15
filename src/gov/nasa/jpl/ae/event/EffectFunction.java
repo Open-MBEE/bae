@@ -212,7 +212,7 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
       return returnValue;
     }
     Object oldValue = returnValue;
-    returnValue = null;
+    setReturnValue(null);
     setStaleAnyReferencesToTimeVarying();
     Object result =  evaluate(propagate, true);
     

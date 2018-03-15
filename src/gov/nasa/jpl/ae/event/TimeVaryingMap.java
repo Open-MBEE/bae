@@ -1695,6 +1695,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   @Override
   public V setValue( Parameter< Long > t, V value ) {
     breakpoint();
+    //System.out.println( "$ $ $ # # # $ $ $    " + getName() + " setValue(" + t + ", " + value + ")" );
     if ( Debug.isOn() ) Debug.outln( getName() + " setValue(" + t + ", " + value + ")" );
     if ( t == null ) {
       if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> into the map!" );
@@ -4905,7 +4906,6 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Pair< Parameter< Long>, V > p = null;
     if ( isArithmeticEffect( effect ) ) {
       Effect undoEffect = getUndoEffect( effect, timeArgFirst );
-      
       if ( Debug.isOn() ) {
         Debug.outln( "unapply("
                      + MoreToString.Helper.toString( effect, true, false, null )
