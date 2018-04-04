@@ -486,7 +486,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( deep && value instanceof Groundable ) {
       return ( (Groundable)value ).isGrounded(deep, seen);
     }
-    return (domain == null || value != null );
+    return (domain == null || value != null || domain.isNullInDomain());
   }
 
 //  // Override this!

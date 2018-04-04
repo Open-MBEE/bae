@@ -971,17 +971,26 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // Check types without throwing exception (like checkForTypeErrors().
     Class< ? >[] paramTypes = getParameterTypes();
     int ecLength = 0;
-    if ( this instanceof ConstructorCall) {
-      ConstructorCall cc = (ConstructorCall) this;
-      if ( cc.thisClass.getEnclosingClass() != null && !Modifier.isStatic( cc.thisClass.getModifiers() )) {
-        ecLength = 1;
+
+    // Check the object
+    if ( !this.isStatic() ) {
+      if ( (nestedCall == null && getObject() == null) || ( getObject() instanceof Parameter && !((Parameter) getObject()).hasValue()) ) {
+        return false;
       }
     }
-    if ( paramTypes.length > ecLength 
-         && ( arguments == null || (!isVarArgs() && arguments.size() - ecLength != paramTypes.length ) ) ) {
-      
-      return false;
-    }
+    // Code below commented out because it assumes that the enclosing object must be an argument, but the object is
+    // not stuffed into arguments and only stuffed into the evaluatedArgs just before invoking.
+//    if ( this instanceof ConstructorCall) {
+//      ConstructorCall cc = (ConstructorCall) this;
+//      if ( cc.thisClass.getEnclosingClass() != null && !Modifier.isStatic( cc.thisClass.getModifiers() )) {
+//        ecLength = 1;
+//      }
+//    }
+//    if ( paramTypes.length > ecLength
+//         && ( arguments == null || (!isVarArgs() && arguments.size() - ecLength != paramTypes.length ) ) ) {
+//
+//      return false;
+//    }
     if ( !areArgumentsGrounded( deep, seen ) ) {
       return false;
     }
@@ -1009,6 +1018,21 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     seen = pair.second;
     boolean grounded = true;
     if ( getMember() == null ) return false;
+
+    // Check the object
+    if ( !this.isStatic() ) {
+      if ( nestedCall == null && getObject() instanceof Groundable &&
+           ( (getObject() instanceof Parameter && !((Parameter) getObject()).hasValue()) ||
+             (!(getObject() instanceof Parameter) && !( (Groundable)getObject() ).isGrounded(deep, seen)) ) ) {
+        if ( !( (Groundable)getObject() ).ground( deep, seen ) ) {
+          grounded = false;
+        }
+      }
+      if ( nestedCall == null && getObject() == null ) {
+        grounded = false;
+      }
+    }
+
     // Check types without throwing exception (like checkForTypeErrors().
     Class< ? >[] paramTypes = getParameterTypes();
     if ( paramTypes.length > 0

@@ -174,7 +174,12 @@ public class ConstraintExpression extends Expression< Boolean >
     }
     for ( int i = 0; i < args.size(); ++i ) {
       try {
-        Parameter<?> p = Expression.evaluate(args.get(i), Parameter.class, false);
+        Parameter<?> p = null;
+        try {
+          p = Expression.evaluate(args.get(i), Parameter.class, false);
+        } catch (Throwable t) {
+          // ignore
+        }
         if ( p == null ) continue;//&& !set.contains(p) ) {
         for ( int j = 0; j < args.size(); ++j ) {
           if ( j == i ) continue;
@@ -187,12 +192,12 @@ public class ConstraintExpression extends Expression< Boolean >
             return new Pair<Parameter<?>, Object>(p, otherArg);
 //          }
         }
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      } catch (InstantiationException e) {
-        e.printStackTrace();
+      } catch (Throwable e) {
+//        e.printStackTrace();
+//      } catch (InvocationTargetException e) {
+//        e.printStackTrace();
+//      } catch (InstantiationException e) {
+//        e.printStackTrace();
       }
     }
     return null;

@@ -14,4 +14,6 @@ public interface Solver {
   public Collection< Constraint > getConstraints();
   void setConstraints( Collection< Constraint > constraints );
   public int getNumberOfResolvedConstraints();
-  }
+  // public double preferMax();
+  // public double preferMin();
+}

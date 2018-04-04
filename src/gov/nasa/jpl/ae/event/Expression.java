@@ -786,9 +786,14 @@ public class Expression< ResultType > extends HasIdImpl
 
   @Override
   public void setStale( boolean staleness ) {
-    
-    Debug.error(true, false, "BAD!!!!!!!!!!!!!!   THIS SHOULD NOT BE GETTING CALLED!  setStale(" + staleness + "): "
-                   + toShortString() );
+//    if ( expression instanceof Call ) {
+//      ((Call) expression).setStale( staleness );
+//      Debug.error(true, false, "Warning!  May not be supported: Expression.setStale(" + staleness + "): " + toShortString() );
+//
+//    } else {
+      Debug.error(true, false, "BAD!!!!!!!!!!!!!!   THIS SHOULD NOT BE GETTING CALLED!  setStale(" + staleness + "): "
+              + toShortString());
+//    }
     if ( Debug.isOn() ) Debug.outln( "setStale(" + staleness + ") to " + this );
     // TODO -- REVIEW -- Do nothing?
   }

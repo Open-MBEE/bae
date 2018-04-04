@@ -96,8 +96,8 @@ public class EventXmlToJava {
 //  protected Map< String, Set< ConstructorDeclaration> > constructorDeclarations =
 //      new TreeMap< String, Set< ConstructorDeclaration > >();
   
-  protected static Map< String, Boolean > isEventMap = new TreeMap< String, Boolean >();
-  
+  public static Map< String, Boolean > isEventMap = new TreeMap< String, Boolean >();
+
   String xmlFileName = "exampleDRScenario.xml";
   
   /**
@@ -2070,7 +2070,7 @@ public class EventXmlToJava {
     stmtsString.append( "Expression< Boolean > "
                         + conditionName
                         + " = "
-                        + expressionTranslator.javaToAeExpr( conditionExpression,
+                        + expressionTranslator.javaToAeExpr( conditionExpression==null ? "true" : conditionExpression,
                                                              "Boolean", true )
                         + ";\n" );
     String timelineArg =
@@ -2088,7 +2088,9 @@ public class EventXmlToJava {
                             + eventName + "\"" )
                         + ", " + argumentsName + timelineArg + " );\n" );
 
-    addStatements( initMembers.getBody(), stmtsString.toString() );
+    if ( initMembers != null ) {
+      addStatements(initMembers.getBody(), stmtsString.toString());
+    }
 
     VariableDeclaratorId id = new VariableDeclaratorId( name );
     Expression init = new NameExpr( "null" );

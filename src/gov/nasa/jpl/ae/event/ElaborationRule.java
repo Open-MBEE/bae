@@ -423,8 +423,10 @@ public class ElaborationRule extends HasIdImpl implements Comparable<Elaboration
     }
     Set<Parameter<?>> params = condition.getParameters( false, null );
     if ( params.contains( p ) ) {
-      condition.setStale( true );
-      becameStale = true;
+      if ( condition.expression instanceof LazyUpdate ) {
+        ((LazyUpdate)condition.expression).setStale(true);
+        becameStale = true;
+      }
     }
     if ( becameStale ) {
       setStale( true );
