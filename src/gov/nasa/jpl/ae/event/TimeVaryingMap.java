@@ -5278,7 +5278,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( tpi == null || tpi != i ) {
         pos = i;
         Object arg = effectFunction.getArgument(i);
-        if ( val == arg ) {
+        if ( Utils.valuesEqual(val, arg) ) {
           return pos;
         }
         if ( posTypeOk == -1 && getType() != null && getType().isInstance( arg ) ) {
