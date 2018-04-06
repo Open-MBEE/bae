@@ -3377,6 +3377,19 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
     //if ( n == null ) return; //REVIEW
     if ( Debug.isOn() ) System.out.println( getQualifiedName(null) + ".add(" + n + ", " + fromKey + ", " + toKey + ")" );
+    if ( fromKey != null && fromKey.getValueNoPropagate() == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
+      return null;
+    }
+    if ( toKey != null && toKey.getValueNoPropagate() == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
+      return null;
+    }
+    if ( fromKey == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> into the map!" );
+      return null;
+    }
+
     boolean same = toKey == fromKey;  // include the key if same
     fromKey = putKey( fromKey, false );
     if ( same ) {
