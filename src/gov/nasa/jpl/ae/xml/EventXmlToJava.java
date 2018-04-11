@@ -1801,10 +1801,10 @@ public class EventXmlToJava {
          || applicableStartTime.isEmpty() || applicableEndTime.isEmpty() ) {
       // constructorArgs = "new Expression<Boolean>( \"" + expression +
       // "\", \"Java\" )";
-      constructorArgs = expressionTranslator.javaToAeExpr( expression, "Boolean", false );
+      constructorArgs = expressionTranslator.javaToAeExpr( expression, "Boolean", true );
       constraintType = "ConstraintExpression";
     } else {
-      constructorArgs = expressionTranslator.javaToAeExpr( expression, "Boolean", false )
+      constructorArgs = expressionTranslator.javaToAeExpr( expression, "Boolean", true )
       // "new Expression<Boolean>( \""
       // + expression + "\", \"Java\" ), "
                         + applicableStartTime + ", " + applicableEndTime;
