@@ -396,7 +396,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public TimeVaryingMap( String name, Class<V> type ) {
     this(name);
     this.type = type;
-    if ( type != null ) this.sureAboutType = true;
+    if ( type != null && !Object.class.equals(type) ) this.sureAboutType = true;
     if ( domain == null && type != null ) {
       domain = DomainHelper.getDomainForClass( type );
     }

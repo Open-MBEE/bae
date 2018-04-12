@@ -208,10 +208,14 @@ public class Timepoint extends LongParameter implements TimeVariable {
     return ( (Double)( days
                        / conversionFactor( Units.days ) ) ).longValue();
   }
-  
+  public static long weeks( double weeks ) {
+    return days( weeks * 7.0 );
+  }
+
+
   public static Long fromMillisToInteger( long millis ) {
     long t = (long)( Units.conversionFactor( Units.milliseconds, Timepoint.units )
-                   * ( millis - Timepoint.epoch.getTime() ) );
+                   * ( millis - Timepoint.getEpoch().getTime() ) );
     return t;
   }
 
@@ -350,7 +354,9 @@ public class Timepoint extends LongParameter implements TimeVariable {
   }
 
   public static boolean setEpoch( String epochString ) {
-    return setEpoch( TimeUtils.dateFromTimestamp( epochString, TimeZone.getTimeZone( "GMT" ) ) );
+    String ds = epochString.replaceAll("\"", "");
+    Date d =  TimeUtils.dateFromTimestamp( ds, TimeZone.getTimeZone( "GMT" ) );
+    return setEpoch( d );
   }
 
   /**
@@ -378,14 +384,44 @@ public class Timepoint extends LongParameter implements TimeVariable {
   }
 
   /**
+   * @param horizon the date marking the horizon end
+   */
+  public synchronized static boolean setHorizon( Date horizon ) {
+    if ( horizon == null ) return false;
+    Timepoint.horizon = horizon;
+    System.out.println("Horizon set to " + horizon );
+    //Timepoint.horizonTimepoint = horizon;
+    if ( getEpoch() != null ) {
+      long millis = horizon.getTime() - getEpoch().getTime();
+      horizonDuration = milliseconds( millis );
+      System.out.println("Horizon duration = " + horizon );
+    }
+    return true;
+  }
+
+  /**
+   * @param timestamp the date and time marking the horizon end
+   */
+  public static boolean setHorizon( String timestamp ) {
+    String ds = timestamp.replaceAll("\"", "");
+    Date d = TimeUtils.dateFromTimestamp(ds, TimeZone.getTimeZone("GMT"));
+    return setHorizon( d );
+  }
+
+  /**
    * @param duration the horizon duration to set
    */
   public static boolean setHorizonDuration( long duration ) {
     horizonDuration = duration;
     System.out.println("Horizon duration set to " + horizonDuration + " " + units );
     TimeDomain.horizonDomain.setUpperBound( horizonDuration );
-    horizon = null;
     if ( horizonTimepoint != null ) horizonTimepoint.value = null;
+    if ( getHorizonTimepoint() != null ) {
+      horizon = getHorizonTimepoint().getDate();
+    } else {
+      horizon = null;
+    }
+
     return true;
   }
 

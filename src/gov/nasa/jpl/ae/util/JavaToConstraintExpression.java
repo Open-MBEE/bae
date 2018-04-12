@@ -924,6 +924,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     if ( !convertFcnCallArgsToExprs ) {
       return middle;
     }
+    if ( middle == null || middle.equals("null") ) {
+      return "null";
+    }
     return prefix + middle + suffix;
   }
   
