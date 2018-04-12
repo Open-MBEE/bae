@@ -667,10 +667,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     return Expression.evaluate( unevaluatedArg, c, propagate, true );
   }
-  //public Object evaluate( unevaluatedArg, c, propagate, true ) {
-    
-  //}
-  
+
   // Try to match arguments to parameters by evaluating or creating expressions.
   public Object[] evaluateArgs( boolean propagate,
                                 Class< ? >[] paramTypes,

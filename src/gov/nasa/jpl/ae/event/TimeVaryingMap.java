@@ -4916,6 +4916,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   
   public void unapply( Effect effect, boolean timeArgFirst ) {
+    if ( effect == null ) return;
+    if ( !appliedSet.contains(effect) ) {
+      return;
+    }
     Pair< Parameter< Long>, V > p = null;
     if ( isArithmeticEffect( effect ) ) {
       Effect undoEffect = getUndoEffect( effect, timeArgFirst );
@@ -7088,7 +7092,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( effect instanceof EffectFunction ) {
       EffectFunction effectFunction = (EffectFunction)effect;
       Parameter< Long > t = getTimeOfEffect( effectFunction );
-      return isTimepoint( t );
+      return isTimepoint( t ) && t.getValueNoPropagate() >= 0;
+
     }
     return true;
   }

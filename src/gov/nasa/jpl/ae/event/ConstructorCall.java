@@ -428,7 +428,7 @@ public class ConstructorCall extends Call {
    */
   @Override
   public Domain< ? > calculateDomain( boolean propagate, Set< HasDomain > seen ) {
-    assert(false); // Must be overridden!
+    //assert(false); // Must be overridden!
     return null;
   }
 
