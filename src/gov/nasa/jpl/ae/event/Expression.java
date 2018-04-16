@@ -1111,7 +1111,7 @@ public class Expression< ResultType > extends HasIdImpl
                                      boolean propagate,
                                      boolean allowWrapping ) throws ClassCastException {
     if ( o1 == o2 ) return true;
-    if ( o1 == null || o2 == null ) return false;
+    //if ( o1 == null || o2 == null ) return false;
 //    if ( (o1 instanceof Float && o2 instanceof Double ) || (o2 instanceof Float && o1 instanceof Double ) ) {
 //      Debug.out( "" );
 //    }
