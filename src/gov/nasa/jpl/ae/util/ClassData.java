@@ -149,6 +149,11 @@ ClassData {
    */
   private CompilationUnit currentCompilationUnit = null;
 
+  /**
+   * These are the imports explicit in the model.
+   */
+  public Map< String, Set< String > > imports = new LinkedHashMap<>();
+
 
   public String getClassNameWithoutScope( String className ) {
     if ( Utils.isNullOrEmpty(className) ) return className;
@@ -229,9 +234,62 @@ ClassData {
       }
     }
 
-    // if ( Utils.isNullOrEmpty( otherClassName ) ) {
-    // otherClassName = ClassUtils.getFullyQualifiedName( className, false );
-    // }
+    if ( Utils.isNullOrEmpty( otherClassName ) ) {
+      otherClassName = getImportedClassNameWithScope( className );
+      // otherClassName = ClassUtils.getFullyQualifiedName( className, false );
+    }
+    if ( Utils.isNullOrEmpty( otherClassName ) ) {
+      otherClassName = getClassNameWithScopeInPackages( className );
+    }
+    return otherClassName;
+  }
+
+  public String getClassNameWithScopeInPackages( String className ) {
+    System.out.println( "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT    " + className );
+    Package[] pkgs = Package.getPackages();
+    Collection<String> pkgNames = ClassUtils.getPackageStrings( pkgs );
+    for ( String p : pkgNames ) {
+    //for ( int i = 0; i < pkgNames.size(); ++i ) {
+      //String p = pkgNames.get(i);
+      String classNameWithScope = p + "." + className;
+      Class<?> cls = null;
+      try {
+        cls = Class.forName( classNameWithScope );
+      } catch ( ClassNotFoundException e ) {
+      }
+      if ( cls != null ) {
+        return classNameWithScope; //cls.getCanonicalName();
+      }
+    }
+    return null;
+  }
+
+  public String getImportedClassNameWithScope( String className ) {
+    String otherClassName = null;
+//            ClassUtils.getFullyQualifiedName( className, false );
+//    if ( !Utils.isNullOrEmpty( otherClassName ) ) {
+//      return otherClassName;
+//    }
+    Collection<String> importNames = imports.keySet();
+    // Make sure current class is first
+    if ( !Utils.isNullOrEmpty( getCurrentClass() ) ) {
+      boolean removed = importNames.remove( getCurrentClass() );
+      if ( removed ) {
+        List<String> newNames = Utils.asList( importNames );
+        newNames.add( 0, getCurrentClass() );
+        importNames = newNames;
+      }
+    }
+    for ( String impName : importNames ) {
+      Set<String> imps = imports.get( impName );
+      if ( imps == null ) continue;
+      for ( String imp : imps ) {
+        if ( imp != null && imp.endsWith( "." + className ) ) {
+          otherClassName = imp;
+          break;
+        }
+      }
+    }
     return otherClassName;
   }
 
@@ -274,20 +332,20 @@ ClassData {
     
     Map< String, Set< MethodDeclaration > > classMethods =
         methodTable.get( className );
-    if ( classMethods == null ) {
+    if ( Utils.isNullOrEmpty(classMethods) ) {
       classMethods = methodTable.get( ClassUtils.simpleName( className ) );
     }
-    if ( classMethods == null ) {
+    if ( Utils.isNullOrEmpty(classMethods)  ) {
       String scopedName = getClassNameWithScope( className );
       if ( !Utils.isNullOrEmpty( scopedName ) ) {
         classMethods = methodTable.get( scopedName );
       }
     }
     Set< MethodDeclaration > methodSet = emptyMethodDeclarationSet;
-    if ( classMethods == null && isInnerClass( className ) ) {
+    if ( Utils.isNullOrEmpty(classMethods)  && isInnerClass( className ) ) {
       methodSet = getClassMethodsWithName( methodName, getEnclosingClassName( className ) );
     }
-    if ( Utils.isNullOrEmpty( methodSet ) && classMethods == null ) {
+    if ( Utils.isNullOrEmpty( methodSet ) && Utils.isNullOrEmpty(classMethods)  ) {
       if ( Debug.isOn() ) Debug.outln( "getClassMethodsWithName(" + methodName + ", " + className
                    + ") couldn't find class and method in ClassData methodTable cache!\nmethodTable="
                    + methodTable.toString() );
@@ -732,9 +790,10 @@ ClassData {
     // Check if the className is known.
     Map< String, Param > params = paramTable.get( className );
     // If the name is not in the table, make sure it's the scoped name.
-    String classNameWithScope = null;
+    //String classNameWithScope = null;
+    String classNameWithScope = getClassNameWithScope( className );
     if ( params == null ) {
-      classNameWithScope = getClassNameWithScope( className );
+      //classNameWithScope = getClassNameWithScope( className );
       if ( classNameWithScope != null
            || ( !lookOutsideClassData && complainIfNotFound && !Debug.errorOnNull( false,
                                                                              "Error! Could not find a class definition for "
@@ -761,9 +820,13 @@ ClassData {
       }
     }
     Class< ? > classForName = null;
+    String classMaybeWithScope = classNameWithScope == null ? className : classNameWithScope;
     if ( p == null && lookOutsideClassData ) {
+      //if ( Utils.isNullOrEmpty( classNameWithScope ) ) {
+      //  classNameWithScope = getClassNameWithScope( className );
+      //}
       classForName =
-          ClassUtils.getClassForName( className, paramName, getPackageName(),
+          ClassUtils.getClassForName( classMaybeWithScope, paramName, getPackageName(),
                                       false );
       if ( classForName != null ) {
         Field field = ClassUtils.getField( classForName, paramName, true );

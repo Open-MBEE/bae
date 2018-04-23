@@ -1568,6 +1568,17 @@ public class EventXmlToJava {
       Debug.error( true, true, "null ClassData passed to EventXmlToJava.addImport()!");
       return;
     }
+
+    // record imports in class data
+    String className = classData.getCurrentClass();
+    Utils.add(classData.imports, className == null ? "" : className, impName);
+    // Load into class cache so that class names can be resolved without specifying package.
+    List< Class< ? > > classes = ClassUtils.getClassesForName( impName, true );
+    if ( impName.endsWith( ".*" ) && Utils.isNullOrEmpty( classes ) ) {
+      // TODO -- get all classes in package?
+    }
+
+    // add import to the compilation unit (the generated java)
     NameExpr ne = new NameExpr( impName );
     ImportDeclaration d = new ImportDeclaration( ne, false, false );
     if ( classData.getCurrentCompilationUnit().getImports() == null ) {

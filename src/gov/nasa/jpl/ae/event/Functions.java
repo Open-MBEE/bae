@@ -12,6 +12,7 @@ import gov.nasa.jpl.ae.util.distributions.Distribution;
 import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.mbee.util.Random;
 import org.apache.commons.math3.distribution.*;
 
 import java.lang.Math;
@@ -20,14 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.Vector;
+import java.util.*;
 
 /**
  * 
@@ -1323,6 +1317,229 @@ public class Functions {
     }
   }
 
+  public static class Get< T, R > extends Binary< T, R > {
+    public Get( Expression<T> o1, Expression<T> o2 ) {
+      super( o1, o2, "get", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Get( Object o1, Object c ) {
+      super( o1, c, "get", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Get( Functions.Get<T, R> m ) {
+      super( m );
+    }
+
+    public Get<T, R> clone() {
+      return new Get<T, R>( this );
+    }
+
+    @Override public <T1> T1 pickValue( Variable<T1> variable ) {
+      return super.pickValue( variable );
+    }
+
+    @Override public <T> boolean pickParameterValue( Variable<T> variable ) {
+      return super.pickParameterValue( variable );
+    }
+
+    @Override
+    public Domain<?> calculateDomain(boolean propagate, Set<HasDomain> seen) {
+      SuggestiveFunctionCall fc = this.clone();
+      Domain< ? > d = DomainHelper.combineDomains( arguments, fc, false );
+      return d;
+//      Object result = null;
+//      Object key = this.arguments == null? null : this.arguments.firstElement();
+//      Domain keyDomain = null;
+//      if ( key != null ) {
+//        keyDomain = DomainHelper.getDomain( key );
+//      }
+//      if ( keyDomain == null ) {//|| keyDomain.isInfinite() ) {
+//        return null;
+//      }
+//      List<Object> keys =
+//              DomainHelper.getRepresentativeValues( keyDomain, null );
+//
+//      if ( keys != null && keys.size() > 1 && this.arguments.size() > 1 ) {
+//        for ( Object k : keys ) {
+//          Get g = new Get( k, )
+//          try {
+//            result = evaluate( false );
+//          } catch ( IllegalAccessException e ) {
+//          } catch ( InvocationTargetException e ) {
+//          } catch ( InstantiationException e ) {
+//          }
+//        }
+//      } else {
+//        try {
+//          result = evaluate( false );
+//        } catch ( IllegalAccessException e ) {
+//        } catch ( InvocationTargetException e ) {
+//        } catch ( InstantiationException e ) {
+//        }
+//      }
+//      return DomainHelper.getDomain(result);
+    }
+
+    @Override
+    public < TT > Pair< Domain< TT >, Boolean >
+    restrictDomain( Domain< TT > domain, boolean propagate,
+                    Set< HasDomain > seen ) {
+      //boolean changed = false;
+      Object o1 = this.arguments.get( 0 );
+      Object o2 = this.arguments.get( 1 );
+      try {
+        Object obj = o1;
+        Object key = Expression.evaluate(o2, String.class, propagate);
+        if ( o1 instanceof Expression ) {
+          obj = ((Expression) o1).evaluate(propagate);
+        }
+        Object k = Functions.get(obj, (String) key);
+        if ( k instanceof HasDomain ) {
+          Pair<Domain<TT>, Boolean> p =
+                  ((HasDomain) k).restrictDomain(domain, propagate, seen);
+          if ( p != null ) {
+            Domain<TT> newDomain = p.first;
+            this.domain = newDomain;
+          }
+          return p;
+        }
+      } catch (IllegalAccessException e) {
+      } catch (InvocationTargetException e) {
+      } catch (InstantiationException e) {
+      }
+      return null;
+    }
+
+    // TODO
+    public Domain< ? > inverseDomain( Domain< ? > returnValue,
+                                      Object argument ) {
+      Domain<?> d = null;
+      if (arguments == null || arguments.size() != 2) return null;
+      boolean first = argument == arguments.get(1);
+      Object otherArg = (first ? arguments.get(0) : arguments.get(1));
+      if (otherArg == null) return null; // arg can be null!
+      if (first) {
+        // TODO -- search all objects (from top-level Event and maybe all static members of all classes in all packages everywhere forever, 1000 years.
+      } else {
+        // TODO -- return a member of the other arg whose value equals the returnValue
+        // create a function call to get(otherArg, returnValue) defined below.
+      }
+      return d;
+    }
+
+    @Override
+    // TODO
+    public // < T1 extends Comparable< ? super T1 > >
+    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if (arguments == null || arguments.size() != 2) return null;
+      boolean first = arg == arguments.get(1);
+      Object otherArg = (first ? arguments.get(0) : arguments.get(1));
+      if (returnValue == null || otherArg == null) return null; // arg can be
+      // null!
+      if (first) {
+        // TODO -- search all objects (from top-level Event and maybe all static members of all classes in all packages everywhere forever, 1000 years.
+      } else {
+        // TODO -- return a member of the other arg whose value equals the returnValue
+        // create a function call to get(otherArg, returnValue) defined below.
+      }
+      return null;// new Minus<T, T>(returnValue, otherArg);
+    }
+
+    // TODO -- need to test
+    protected Set<Object> getMatchingMembers(Object object, Object value) {
+      if ( object == null ) {
+        return null;
+      }
+      LinkedHashSet<Object> set = new LinkedHashSet<Object>();
+      Field[] fs = ClassUtils.getAllFields(object.getClass());
+      for (Field f : fs) {
+        try {
+          Object o = f.get(object);
+          if (Expression.valuesEqual(o, value)) {
+            set.add(o);
+          }
+        } catch (IllegalAccessException e) {
+        }
+      }
+      return set;
+    }
+
+  }
+
+  public static void extendSize(Collection<?> c, int newSize) {
+    if ( c == null ) return;
+    if ( c.size() <= newSize ) {
+      if ( c instanceof List ) {
+        for ( int i = c.size(); i < newSize; ++i ) {
+          ((List)c).add( null );
+        }
+      }
+    }
+  }
+
+  public static <V1, V2> V2 get( V1 object, String key ) {
+    if ( Utils.isNullOrEmpty(key) || object == null ) return null;
+    V2 v2 = null;
+    // TODO -- handle Entries, Pairs, Tuples?
+    // TODO -- check if object has a get(x) method
+
+    // Array
+    if ( object.getClass().isArray() ) {
+      Integer i = Utils.toInteger( key );
+      Object[] arr = (Object[])object;
+      if ( i != null && i < arr.length ) {
+        v2 = (V2)arr[ i ];
+      }
+    } else if ( object instanceof Map ) {
+
+      // Map
+      v2 = (V2)((Map)object).get(key);
+
+    } else if ( object instanceof Collection ) {
+
+      // Collection
+      Collection<V2> c = (Collection<V2>)object;
+      Integer i = Utils.toInteger( key );
+      if ( i != null && i < c.size() ) {
+
+        // List
+        if ( object instanceof List ) {
+          v2 = (V2)((List)c).get(i);
+        } else {
+
+          // Other Collection
+          int ctr = 0;
+          Iterator<V2> iter = c.iterator();
+          while (iter.hasNext()) {
+            V2 vv = iter.next();
+            if ( i == ctr++ ) {
+              v2 = vv;
+              break;
+            }
+          }
+        }
+      }
+    }
+    return v2;
+  }
+
+  public static <V1, V2> V2 get( Expression<?> object, Expression<?> key ) {
+    Object o = null;
+    String name = null;
+    try {
+      o = object.evaluate(false);
+      name = key.evaluate(String.class, false);
+    } catch (IllegalAccessException e) {
+    } catch (InvocationTargetException e) {
+    } catch (InstantiationException e) {
+    } catch (ClassCastException e) {
+    }
+    V2 v2 = (V2)get(o, name);
+    return v2;
+  }
+
 
   public static class GetMember< T, R > extends Binary< T, R > {
     public GetMember( Expression< T > o1, Expression< T > o2 ) {
@@ -1432,7 +1649,7 @@ public class Functions {
         // TODO -- return a member of the other arg whose value equals the returnValue
         // create a function call to getMatchingMembers(otherArg, returnValue) defined below.
       }
-      return new Minus<T, T>(returnValue, otherArg);
+      return new Minus<T, T>(returnValue, otherArg);  // TODO -- REVIEW -- why Minus?  Is this an unintended copy/paste?
     }
 
     // TODO -- need to test
@@ -1458,10 +1675,12 @@ public class Functions {
 
   public static <V1, V2> V2 getMember( V1 object, String memberName ) {
     if ( Utils.isNullOrEmpty(memberName) || object == null ) return null;
+    V2 v2 = null;
     if ( object instanceof  Parameter ) {
-      ((Parameter)object).getMember(memberName, true);
+      v2 = (V2)((Parameter)object).getMember(memberName, true);
+    } else {
+      v2 = (V2)ClassUtils.getFieldValue( object, memberName, true );
     }
-    V2 v2 = (V2)ClassUtils.getFieldValue(object, memberName, true);
     return v2;
   }
 

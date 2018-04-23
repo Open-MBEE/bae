@@ -312,7 +312,7 @@ public class JavaForFunctionCall {
 
   @Override
   public String toString() {
-    return "hellllloooooo";//toNewFunctionCallString();
+    return "" + expression; //toNewFunctionCallString();
   }
 
   public < T > gov.nasa.jpl.ae.event.Expression< T > toNewExpression() {
@@ -1467,8 +1467,8 @@ public class JavaForFunctionCall {
         }
       } else {
         if ( getMatchingMethod() == null ) {
-          Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
-          Call scall = searchForCall( getCallName(), getArgs(), types );
+          Call scall = null;
+           String java = toNewFunctionCallString();
           if ( scall == null ) {
             Debug.error( true, "Cannot create method! " + this );
           } else {
