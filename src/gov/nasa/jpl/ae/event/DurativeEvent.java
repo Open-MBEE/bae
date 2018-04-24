@@ -325,7 +325,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           if ( pair.first ) return true;
           seen = pair.second;
           boolean satisfied = true;
-          for ( Pair< Parameter< ? >, Set< Effect > > p : effects ) {
+          for ( Pair< Parameter< ? >, Set< Effect > > p : new ArrayList<>(effects) ) {
             Parameter< ? > variable = p.first;
             Set< Effect > set = p.second;
             if ( !satisfyEffectsOnTimeVarying( variable, set, deep, seen ) ) {

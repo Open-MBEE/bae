@@ -339,8 +339,15 @@ public class ConstructorCall extends Call {
   @Override
   public Object invoke( Object evaluatedObject, Object[] evaluatedArgs ) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
     evaluationSucceeded = false;
+    if ( !isGrounded(false, null) ) {
+      return null;
+    }
+
     Object[] args = false ? new Object[]{evaluatedArgs} : evaluatedArgs; // handling this in calling method, evaluate()
     if ( isInnerClass() ) {
+      if ( evaluatedObject == null ) {
+        return null;
+      }
       Object[] newArgs = new Object[args.length+1];
       newArgs[0] = evaluatedObject;
       if ( args != null ) {
@@ -421,7 +428,7 @@ public class ConstructorCall extends Call {
    */
   @Override
   public Domain< ? > calculateDomain( boolean propagate, Set< HasDomain > seen ) {
-    assert(false); // Must be overridden!
+    //assert(false); // Must be overridden!
     return null;
   }
 

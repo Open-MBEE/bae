@@ -396,7 +396,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public TimeVaryingMap( String name, Class<V> type ) {
     this(name);
     this.type = type;
-    if ( type != null ) this.sureAboutType = true;
+    if ( type != null && !Object.class.equals(type) ) this.sureAboutType = true;
     if ( domain == null && type != null ) {
       domain = DomainHelper.getDomainForClass( type );
     }
@@ -3377,6 +3377,19 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
     //if ( n == null ) return; //REVIEW
     if ( Debug.isOn() ) System.out.println( getQualifiedName(null) + ".add(" + n + ", " + fromKey + ", " + toKey + ")" );
+    if ( fromKey != null && fromKey.getValueNoPropagate() == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
+      return null;
+    }
+    if ( toKey != null && toKey.getValueNoPropagate() == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> value into the map!" );
+      return null;
+    }
+    if ( fromKey == null ) {
+      if ( Debug.isOn() ) Debug.error( false, "Error! trying to insert a null Parameter< Long> into the map!" );
+      return null;
+    }
+
     boolean same = toKey == fromKey;  // include the key if same
     fromKey = putKey( fromKey, false );
     if ( same ) {
@@ -4903,6 +4916,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   
   public void unapply( Effect effect, boolean timeArgFirst ) {
+    if ( effect == null ) return;
+    if ( !appliedSet.contains(effect) ) {
+      return;
+    }
     Pair< Parameter< Long>, V > p = null;
     if ( isArithmeticEffect( effect ) ) {
       Effect undoEffect = getUndoEffect( effect, timeArgFirst );
@@ -5278,7 +5295,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( tpi == null || tpi != i ) {
         pos = i;
         Object arg = effectFunction.getArgument(i);
-        if ( val == arg ) {
+        if ( Utils.valuesEqual(val, arg) ) {
           return pos;
         }
         if ( posTypeOk == -1 && getType() != null && getType().isInstance( arg ) ) {
@@ -7075,7 +7092,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( effect instanceof EffectFunction ) {
       EffectFunction effectFunction = (EffectFunction)effect;
       Parameter< Long > t = getTimeOfEffect( effectFunction );
-      return isTimepoint( t );
+      return isTimepoint( t ) && t.getValueNoPropagate() >= 0;
+
     }
     return true;
   }

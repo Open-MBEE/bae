@@ -737,7 +737,9 @@ public class DomainHelper {
       if ( dd != null ) {
         representativeValues.add( dd );
       } else {
-        Debug.error(true, false, "Could not convert " + domain + " to ComparableDomain" );
+        if ( Debug.isOn() ) {
+          Debug.error(false, false, "Could not convert " + domain + " to ComparableDomain");
+        }
       }
     } else if ( domain instanceof ObjectDomain ) {
       ObjectDomain<?> objectDomain = (ObjectDomain <?>)domain;
@@ -747,7 +749,9 @@ public class DomainHelper {
         if ( cd != null ) {
           representativeValues.add( cd );
         } else {
-          Debug.error(true, false, "Could not convert " + domain + " to ComparableDomain" );
+          if ( Debug.isOn() ) {
+            Debug.error(false, false, "Could not convert " + domain + " to ComparableDomain");
+          }
           return null;
         }
       }

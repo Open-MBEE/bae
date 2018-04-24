@@ -87,6 +87,7 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
 
   
 	/**
+     * Make a copy of a function.
 	 * @param effectFunction
 	 */
 	public EffectFunction( EffectFunction effectFunction ) {
@@ -94,16 +95,19 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
 	}
 	
   /**
-   * @param effectFunction
+   * Make a copy of a function.
+   * @param call
    */
   public EffectFunction( FunctionCall call ) {
     super( call );
   }
   
   /**
-   * @param effectFunction
+   * Convert the expression containing a FunctionCall into an EffectFunction.
+   * If the expression does not contain a FunctionCall, an exception is thrown.
+   * @param expr
    */
-  public EffectFunction( Expression<?> expr ) {
+  public EffectFunction( Expression<?> expr ) throws NullPointerException {
     super( expr.form == Form.Function ? (FunctionCall)expr.expression : null );
   }
   

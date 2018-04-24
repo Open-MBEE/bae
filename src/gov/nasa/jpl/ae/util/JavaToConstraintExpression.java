@@ -924,6 +924,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     if ( !convertFcnCallArgsToExprs ) {
       return middle;
     }
+    if ( middle == null || middle.equals("null") ) {
+      return "null";
+    }
     return prefix + middle + suffix;
   }
   
@@ -2121,7 +2124,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     public String getObjectFromScope( Expression scopeExpr ) {
       String object = null;
       if ( scopeExpr != null) {
-        object = astToAeExpr( scopeExpr, false, true, false );
+        object = astToAeExpr( scopeExpr, true, true, false );
       }
       if ( object == null ) object = "null";
       return object;
@@ -2129,7 +2132,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     public Object getObjectExpressionFromScope( Expression scopeExpr ) {
       Object object = null;
       if ( scopeExpr != null) {
-        object = astToAeExpression( scopeExpr, false, true, false );
+        object = astToAeExpression( scopeExpr, true, true, false );
       }
       if ( object == null ) object = "null";
       return object;
@@ -2358,7 +2361,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     }
     // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
     // do not include p.value?
-    String valueArg = javaToAeExpr( p.value, p.type, false, true, true );
+    String valueArg = javaToAeExpr( p.value, p.type, true, true, true );
     String typePlaceholder = "!TYPE!";
     String domain = getDomainString(p.type, enclosingObject);
 //    // if ( valueArg.equals( "null" )

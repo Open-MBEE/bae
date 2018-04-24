@@ -1557,6 +1557,29 @@ public class JavaForFunctionCall {
     boolean argsEmpty = Utils.isNullOrEmpty(argumentss);
     boolean argTypesEmpty = Utils.isNullOrEmpty(argTypes);
 
+    // If neither arguments nor types are empty, we need to determine which to use,
+    // so keep some stats to help.
+    int numTypeObject = 0;
+    int argEmptyCount = 0;
+    int typeEmptyCount = 0;
+    if ( !argsEmpty && !argTypesEmpty ) {
+      // If not both empty, is there one that is more empty?
+      for (Object o : argumentss) {
+        if (o == null || gov.nasa.jpl.ae.event.Expression.valuesEqual(o, null)) {
+          ++argEmptyCount;
+        }
+      }
+      for (Class<?> o : argTypess) {
+        if (o == null) {
+          ++argEmptyCount;
+        }
+      }
+      if (argEmptyCount != argumentss.size() && (argEmptyCount != argumentss.size() &&
+          argumentss.size() > argTypess.size())) {
+        argEmptyCount += argumentss.size() - argTypess.size();
+      }
+    }
+
     Class[] argTypeArray = argTypes == null ? null : Utils.toArrayOfType(argTypes, Class.class);
 
 
@@ -1606,20 +1629,47 @@ public class JavaForFunctionCall {
         call.setArguments( argumentss );
       } else {
         // 4.
-        if ( argsEmpty && !argTypesEmpty ) {
-          method = ClassUtils.getJavaMethodForCommonFunction(operationName.toString(),
+        Method mt = null;
+        Method ma = null;
+        if ( !argTypesEmpty ) {
+          mt = ClassUtils.getJavaMethodForCommonFunction(operationName.toString(),
                   argTypeArray);
-        } else {
-          method = ClassUtils.getJavaMethodForCommonFunction(operationName.toString(),
+        }
+        if ( !argsEmpty ) {
+          ma = ClassUtils.getJavaMethodForCommonFunction(operationName.toString(),
                                                              argumentss == null ? new Object[]{} : argumentss.toArray());
         }
+        if ( mt == null ) method = ma;
+        else if ( ma == null ) method = mt;
+        else if ( mt.equals(ma) ) method = mt;
+        else {
+          // need a tie breaker
+          if ( argEmptyCount > typeEmptyCount ) {
+            method = mt;
+          } else {
+            method = ma;
+          }
+        }
+
         if ( method == null ) {
           // 4.5 Timepoint class
-          if ( argsEmpty && !argTypesEmpty ) {
-            method = ClassUtils.getMethodForArgTypes(Timepoint.class, operationName.toString(), argTypeArray, false);
-          } else {
-            method = ClassUtils.getMethodForArgs( Timepoint.class, operationName.toString(), false,
-                                                  argumentss == null ? new Object[]{} : argumentss.toArray(), false );
+          if ( !argTypesEmpty ) {
+            mt = ClassUtils.getMethodForArgTypes(Timepoint.class, operationName.toString(), argTypeArray, false);
+          }
+          if ( !argsEmpty ) {
+            ma = ClassUtils.getMethodForArgs( Timepoint.class, operationName.toString(), false,
+                                              argumentss == null ? new Object[]{} : argumentss.toArray(), false );
+          }
+          if ( mt == null ) method = ma;
+          else if ( ma == null ) method = mt;
+          else if ( mt.equals(ma) ) method = mt;
+          else {
+            // need a tie breaker
+            if ( argEmptyCount > typeEmptyCount ) {
+              method = mt;
+            } else {
+              method = ma;
+            }
           }
         }
 
@@ -1651,8 +1701,8 @@ public class JavaForFunctionCall {
     // }
 
     if ( call == null && method == null ) {
-      // TODO -- if it *still* fails, maybe search through all classes of all
-      // packages for a method with this name.
+      // REVIEW -- if it *still* fails, maybe search through all classes of all
+      // packages for a method with this name.  Could present security problem.
     }
 
     // Make the FunctionCall if it was not a ConstructorCall:

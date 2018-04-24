@@ -2938,7 +2938,19 @@ public class Functions {
           public Domain< ? > getDomain( boolean propagate,
                                         Set< HasDomain > seen ) {
             //if ( otherArg instanceof HasDomain ) {
-            Domain< ? > argDomain = DomainHelper.getDomain( arg );
+            Domain< ? > argDomain = null;
+            try {
+              // A plain ConstructorCall doesn't redefine calculateDomain(), throwing an exception,
+              // so we don't waant to ask for its domain.
+              if ( arg== null ||
+                   arg.getClass().equals(ConstructorCall.class)  ||
+                   ( arg instanceof Expression &&
+                     ((Expression) arg).getExpression().getClass().equals(ConstructorCall.class) ) ) {
+                argDomain = null;
+              } else {
+                argDomain = DomainHelper.getDomain(arg);
+              }
+            } catch ( Throwable t ) {}
             if ( argDomain == null ) {
               return DomainHelper.emptyDomain();
             }
