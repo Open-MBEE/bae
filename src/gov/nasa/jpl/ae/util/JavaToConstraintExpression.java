@@ -2389,7 +2389,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         args = "\"" + p.name + "\", " + valueArg + ", this";
         
         if ( p.value != null && !Utils.isNullOrEmpty( p.value.trim() )
-             && Character.isDigit( p.value.trim().charAt( 0 ) ) ) {
+             && Character.isDigit( p.value.trim().charAt( 0 ) ) && !castType.contains( "." )) {
           castType = castType.toLowerCase();
         }
       }
