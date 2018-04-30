@@ -72,7 +72,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
    * Whether the simulation text and file output will identify variables with
    * fully qualified names.
    */
-  boolean showQualifiedName = false; 
+  boolean showQualifiedName = true;
 
   /**
    * Whether or not the external plotter should be launched and connected to by

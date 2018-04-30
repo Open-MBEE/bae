@@ -870,7 +870,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( a instanceof TimeVaryingMap ) {
         TimeVaryingMap<?> tv = (TimeVaryingMap<?>)a;
         // If the TVM values are compatible with the method's class or, in the case that the TVM value type is not known, and the TVM itself is not compatible with the method's class, then assume that the TVM values are meant to be the instance of the call.
-        if ( pType != null && ( ( tv.getType() != null && pType.isAssignableFrom( tv.getType() ) ) ||
+        if ( pType != null && ( ( tv.getType() != null &&
+                                  ( pType.isAssignableFrom( tv.getType() ) ||
+                                    ( Number.class.isAssignableFrom( pType ) &&
+                                      Number.class.isAssignableFrom( tv.getType() ) ) ) ) ||
             ( (tv.getType() == null || tv.getType() ==  Object.class) && !pType.isInstance( a ) ) ) ) {
           argMaps.add( tv );
           timePoints.addAll( tv.keySet() );
@@ -6036,9 +6039,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         } catch (NumberFormatException e) {
           try {
             Double dKey = Double.parseDouble( ss.getKey() );
-            key = dKey.longValue();
+            key = Timepoint.julianToInteger( dKey );
+            if ( key == null ) {
+                key = dKey.longValue();
+            }
           } catch (NumberFormatException ee) {
           }
+        }
+        if ( key instanceof Number ) {
         }
       }
       if ( key != null ) {
@@ -6157,12 +6165,22 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( fName == null ) fName = backupFileName;
     try {
       File f = findFile( fName, backupFileName );
+      if ( f == null ) {
+        Debug.error(true, false, "Error!  Could not find csv file! " + fileName);
+        return;
+      }
+      if ( !f.exists() ) {
+        Debug.error(true, false, "Error!  csv file does not exist! " + f);
+      }
       if (f != null ) System.out.println("Loading timeline from csv file, " + f.toString() + ".");
       ArrayList< ArrayList< String > > lines = FileUtils.fromCsvFile( f );
       //String s = FileUtils.fileToString( f );
       Map<String,String> map = new TreeMap<String,String>();
       //MoreToString.Helper.fromString( map, s, "", "\\s+", "", "", "[ ]*,[ ]*", "" );
       for ( ArrayList<String> line : lines ) {
+        if ( line.size() == 1 && Utils.count( "\\s", line.get(0) ) == 1 ) {
+          line = Utils.newList(line.get( 0 ).split( "\\s" ));
+        }
         if ( line.size() >= 2 ) {
           map.put( line.get(0), line.get(1) );
         }

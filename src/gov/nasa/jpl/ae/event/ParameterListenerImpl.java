@@ -807,7 +807,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
           System.out.println( this.getClass().getName() + " satisfy loop round "
                               + ( numLoops + 1 ) );
         }
-        Debug.out( "" );
+        System.out.println( "" );
       }
       if ( amTopEventToSimulate ) {
         DurativeEvent.newMode = false; // numLoops % 2 == 0;
