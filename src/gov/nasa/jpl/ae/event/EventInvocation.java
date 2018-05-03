@@ -649,4 +649,16 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
     return false;
   }
 
+  //protected int refCount = 0;
+  @Override public void addReference() {
+    //++refCount;
+  }
+
+  @Override public void subtractReference() {
+    //--refCount;
+    //if ( refCount == 0 ) {
+    //  deconstruct();
+    //}
+  }
+
 }

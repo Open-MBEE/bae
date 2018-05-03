@@ -245,7 +245,7 @@ ClassData {
   }
 
   public String getClassNameWithScopeInPackages( String className ) {
-    System.out.println( "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT    " + className );
+//    System.out.println( "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT    " + className );
     Package[] pkgs = Package.getPackages();
     Collection<String> pkgNames = ClassUtils.getPackageStrings( pkgs );
     for ( String p : pkgNames ) {

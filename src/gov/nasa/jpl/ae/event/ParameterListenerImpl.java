@@ -42,7 +42,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    HasOwner, HasEvents,
                                    Comparable< ParameterListenerImpl > {
 
-  public static boolean usingArcConsistency = true;
+  public static boolean usingArcConsistency = false;
   public static boolean arcConsistencyQuiet = true;
 
   // Constants
@@ -1517,6 +1517,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                    + this.toString( true, true, null ) );
     }
 
+  }
+
+  protected int refCount = 0;
+  @Override public void addReference() {
+    ++refCount;
+  }
+
+  @Override public void subtractReference() {
+    --refCount;
+    if ( refCount == 0 ) {
+      deconstruct();
+    }
   }
 
   /*

@@ -328,6 +328,18 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                           otherOptions, false );
     }
 
+    protected int refCount = 0;
+    @Override public void addReference() {
+      ++refCount;
+    }
+
+    @Override public void subtractReference() {
+      --refCount;
+      if ( refCount == 0 ) {
+        deconstruct();
+      }
+    }
+
   }
 
   public static boolean before( Parameter< Long > o1, Parameter< Long > o2 ) {
@@ -8066,6 +8078,18 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
     return total;
   }
-  
-  
+
+  protected int refCount = 0;
+  @Override public void addReference() {
+    ++refCount;
+  }
+
+  @Override public void subtractReference() {
+    --refCount;
+    if ( refCount == 0 ) {
+      deconstruct();
+    }
+  }
+
+
 }  // end of TimeVaryingMap class

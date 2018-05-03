@@ -495,4 +495,16 @@ public class ElaborationRule extends HasIdImpl implements Comparable<Elaboration
         ;
   }
 
+  //protected int refCount = 0;
+  @Override public void addReference() {
+    //++refCount;
+  }
+
+  @Override public void subtractReference() {
+    //--refCount;
+    //if ( refCount == 0 ) {
+    //  deconstruct();
+    //}
+  }
+
 }

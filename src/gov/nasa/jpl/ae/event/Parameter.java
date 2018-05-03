@@ -432,11 +432,23 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + "): owner is null" );
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
-      //System.out.println(" $$$$$$$$$$$$$$   setValue(" + valString + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
+      System.out.println(" $$$$$$$$$$$$$$   setValue(" + valString + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
+
+      // dereference
+      if ( this.value instanceof Deconstructable ) {
+        ((Deconstructable)this.value).subtractReference();
+      }
+
       this.value = val;
+
+      // add reference
+      if ( this.value instanceof Deconstructable ) {
+        ((Deconstructable)this.value).addReference();
+      }
+
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                        + "): value set!" );
       //constraintList.clear();
@@ -1085,6 +1097,17 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return independentVars;
   }
 
+  //protected int refCount = 0;
+  @Override public void addReference() {
+    //++refCount;
+  }
+
+  @Override public void subtractReference() {
+    //--refCount;
+    //if ( refCount == 0 ) {
+    //  deconstruct();
+    //}
+  }
 
 
 }

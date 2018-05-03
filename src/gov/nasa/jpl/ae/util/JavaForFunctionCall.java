@@ -791,7 +791,10 @@ public class JavaForFunctionCall {
         setClassName( getObjectTypeName() );
       } else {
         setClassName( this.exprXlator.getCurrentClass() );
-        Method m = ClassUtils.getMethodForArgTypes(className, getPreferredPackageName(), getCallName(), false, getArgTypes());
+        boolean complain = false;
+        Method m = ClassUtils.getMethodForArgTypes(className, getPreferredPackageName(),
+                                                   getCallName(), complain,
+                                                   getArgTypes(complain));
         if (m != null && this.matchingMethod == null ) this.matchingMethod = m;
         if ( m == null ) {
           Collection<Class<?>> types = Utils.arrayAsList(getArgTypes());
@@ -1083,11 +1086,18 @@ public class JavaForFunctionCall {
   }
 
   public Class< ? >[] getArgTypes() {
-    if ( argTypes == null ) initArgs();
+    return getArgTypes( true );
+  }
+  public Class< ? >[] getArgTypes(boolean complainIfNotFound) {
+    if ( argTypes == null ) initArgs(complainIfNotFound);
     return argTypes;
   }
 
-  private void initArgs() {
+  protected void initArgs() {
+    initArgs( true );
+  }
+
+  protected void initArgs(boolean complainIfNotFound) {
     setArgTypes( null );
     setArgs( new Vector< Object >() );
 
@@ -1095,7 +1105,7 @@ public class JavaForFunctionCall {
     if ( argExprs != null ) {
       argTypes = new Class< ? >[ argExprs.size() ];
       for ( int i = 0; i < argExprs.size(); ++i ) {
-        String argClassName = exprXlator.astToAeExprType( argExprs.get( i ), null, true, true); 
+        String argClassName = exprXlator.astToAeExprType( argExprs.get( i ), null, true, complainIfNotFound);
         List< Class<?>> classList = ClassUtils.getClassesForName( argClassName, false);
         if (classList != null && classList.size() > 1) {
           boolean containsJavaPrimitive = false;
@@ -1123,7 +1133,7 @@ public class JavaForFunctionCall {
                                           ClassUtils.toString( argTypes[ i ] ),
                                           null,
                                           isConvertingArgumentsToExpressions(),
-                                          true, false, true, isEvaluateCall() );
+                                          true, false, complainIfNotFound, isEvaluateCall() );
         if ( isConvertingArgumentsToExpressions()
              && !( arg instanceof gov.nasa.jpl.ae.event.Expression ) ) {
           arg = new gov.nasa.jpl.ae.event.Expression( arg );
@@ -1468,7 +1478,7 @@ public class JavaForFunctionCall {
       } else {
         if ( getMatchingMethod() == null ) {
           Call scall = null;
-           String java = toNewFunctionCallString();
+           //String java = toNewFunctionCallString();
           if ( scall == null ) {
             Debug.error( true, "Cannot create method! " + this );
           } else {
