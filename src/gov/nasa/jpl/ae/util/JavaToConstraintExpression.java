@@ -1745,7 +1745,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       String type = astToAeExprType( fieldAccessExpr.getScope(),
                                      null,
                                      lookOutsideClassDataForTypes, complainIfDeclNotFound );
-      boolean addIfNotFound = !type.equals( fieldAccessExpr.getScope().toString() ) && !wrapInFunction;
+      boolean addIfNotFound = type != null && !type.equals( fieldAccessExpr.getScope().toString() ) && !wrapInFunction;
       parentExpr =
           nameExprToAeExpression( (NameExpr)fieldAccessExpr.getScope(),
                                   wrapInFunction, evaluateCall,
