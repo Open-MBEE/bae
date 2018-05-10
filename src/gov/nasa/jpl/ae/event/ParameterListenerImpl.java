@@ -42,7 +42,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    HasOwner, HasEvents,
                                    Comparable< ParameterListenerImpl > {
 
-  public static boolean usingArcConsistency = false;
+  public static boolean usingArcConsistency = true;
   public static boolean arcConsistencyQuiet = true;
 
   // Constants

@@ -399,7 +399,7 @@ public class ConstructorCall extends Call {
   protected void setReturnValue( Object value ) {
     if ( value != lastReturnValue &&
          lastReturnValue instanceof Deconstructable ) {
-      ((Deconstructable) lastReturnValue).deconstruct();
+      //((Deconstructable) lastReturnValue).deconstruct();
     }
     returnValue = value;
     lastReturnValue = value;

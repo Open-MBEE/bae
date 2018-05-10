@@ -357,18 +357,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   
   public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
     if ( returnValue != null && !isStale() ) {
-//      double r = Random.global.nextDouble();
-//      if ( false && r < 0.5 ) {// && isGrounded( propagate, null ) ) {
         evaluationSucceeded = true;
         return returnValue;
-//      }
     }
+    //System.out.println("Calling " + toShortString());
     setReturnValue(null);
 
     return evaluate(propagate, true);
   }
-  
-  //public boolean 
   
   // TODO -- consider an abstract Call class
   public synchronized Object evaluate( boolean propagate, boolean doEvalArgs ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
@@ -865,14 +861,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public Set< Parameter< ? > >
          getMemberParameters( Object o, boolean deep,
                               Set< HasParameters > seen ) {
-    // Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen
-    // );
-    // if ( pair.first ) return Utils.getEmptySet();
-    // seen = pair.second;
+    // seen set is checked later (if o instanceof Expression)
     Set< Parameter< ? > > set = null;
     if ( o instanceof Expression ) {
        Object exp = ((Expression) o).getExpression();
        if ( exp instanceof HasParameters ) {
+         // return empty set if we've already visited this expression.
          Pair<Boolean, Set<HasParameters>> pair = Utils.seen((HasParameters)exp, deep, seen);
          if (pair.first) return Utils.getEmptySet();
          seen = pair.second;
@@ -905,7 +899,15 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     seen = pair.second;
     Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? >>();
     if ( !isStatic() ) {
+      // check object for Parameters
       if (object instanceof Parameter) set.add((Parameter<?>) object);
+      // check for Parameter in an Expression as a shortcut to getMemberParameters()
+      else if ( object instanceof Expression && ((Expression)object).expression instanceof Parameter ) {
+        set.add( (Parameter<?>)((Expression)object).expression );
+      } else if ( !deep ) {  // deep==true case is processed below for all object types
+        set = Utils.addAll(set, getMemberParameters(object, deep, seen)); 
+      }
+      // check for nested Parameters if deep == true
       if ( deep ) {
         set = Utils.addAll(set, getMemberParameters(object, deep, seen));
       }
@@ -1299,6 +1301,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public void setStale( boolean staleness ) {
     if ( stale != staleness && Debug.isOn() ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
+//    if ( stale != staleness ) System.out.println( "setStale(" + staleness + "): "
+//                                                           + toShortString() );
 
     if ( staleness ) {
       clearCache();
@@ -1369,6 +1373,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
    * @return the nth argument
    */
   public Object getArgument(int n) {
+    if ( arguments.size() <= n ) {
+      return null;
+    }
     return arguments.get( n );
   }
 
@@ -1876,6 +1883,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if (p.first) return;
     seen = p.second;
     if ( changedParameter == null ) return;
+
+    // System.out.println("setStaleAnyReferencesTo(" + changedParameter.name + ") in " + toShortString() );
 
     if ( hasParameter( changedParameter, false, null ) ) {
       setStale(true);

@@ -1670,6 +1670,23 @@ public class Functions {
       }
       return set;
     }
+
+    @Override
+    public void setStaleAnyReferencesTo( Parameter<?> changedParameter,
+                                         Set<HasParameters> seen ) {
+      super.setStaleAnyReferencesTo( changedParameter, seen );
+      if ( !isStale() ) {
+        Object owner = getArgument( 0 );
+        Object memberName = getArgument( 1 );
+        if ( memberName != null &&
+             Expression.valuesEqual( memberName, changedParameter.getName() ) &&
+             ( changedParameter.getOwner() == null ||
+               Expression.valuesEqual( changedParameter.getOwner(), owner ) ) ) {
+          System.out.println("Setting GetMember stale: " + this.toShortString() );
+          setStale( true );
+        }
+      }
+    }
   }
 
 
@@ -1681,6 +1698,9 @@ public class Functions {
     } else {
       v2 = (V2)ClassUtils.getFieldValue( object, memberName, true );
     }
+//    System.out.println("getMember(" + ClassUtils.getName( object ) +
+//                       ", \"" + memberName + "\") = " +
+//                       MoreToString.Helper.toString(v2, true, false, null) );
     return v2;
   }
 
@@ -4941,7 +4961,22 @@ public class Functions {
       // arg expression,
       // otherwise due the reverse:
       try {
-        t = (T)( forward ? o2.evaluate( false ) : o1.evaluate( false ) );
+        Expression<T> target = forward ? o1 : o2;
+        Expression<T> val = forward ? o2 : o1;
+        t = (T)( val.evaluate( false ) );
+        // Don't pick values for timeline variables that are part of an expression.
+        if ( t instanceof TimeVaryingMap ) {
+          Parameter v = null;
+          // See if the target is just a Parameter; otherwise, the variable is
+          // in a larger expression, and we don't want to pick a value for it.
+          try {
+            v = Expression.evaluate( target, Parameter.class, false, false );
+          } catch (Throwable e) {
+            // ignore what is likely a ClassCastException when the target is not
+            // just a Parameter.
+          }
+          if ( v == null ) t = null;
+        }
       } catch ( IllegalAccessException e ) {
         // TODO Auto-generated catch block
         // e.printStackTrace();

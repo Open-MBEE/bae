@@ -254,7 +254,7 @@ public class ConstraintExpression extends Expression< Boolean >
       for ( Variable< ? > v : Utils.scramble(a) ) {
         // Make sure the variable is not dependent and not locked.
         if ( ( !( v instanceof Parameter ) || (!( (Parameter)v ).isDependent() || Random.global.nextDouble() < 0.1) )
-                  && ( v.getDomain() == null || v.getDomain().magnitude() != 1 ) ) {
+                  && ( v.getDomain() == null || v.getDomain().magnitude() != 1 ) ) {//&& (!(v.getValue( false ) instanceof TimeVaryingMap) ||  ) {
           boolean picked = false;
           boolean p = pickingDeep && !copy.contains( v );
           if ( !p ) {

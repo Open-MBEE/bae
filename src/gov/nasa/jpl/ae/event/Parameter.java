@@ -432,22 +432,26 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + "): owner is null" );
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
-      System.out.println(" $$$$$$$$$$$$$$   setValue(" + valString + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
+//if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
+//  System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
+//          .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+//}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
 
-      // dereference
-      if ( this.value instanceof Deconstructable ) {
-        ((Deconstructable)this.value).subtractReference();
-      }
-
+      T oldValue = this.value;
       this.value = val;
 
       // add reference
       if ( this.value instanceof Deconstructable ) {
         ((Deconstructable)this.value).addReference();
       }
+      // dereference
+      if ( oldValue instanceof Deconstructable ) {
+        ((Deconstructable)oldValue).subtractReference();
+      }
+
 
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                        + "): value set!" );
@@ -470,6 +474,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       if ( ho.getOwner() == null ) {
         ho.setOwner(this);
         return true;
+      } else if ( ho.getOwner() instanceof Variable && ho.getOwner() != this) {
+        if ( ho != ( (Variable)ho.getOwner() ).getValue( false ) ) {
+          ho.setOwner(this);
+          return true;
+        }
       }
     }
     return false;

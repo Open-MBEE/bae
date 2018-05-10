@@ -3081,7 +3081,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         tvm = (TimeVaryingMap< ? >)pv;
       }
       if ( par != null && parameter.equals( par ) ) {
-        // TODO??
+        // nothing to do -- it's already updated
       }
       Set< Effect > effectSet = effectPair.second;
       for ( Effect effect : effectSet ) {

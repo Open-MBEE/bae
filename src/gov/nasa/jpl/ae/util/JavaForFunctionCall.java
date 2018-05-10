@@ -444,7 +444,7 @@ public class JavaForFunctionCall {
     }
     Class<?>[] paramTypes = mOrC ? ((Method)member).getParameterTypes() : ((Constructor)member).getParameterTypes();
     int i = 0, j = 0;
-    if ( types == null || paramTypes == null ) {
+    if ( types == null || types.length == 0 || paramTypes == null || paramTypes.length == 0 ) {
       return false;
     }
     while ( i < types.length ) {

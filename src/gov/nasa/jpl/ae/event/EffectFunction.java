@@ -7,6 +7,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.Vector;
@@ -227,12 +228,13 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
     return result;
   }
 
-	public void handleChangeToTimeVaryingMap() {
+  public void handleChangeToTimeVaryingMap() {
     Pair< Parameter< ? >, ParameterListener > pair = getTimeVaryingMapOwners();
     Parameter<?> p = pair.first;
     ParameterListener pl = pair.second;
+    Set<HasParameters> seen = new HashSet<>();
     if ( pl != null && p != null ) {
-      pl.handleValueChangeEvent( p, null );
+      pl.handleValueChangeEvent( p, seen );
     }
   }
 
@@ -240,10 +242,11 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
     Pair< Parameter< ? >, ParameterListener > pair = getTimeVaryingMapOwners();
     Parameter<?> p = pair.first;
     ParameterListener pl = pair.second;
+    Set<HasParameters> seen = new HashSet<>();
     if ( pl != null && p != null ) {
-      pl.setStaleAnyReferencesTo( p, null );
+      pl.setStaleAnyReferencesTo( p, seen );
     }
-	}
+  }
 	
   public Pair< Parameter<?>, ParameterListener > getTimeVaryingMapOwners() {
     TimeVaryingMap<?> tvm = getTimeVaryingMap();
