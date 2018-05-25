@@ -384,14 +384,40 @@ public class ConstructorCall extends Call {
     return returnValue; //newObject;
   }
 
+  protected Boolean _isParameterListenerImpl = null;
+
+  public boolean isParameterListenerImpl() {
+    if (_isParameterListenerImpl != null ) {
+      return _isParameterListenerImpl;
+    }
+    _isParameterListenerImpl = false;
+    if ( this.getMember() == null ) return false;
+    Class<?> c = this.getMember().getDeclaringClass();
+    while ( c != null ) {
+      if ( "ParameterListenerImpl".equals( c.getSimpleName() ) ) {
+        _isParameterListenerImpl = true;
+        return true;
+      }
+      c = c.getSuperclass();
+    }
+    return false;
+  }
+
+
   @Override
   public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
-//    Object oldValue = returnValue;
-    Object newValue = super.evaluate(propagate);
-//    if ( returnValue != oldValue && oldValue instanceof Deconstructable ) {
-//      ((Deconstructable) oldValue).deconstruct();
-//    }
-    return newValue;
+    if ( returnValue != null ) {
+      // If it's a generated class, we just need to update dependencies, and we
+      // can rely on the LazyUpdate interface for that.
+      if ( !isStale() || isParameterListenerImpl() ) {
+        evaluationSucceeded = true;
+        return returnValue;
+      }
+    }
+    //System.out.println("Calling " + toShortString());
+    setReturnValue(null);
+    Object v = evaluate( propagate, true );
+    return v;
   }
 
   protected Object lastReturnValue = null;
@@ -399,7 +425,7 @@ public class ConstructorCall extends Call {
   protected void setReturnValue( Object value ) {
     if ( value != lastReturnValue &&
          lastReturnValue instanceof Deconstructable ) {
-      ((Deconstructable) lastReturnValue).deconstruct();
+      //((Deconstructable) lastReturnValue).deconstruct();
     }
     returnValue = value;
     lastReturnValue = value;
@@ -438,7 +464,7 @@ public class ConstructorCall extends Call {
     if ( thisClass != getReturnType() ) return true;
     return false;
   }
-  
+
   @Override
   public String toString(boolean withHash, boolean deep, Set< Object > seen,
                          Map< String, Object > otherOptions) {

@@ -194,14 +194,14 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     if ( deltaMap == null ) return;
     for ( java.util.Map.Entry< Parameter< Long>, Double > e : deltaMap.entrySet() ) {
       Parameter<Long> firstKey = null;
-      if ( e.getKey().getValueNoPropagate().equals( 0L ) && firstKey().getValueNoPropagate().equals(0L) ) {
-         firstKey = firstKey();
-        
-      }
+//      if ( e.getKey().getValueNoPropagate().equals( 0L ) && firstKey().getValueNoPropagate().equals(0L) ) {
+//         firstKey = firstKey();
+//
+//      }
       add( e.getKey(), e.getValue() );
-      if (firstKey != null) {
-        remove(firstKey);
-      }
+//      if (firstKey != null) {
+//        remove(firstKey);
+//      }
     }
   } 
   
@@ -336,6 +336,21 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     return false;
   }
 
+  protected Double setToCapAtInterpolatedTime(Parameter< Long > t, Double value, Double cap ) {
+    // need to interpolate at what time the cap is reached.
+    Parameter<Long> lastTime = getTimepointBefore( t );
+    if ( lastTime != null ) {
+      Double lastVal = getValue( lastTime );
+      if ( lastVal != null ) {
+        Long x = interpolatedTime(lastTime, t, lastVal, cap, value);
+        if ( x != null ) {
+          return setValue( new SimpleTimepoint( "", x, this ), cap );
+        }
+      }
+    }
+    return null;
+  }
+
   // As is, setValue() effectively is an add of the difference with the prior
   // map value.  It might be smart to somehow disallow the use of this in effects.
   @Override
@@ -346,10 +361,13 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     }
     if ( minCap != null && value < minCap ) {
       if ( Debug.isOn() ) Debug.errln("hit minCap!");
+      setToCapAtInterpolatedTime( t, value, minCap );
       value = minCap;
     }
     if ( maxCap != null && value > maxCap ) {
       if ( Debug.isOn() ) Debug.errln("hit maxCap!");
+      // need to interpolate at what time the cap is reached.
+      setToCapAtInterpolatedTime( t, value, maxCap );
       value = maxCap;
     }
     if ( value < 0.0 ) {

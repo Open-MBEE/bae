@@ -2,6 +2,7 @@ package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.event.Functions.SuggestiveFunctionCall;
 import gov.nasa.jpl.ae.solver.Constraint;
+import gov.nasa.jpl.ae.solver.ObjectDomain;
 import gov.nasa.jpl.ae.solver.Satisfiable;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.*;
@@ -102,11 +103,16 @@ public class ConstraintExpression extends Expression< Boolean >
     Parameter<T> dependentVar = (Parameter<T>) p.first;
     if ( dependentVar == null ) return false;
     T oldVal = dependentVar.getValueNoPropagate();
+    if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded && dependentVar.getDomain() instanceof ObjectDomain ) {
+      ((ObjectDomain)dependentVar.getDomain()).add(null);
+    }
     dependentVar.setValue((T)p.second, true);
     T newVal = dependentVar.getValueNoPropagate();
     if ( oldVal == newVal ) return false;
     return true;
   }
+
+  protected static boolean isValueExpGrounded = false;
 
   public Pair<Parameter<?>, Object> valueToSetLikeDependency() {
     Pair<Parameter<?>, Object> p = dependencyLikeVar();
@@ -126,6 +132,13 @@ public class ConstraintExpression extends Expression< Boolean >
       e.printStackTrace();
     }
     if ( !succ ) return null;
+
+    // HACK -- using static variable instead of stuffing in return value!
+    isValueExpGrounded = true;
+    if ( p.second instanceof Groundable ) {
+      isValueExpGrounded = ((Groundable)p.second).isGrounded( false, null );
+    }
+
     return new Pair<Parameter<?>, Object>(dependentVar, value);
   }
 
@@ -254,7 +267,7 @@ public class ConstraintExpression extends Expression< Boolean >
       for ( Variable< ? > v : Utils.scramble(a) ) {
         // Make sure the variable is not dependent and not locked.
         if ( ( !( v instanceof Parameter ) || (!( (Parameter)v ).isDependent() || Random.global.nextDouble() < 0.1) )
-                  && ( v.getDomain() == null || v.getDomain().magnitude() != 1 ) ) {
+                  && ( v.getDomain() == null || v.getDomain().magnitude() != 1 ) ) {//&& (!(v.getValue( false ) instanceof TimeVaryingMap) ||  ) {
           boolean picked = false;
           boolean p = pickingDeep && !copy.contains( v );
           if ( !p ) {

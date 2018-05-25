@@ -1,9 +1,7 @@
-/**
- * 
- */
 package gov.nasa.jpl.ae.event;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import gov.nasa.jpl.ae.solver.Variable;
@@ -67,8 +65,8 @@ public interface ParameterListener extends HasParameters, HasName< String > {
   /**
    * Pick a new value for the {@link Variable}, possibly to help resolve constraints.
    * 
-   * @param variable
-   * @return
+   * @param variable the variable for which to pick a parameter
+   * @return whether a new value was picked
    */
   <T> boolean pickParameterValue( Variable< T > variable );
 
@@ -99,4 +97,94 @@ public interface ParameterListener extends HasParameters, HasName< String > {
   List<Variable<?>> getVariablesOnWhichDepends( Variable<?> variable );
   // TODO -- need to add "deep" and "seen" parameters to method for recursing into contained objects.
 
+  // create a dummy instance for use when null will not suffice.
+  ParameterListener instance = new ParameterListener() {
+    @Override public void handleValueChangeEvent( Parameter<?> parameter,
+                                                  Set<HasParameters> seen ) {
+    }
+    @Override public void handleDomainChangeEvent( Parameter<?> parameter,
+                                                   Set<HasParameters> seen ) {
+    }
+    @Override
+    public void setStaleAnyReferencesTo( Parameter<?> changedParameter,
+                                         Set<HasParameters> seen ) {
+    }
+    @Override public void detach( Parameter<?> parameter ) {
+    }
+    @Override public boolean refresh( Parameter<?> parameter ) {
+      return false;
+    }
+    @Override public <T> boolean pickParameterValue( Variable<T> variable ) {
+      return false;
+    }
+    @Override public String getName() {
+      return null;
+    }
+    @Override public <T> T translate( Variable<T> v, Object o, Class<?> type ) {
+      return null;
+    }
+    @Override public List<Variable<?>> getVariablesOnWhichDepends(
+            Variable<?> variable ) {
+      return null;
+    }
+    @Override public Set<Parameter<?>> getParameters( boolean deep,
+                                                      Set<HasParameters> seen ) {
+      return null;
+    }
+    @Override public Set<Parameter<?>> getFreeParameters( boolean deep,
+                                                          Set<HasParameters> seen ) {
+      return null;
+    }
+    @Override
+    public void setFreeParameters( Set<Parameter<?>> freeParams, boolean deep,
+                                   Set<HasParameters> seen ) {
+    }
+    @Override public boolean isFreeParameter( Parameter<?> p, boolean deep,
+                                              Set<HasParameters> seen ) {
+      return false;
+    }
+    @Override public boolean hasParameter( Parameter<?> parameter, boolean deep,
+                                           Set<HasParameters> seen ) {
+      return false;
+    }
+    @Override public Parameter<?> getParameter( String name ) {
+      return null;
+    }
+    @Override
+    public boolean substitute( Parameter<?> p1, Parameter<?> p2, boolean deep,
+                               Set<HasParameters> seen ) {
+      return false;
+    }
+    @Override
+    public boolean substitute( Parameter<?> p1, Object exp, boolean deep,
+                               Set<HasParameters> seen ) {
+      return false;
+    }
+    @Override public void deconstruct() {
+    }
+    @Override public void addReference() {
+    }
+    @Override public void subtractReference() {
+    }
+    @Override public boolean isStale() {
+      return false;
+    }
+    @Override public void setStale( boolean staleness ) {
+    }
+    @Override public Integer getId() {
+      return null;
+    }
+    @Override
+    public String toString( boolean withHash, boolean deep, Set<Object> seen ) {
+      return null;
+    }
+    @Override
+    public String toString( boolean withHash, boolean deep, Set<Object> seen,
+                            Map<String, Object> otherOptions ) {
+      return null;
+    }
+    @Override public String toShortString() {
+      return null;
+    }
+  };
 }

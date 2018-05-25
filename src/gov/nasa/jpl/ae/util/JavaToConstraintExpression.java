@@ -1745,7 +1745,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       String type = astToAeExprType( fieldAccessExpr.getScope(),
                                      null,
                                      lookOutsideClassDataForTypes, complainIfDeclNotFound );
-      boolean addIfNotFound = !type.equals( fieldAccessExpr.getScope().toString() ) && !wrapInFunction;
+      boolean addIfNotFound = type != null && !type.equals( fieldAccessExpr.getScope().toString() ) && !wrapInFunction;
       parentExpr =
           nameExprToAeExpression( (NameExpr)fieldAccessExpr.getScope(),
                                   wrapInFunction, evaluateCall,
@@ -1809,12 +1809,12 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         FunctionCall functionCall = null;
         
         // Check if enum
-        System.out.println( "fieldExprToAeExpression(" + fieldAccessExpr + "): parent type name = " + parentExpr.getType().getCanonicalName() );
+        if ( Debug.isOn() ) System.out.println( "fieldExprToAeExpression(" + fieldAccessExpr + "): parent type name = " + parentExpr.getType().getCanonicalName() );
         Class<?> enumClass = parentExpr.getType();
         if ( enumClass != null && !enumClass.isEnum() && Class.class.isAssignableFrom( enumClass ) ) {
           enumClass = (Class< ? >)parentExpr.getValue( false );
         }
-        if ( enumClass != null ) System.out.println( "fieldExprToAeExpression(" + fieldAccessExpr + "): parent as Enum class = " + enumClass.getCanonicalName() );
+        if ( enumClass != null && Debug.isOn()) System.out.println( "fieldExprToAeExpression(" + fieldAccessExpr + "): parent as Enum class = " + enumClass.getCanonicalName() );
         if ( enumClass != null && enumClass.isEnum() ) {  // Won't this be Class<Class> where the type parameter is the enum class?
           Object constant = ClassUtils.getEnumConstant( enumClass, fieldAccessExpr.getField() );
           if ( constant != null ) {

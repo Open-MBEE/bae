@@ -803,7 +803,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
           System.out.println( this.getClass().getName() + " satisfy loop round "
                               + ( numLoops + 1 ) + " out of "
                               + maxPassesAtConstraints );
-        } else {
+         } else {
           System.out.println( this.getClass().getName() + " satisfy loop round "
                               + ( numLoops + 1 ) );
         }
@@ -1517,6 +1517,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                    + this.toString( true, true, null ) );
     }
 
+  }
+
+  protected int refCount = 0;
+  @Override public void addReference() {
+    ++refCount;
+  }
+
+  @Override public void subtractReference() {
+    --refCount;
+    if ( refCount == 0 ) {
+      deconstruct();
+    }
   }
 
   /*

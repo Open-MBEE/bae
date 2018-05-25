@@ -4,18 +4,12 @@
 package gov.nasa.jpl.ae.event;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import gov.nasa.jpl.ae.event.TimeVaryingMap.TimeValue;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
 
 /**
@@ -58,11 +52,6 @@ public class TimeVaryingPlottableMap< V > extends TimeVaryingMap< V > implements
   @Override
   public int compareTo(TimeVarying<Long, V> o) {
     return super.compareTo(o);
-  }
-
-  @Override
-  public int compare(V v1, V v2) {
-    return super.compare(v1, v2);
   }
 
   @Override

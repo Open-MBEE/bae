@@ -184,4 +184,16 @@ public class EffectInstance extends HasIdImpl implements HasParameters {
     return MoreToString.Helper.toString( array, withHash, deep, seen );
   }
 
+  //protected int refCount = 0;
+  @Override public void addReference() {
+    //++refCount;
+  }
+
+  @Override public void subtractReference() {
+    //--refCount;
+    //if ( refCount == 0 ) {
+    //  deconstruct();
+    //}
+  }
+
 }

@@ -239,7 +239,13 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           // nothing to deconstruct
         }
 
-        @Override
+          @Override public void addReference() {
+          }
+
+          @Override public void subtractReference() {
+          }
+
+          @Override
         public CollectionTree
                getConstraintCollection( boolean deep,
                                         Set< HasConstraints > seen ) {
@@ -426,6 +432,10 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         @Override
         public void deconstruct() {
           // nothing to deconstruct
+        }
+        @Override public void addReference() {
+        }
+        @Override public void subtractReference() {
         }
 
         @Override
@@ -1159,7 +1169,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       EffectFunction ef = (EffectFunction)e;
       if ( ef.getObject() != null
            && !Expression.valuesEqual( ef.getObject(), variable ) ) {
-        Debug.error( true,
+        Debug.error( true, false,
                      "Error! Variable (" + variable + ") and effect variable ("
                            + ef.getObject() + ") do not match! " + ef );
         return false;
@@ -3071,7 +3081,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         tvm = (TimeVaryingMap< ? >)pv;
       }
       if ( par != null && parameter.equals( par ) ) {
-        // TODO??
+        // nothing to do -- it's already updated
       }
       Set< Effect > effectSet = effectPair.second;
       for ( Effect effect : effectSet ) {

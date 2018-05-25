@@ -320,6 +320,10 @@ public class FunctionCall extends Call {
       evaluationSucceeded = false;
       return null;
     }
+    if ( !isGrounded(false, null) ) {
+      evaluationSucceeded = false;
+      return null;
+    }
     if ( hasTypeErrors( evaluatedArgs ) ) {
       if ( Debug.isOn() ) Debug.errln( "Warning! Tried calling " + this
                                        + " with bad argument types! "

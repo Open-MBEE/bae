@@ -1,24 +1,22 @@
-/**
- * 
- */
 package gov.nasa.jpl.ae.event;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
 
 import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Utils;
 
+/**
+ * A Timepoint that is treated like a constant instead of a variable.
+ */
 public class SimpleTimepoint extends Timepoint {
 
-  public static SimpleTimepoint zero = new SimpleTimepoint("zero", 0L, null);
+  public static SimpleTimepoint zero = new SimpleTimepoint("zero", 0L,
+                                                           ParameterListener.instance);
 
   /**
    * @param name

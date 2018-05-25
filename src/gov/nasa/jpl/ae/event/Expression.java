@@ -1365,4 +1365,16 @@ public class Expression< ResultType > extends HasIdImpl
     return null;
   }
 
+  //protected int refCount = 0;
+  @Override public void addReference() {
+    //++refCount;
+  }
+
+  @Override public void subtractReference() {
+    //--refCount;
+    //if ( refCount == 0 ) {
+    //  deconstruct();
+    //}
+  }
+
 }

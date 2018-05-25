@@ -41,8 +41,9 @@ public class Timepoint extends LongParameter implements TimeVariable {
 
   protected static int counter = 0;
   protected static long horizonDuration = 24L * 3600;// * 200 * (4 * 365 + 1) / 4;  // 200 years
-  
-  private final static Timepoint epochTimepoint = new Timepoint( "", 0L, null );
+
+  private final static Timepoint epochTimepoint =
+          new Timepoint( "", 0L, ParameterListener.instance );
   private static Timepoint horizonTimepoint = null;
   
   protected static final LongDomain defaultDomain = LongDomain.positiveDomain;
@@ -336,7 +337,7 @@ public class Timepoint extends LongParameter implements TimeVariable {
     // change during problem solving.
     if (horizonTimepoint == null ) {
       horizonTimepoint = 
-          new Timepoint( "", getHorizonDuration(), null );
+          new Timepoint( "", getHorizonDuration(), ParameterListener.instance );
     }
     if ( horizonTimepoint.getValueNoPropagate() == null ) {
       horizonTimepoint.setValue( getHorizonDuration() );
