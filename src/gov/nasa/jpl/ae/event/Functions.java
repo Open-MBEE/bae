@@ -5409,19 +5409,14 @@ public class Functions {
      */
     @Override
     public boolean isGrounded( boolean deep, Set< Groundable > seen ) {
-      try {
-        return evaluate( false ) != null;
-      } catch ( IllegalAccessException e ) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      } catch ( InvocationTargetException e ) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      } catch ( InstantiationException e ) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      return false;
+      return super.isGrounded(deep, seen);
+//      try {
+//        return evaluate( false ) != null;
+//      } catch ( IllegalAccessException e ) {
+//      } catch ( InvocationTargetException e ) {
+//      } catch ( InstantiationException e ) {
+//      }
+//      return false;
     }
 
     /**

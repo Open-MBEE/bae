@@ -486,13 +486,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
       evaluatedArgs = fixArgsForVarArgs( evaluatedArgs, false );
       
-      try {
-        Object newValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
-        setReturnValue(newValue);
-      } catch (Exception e) {
-        e.printStackTrace();
-        System.err.println( "something went wrong with evaluating " + this );
-      }
+      Object newValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
+      setReturnValue(newValue);
 
       // No longer stale after invoked with updated arguments and result is cached.
       if ( evaluationSucceeded ) setStale( false );
@@ -905,7 +900,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       else if ( object instanceof Expression && ((Expression)object).expression instanceof Parameter ) {
         set.add( (Parameter<?>)((Expression)object).expression );
       } else if ( !deep ) {  // deep==true case is processed below for all object types
-        set = Utils.addAll(set, getMemberParameters(object, deep, seen)); 
+        set = Utils.addAll(set, getMemberParameters(object, deep, seen));
       }
       // check for nested Parameters if deep == true
       if ( deep ) {

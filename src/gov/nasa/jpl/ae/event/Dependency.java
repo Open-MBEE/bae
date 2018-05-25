@@ -5,16 +5,8 @@ import java.util.*;
 
 import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.event.Functions.Equals;
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.mbee.util.Random;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.SingleValueDomain;
-import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.CompareUtils;
@@ -171,6 +163,12 @@ public class Dependency< T > extends HasIdImpl
         System.out.println("setting dependency on " + parameter + " to value " + value );
         System.out.println("****");
       }
+
+      // Update ObjectDomain to accept null if value is null.
+      if ( value == null && parameter.getDomain() != null && !parameter.getDomain().isNullInDomain() && parameter.getDomain() instanceof ObjectDomain ) {
+        ((ObjectDomain)parameter.getDomain()).add(null);
+      }
+
       parameter.setValue( value, propagate );
       return true;
     }

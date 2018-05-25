@@ -433,8 +433,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
 //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-//  System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
-//          .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+  //System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
+  //        .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
 //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -580,8 +580,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       ((Groundable)value).ground(deep, seen);
     }
     
-    
-    if (value == null && domain instanceof ObjectDomain) {
+
+    // If the domain is an ObjectDomain, ground by constructing a new object.
+    // This may contribute to thrashing in construction/deconstruction.
+    if (value == null && domain instanceof ObjectDomain && !domain.isNullInDomain()) {
      Object o = ((ObjectDomain)domain).constructObject();
      if (o != null) {
        setValue((T)o);
@@ -610,30 +612,6 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     }
 
     int compare = 0;
-//    if ( value == null && o.value != null ) return -1;
-//    if ( o.value == null && value != null ) return 1;
-//    // REVIEW -- TODO -- doing weird stuff here!!!
-//    if ( value instanceof Parameter && !( o.value instanceof Parameter ) ) {
-//      Debug.errln("Parameters of parameters!");
-//      Parameter<?> p = (Parameter)value;
-//      if ( !p.isGrounded( false, null ) ) return -1;
-//      return p.compareTo(o);
-//    }
-//    if ( !(value instanceof Parameter) && o.value instanceof Parameter ) {
-//      Debug.errln("Parameters of parameters!");
-//      Parameter<?> p = (Parameter)o.value;
-//      if ( !p.isGrounded( false, null ) ) return 1;
-//      return compareTo(p);
-//    }
-//    if ( value != null && value.getClass().isAssignableFrom( o.value.getClass() ) ) {
-//      if ( value instanceof Comparable ) {
-//        T oValue = (T)o.value;
-//        compare = ((Comparable<T>)value).compareTo( oValue );
-//      } else {
-//        compare = value.toString().compareTo( o.value.toString() );
-//      }
-//      if ( compare != 0 ) return compare;
-//    }
     compare = CompareUtils.compare( getValueNoPropagate(), o.getValueNoPropagate(), true );
     if ( compare != 0 ) return compare;
 
@@ -647,27 +625,6 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( compare != 0 ) return compare;
     compare = CompareUtils.compare( getOwner(), o.getOwner(), true );
     if ( compare != 0 ) return compare;
-//    Debug.errln("Parameter.compareTo() potentially accessing value information");
-//    compare = CompareUtils.compareTo( this, o, false );
-//    if ( compare != 0 ) return compare;
-
-//    // this assumes domains do not change
-//    if ( domain != null && o.domain != null && domain.getType() != null
-//         && o.domain.getType() != null ) {
-//      compare = domain.getType().getName().compareTo( o.domain.getType().getName() );
-//      if ( compare != 0 ) return compare;
-//    }
-//    // TODO -- HACK -- Doing this so that timelines keyed with Timepoint can
-//    // keep reservations separate for different Timepoints that occur at the
-//    // same time. Correct thing to do would be to have unique names (maybe using
-//    // scope).
-//    if ( owner == null && o.owner != null ) return -1;
-//    if ( owner != null && o.owner == null ) return 1;
-//    if ( owner == null && o.owner == null ) {
-//      return Utils.intCompare( hashCode(), o.hashCode() );
-//    }
-//    return Utils.intCompare( owner.hashCode(), o.owner.hashCode() );
-//    System.err.println("compareTo() getting two different parameters with the same names and hash codes seems very unlikely. p1=" + this + ", p2=" + o );
     return compare;
   }
 
@@ -675,7 +632,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     boolean inDom = false;
     try {
       inDom = domain == null || domain.magnitude() == 0
-              || ( value != null && domain.contains( value ) );
+              || domain.contains( value );
     } catch ( ClassCastException e ) {
       if ( Debug.isOn() ) Debug.errln( "Warning! Parameter value and domain types do not match! " + this );
       if ( value instanceof Parameter ) {
