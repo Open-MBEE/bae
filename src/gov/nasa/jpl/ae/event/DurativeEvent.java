@@ -1340,7 +1340,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           sb.append(  pLI.kSolutionString( indent + 1 ) );
           sb.append( indentString + "}\n" );
         } else {
-        sb.append(indentString + p.getName() + " = " + p.getValue() + "\n");
+        sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toLongString(p.getValue()) + "\n");
         }
       
     }
@@ -1368,7 +1368,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       } else {
         param.put( "name", p.getName() );
         param.put( "type", "primitive" );
-        param.put( "value", p.getValue()) ;
+        param.put( "value", MoreToString.Helper.toLongString(p.getValue())) ;
       }
       value.put( param );
     }
