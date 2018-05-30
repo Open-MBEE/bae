@@ -1768,9 +1768,9 @@ public class Functions {
         if ( Infinity.isEqual( n1 ) ) {
           try {
             if ( NegativeInfinity.isEqual( n2 ) ) {
-              result = Zero.forClass( o1.getClass() );
+              result = Zero.forClass( o1.getClass(), n1.getClass() );
             } else {
-              result = Infinity.forClass( o1.getClass() );
+              result = Infinity.forClass( o1.getClass(), n1.getClass() );
             }
           } catch ( ClassCastException e ) {
             e.printStackTrace();
@@ -1778,9 +1778,9 @@ public class Functions {
         } else if ( NegativeInfinity.isEqual( n1 ) ) {
           try {
             if ( Infinity.isEqual( n2 ) ) {
-              result = Zero.forClass( o1.getClass() );
+              result = Zero.forClass( o1.getClass(), n1.getClass() );
             } else {
-              result = NegativeInfinity.forClass( o1.getClass() );
+              result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
             }
           } catch ( ClassCastException e ) {
             e.printStackTrace();
@@ -1900,7 +1900,7 @@ public class Functions {
         if ( NegativeInfinity.isEqual( n1 )
              || NegativeInfinity.isEqual( n2 ) ) {
           try {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           } catch ( ClassCastException e ) {
             e.printStackTrace();
           }
@@ -1998,7 +1998,7 @@ public class Functions {
       if ( n1 != null && n2 != null ) {
         if ( Infinity.isEqual( n1 ) || Infinity.isEqual( n2 ) ) {
           try {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           } catch ( ClassCastException e ) {
             e.printStackTrace();
           }
@@ -2352,11 +2352,11 @@ public class Functions {
       if ( Infinity.isEqual( n1 ) ) {
         try {
           if ( Zero.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else if ( Utils.isNegative( n2 ) ) {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2364,11 +2364,11 @@ public class Functions {
       } else if ( NegativeInfinity.isEqual( n1 ) ) {
         try {
           if ( Zero.isEqual( n2 ) ) {
-            result = NegativeOne.forClass( o1.getClass() );
+            result = NegativeOne.forClass( o1.getClass(), n1.getClass() );
           } else if ( Utils.isNegative( n2 ) ) {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2376,11 +2376,11 @@ public class Functions {
       } else if ( Zero.isEqual( n1 ) ) {
         try {
           if ( Infinity.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else if ( NegativeInfinity.isEqual( n2 ) ) {
-            result = NegativeOne.forClass( o1.getClass() );
+            result = NegativeOne.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Zero.forClass( o1.getClass() );
+            result = Zero.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2482,13 +2482,13 @@ public class Functions {
       if ( Infinity.isEqual( n1 ) ) {
         try {
           if ( Infinity.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else if ( NegativeInfinity.isEqual( n2 ) ) {
-            result = NegativeOne.forClass( o1.getClass() );
+            result = NegativeOne.forClass( o1.getClass(), n1.getClass() );
           } else if ( Utils.isNegative( n2 ) ) {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2496,13 +2496,13 @@ public class Functions {
       } else if ( NegativeInfinity.isEqual( n1 ) ) {
         try {
           if ( Infinity.isEqual( n2 ) ) {
-            result = NegativeOne.forClass( o1.getClass() );
+            result = NegativeOne.forClass( o1.getClass(), n1.getClass() );
           } else if ( NegativeInfinity.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else if ( Utils.isNegative( n2 ) ) {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2510,9 +2510,9 @@ public class Functions {
       } else if ( Zero.isEqual( n1 ) ) {
         try {
           if ( Zero.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Zero.forClass( o1.getClass() );
+            result = Zero.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2520,9 +2520,9 @@ public class Functions {
       } else if ( Zero.isEqual( n2 ) ) {
         try {
           if ( Utils.isNegative( n1 ) ) {
-            result = NegativeInfinity.forClass( o1.getClass() );
+            result = NegativeInfinity.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2623,11 +2623,11 @@ public class Functions {
       if ( Infinity.isEqual( n1 ) ) {
         try {
           if ( Zero.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass() );
+            result = One.forClass( o1.getClass(), n1.getClass() );
           } else if ( Utils.isNegative( n2 ) ) {
-            result = Zero.forClass( o1.getClass() );
+            result = Zero.forClass( o1.getClass(), n1.getClass() );
           } else {
-            result = Infinity.forClass( o1.getClass() );
+            result = Infinity.forClass( o1.getClass(), n1.getClass() );
           }
         } catch ( ClassCastException e ) {
           e.printStackTrace();
@@ -2635,7 +2635,7 @@ public class Functions {
       } else if ( NegativeInfinity.isEqual( n1 ) ) {
         try {
           if ( Utils.isNegative( n2 ) ) {
-            result = Zero.forClass( o1.getClass() );
+            result = Zero.forClass( o1.getClass(), n1.getClass() );
           } else {
             result = null;
           }
@@ -2644,7 +2644,7 @@ public class Functions {
         }
       } else if ( Zero.isEqual( n1 ) ) {
         try {
-          result = Zero.forClass( o1.getClass() );
+          result = Zero.forClass( o1.getClass(), n1.getClass() );
         } catch ( ClassCastException e ) {
           e.printStackTrace();
         }
