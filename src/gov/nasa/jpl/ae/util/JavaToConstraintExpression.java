@@ -777,7 +777,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 //          middle = "(" + middle + ").functionCall";
 //        }
         if ( evaluateCall ) {
-          middle = "Expression.evaluate(" + middle + ", null, true)"
+          middle = "Expression.evaluate(" + middle + ", null, true)";
           //middle = "(" + middle + ").evaluate(true)";
         }
     } else
@@ -789,7 +789,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                astToAeExpr( be.getThenExpr(), true, lookOutsideClassDataForTypes, complainIfDeclNotFound ) + ", " +
                astToAeExpr( be.getElseExpr(), true, lookOutsideClassDataForTypes, complainIfDeclNotFound ) + " ) ";
       if ( evaluateCall ) {
-        middle = "Expression.evaluate(" + middle + ", null, true)"
+        middle = "Expression.evaluate(" + middle + ", null, true)";
         //middle = "(" + middle + ").evaluate(true)";
       }
     } else
@@ -891,7 +891,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 //            middle = "(" + middle + ").functionCall";
 //          }
           if ( evaluateCall ) {
-            middle = "Expression.evaluate(" + middle + ", null, true)"
+            middle = "Expression.evaluate(" + middle + ", null, true)";
             // middle = "(" + middle + ").evaluate(true)";
           }
         }
