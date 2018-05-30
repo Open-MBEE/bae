@@ -742,7 +742,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     String classlessTypeWithScope = getClassData().getClassNameWithScope(classlessType);
 
     final String prefix =
-        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessTypeWithScope ) ? "" : "<" + classlessTypeWithScope + ">" ) + "( ";
+        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessTypeWithScope ) ? "" : "<" + classlessTypeWithScope + ">" ) + "( (Object)";
     final String suffix = " )";
     String middle = null;
     /*** BinaryExpr ***/
@@ -997,7 +997,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       }
       gov.nasa.jpl.ae.event.Expression<?> aeExpr = null;
       final String prefix =
-          "new Expression" + ( Utils.isNullOrEmpty( classlessType ) ? "" : "<" + classlessType + ">" ) + "( ";
+          "new Expression" + ( Utils.isNullOrEmpty( classlessType ) ? "" : "<" + classlessType + ">" ) + "( (Object)";
       final String suffix = " )";
       //String middle = null;
       /*** BinaryExpr ***/
