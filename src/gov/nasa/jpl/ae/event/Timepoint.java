@@ -185,32 +185,56 @@ public class Timepoint extends LongParameter implements TimeVariable {
     return ( (Double)( microseconds
                        / conversionFactor( Units.microseconds ) ) ).longValue();
   }
+  public static double asMicroseconds( long duration ) {
+    return duration * conversionFactor( Units.microseconds );
+  }
   public static long nanoseconds( double nanoseconds ) {
     return ( (Double)( nanoseconds
                        / conversionFactor( Units.nanoseconds ) ) ).longValue();
+  }
+  public static double asNanoseconds( long duration ) {
+    return duration * conversionFactor( Units.nanoseconds );
   }
   public static long seconds( double seconds ) {
     return ( (Double)( seconds
                        / conversionFactor( Units.seconds ) ) ).longValue();
   }
+  public static double asSeconds( long duration ) {
+    return duration * conversionFactor( Units.seconds );
+  }
   public static long milliseconds( double milliseconds ) {
     return ( (Double)( milliseconds
                        / conversionFactor( Units.milliseconds ) ) ).longValue();
+  }
+  public static double asMilliseconds( long duration ) {
+    return duration * conversionFactor( Units.milliseconds );
   }
   public static long minutes( double minutes ) {
     return ( (Double)( minutes
                        / conversionFactor( Units.minutes ) ) ).longValue();
   }
+  public static double asMinutes( long duration ) {
+    return duration * conversionFactor( Units.minutes);
+  }
   public static long hours( double hours ) {
     return ( (Double)( hours
                        / conversionFactor( Units.hours ) ) ).longValue();
+  }
+  public static double asHours( long duration ) {
+    return duration * conversionFactor( Units.hours );
   }
   public static long days( double days ) {
     return ( (Double)( days
                        / conversionFactor( Units.days ) ) ).longValue();
   }
+  public static double asDays( long duration ) {
+    return duration * conversionFactor( Units.days );
+  }
   public static long weeks( double weeks ) {
     return days( weeks * 7.0 );
+  }
+  public static double asWeeks( long duration ) {
+    return asDays( duration ) / 7.0;
   }
 
 

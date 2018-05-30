@@ -446,7 +446,6 @@ public class Expression< ResultType > extends HasIdImpl
           }
     case Constructor:
     case Function:
-      //HERE!!!;
       Object r = ((Call)expression).evaluate( propagate );
       evaluationSucceeded = ((Call)expression).didEvaluationSucceed();
       //System.out.print("\nevaluate(" + this + ") = ");

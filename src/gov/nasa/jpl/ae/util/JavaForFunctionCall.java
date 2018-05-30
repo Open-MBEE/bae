@@ -295,7 +295,7 @@ public class JavaForFunctionCall {
     // }
     if ( isEvaluateCall() && !Utils.isNullOrEmpty( fcnCallStr ) ) {
       if ( !isConvertingArgumentsToExpressions() ) {
-        fcnCallStr = "(" + fcnCallStr + ").evaluate(true)";
+        fcnCallStr = "Expression.evaluate(" + fcnCallStr + ", null, true)";
       }
     }
     if ( Debug.isOn() ) Debug.outln( "JavaForFunctionCall.toNewFunctionCallString() --> "
