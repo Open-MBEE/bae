@@ -1317,7 +1317,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     return new DurativeEvent( this );
   }
   
-  
+
+
   public String kSolutionString( int indent ) {
 
     String indentString = "";
@@ -1340,7 +1341,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           sb.append(  pLI.kSolutionString( indent + 1 ) );
           sb.append( indentString + "}\n" );
         } else {
-        sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toLongString(p.getValue()) + "\n");
+            sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null) + "\n");
         }
       
     }
@@ -1368,7 +1369,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       } else {
         param.put( "name", p.getName() );
         param.put( "type", "primitive" );
-        param.put( "value", MoreToString.Helper.toLongString(p.getValue())) ;
+        param.put( "value", MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null)) ;
       }
       value.put( param );
     }

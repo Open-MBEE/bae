@@ -404,7 +404,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
           sb.append(  pLI.kSolutionString( indent + 1 ) );
           sb.append( indentString + "}\n" );
         } else {
-          sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toLongString(p.getValue()) + "\n" );
+          sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null) + "\n" );
         }
       
     }
