@@ -31,4 +31,6 @@ public class HasIdImpl implements HasId<Integer> {
     return id;
   }
 
+  public static void reset() { counter = 0; }
+
 }
