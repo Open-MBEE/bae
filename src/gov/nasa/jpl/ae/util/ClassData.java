@@ -570,8 +570,10 @@ ClassData {
 //  }
   /**
    * Determines the AE translated parameter type, generic parameter types, and arguments.  
-   * @param p
+   * @param paramName
+   * @param paramTypeName
    * @param classNameOfParameter
+   * @param enclosingObject
    * @return
    */
   public PTA
@@ -996,11 +998,13 @@ ClassData {
   }
 
   /**
-   * @param className
+   * Gets the name of the class enclosing the class indicated by className
+   * @param className (fully qualified) name of the class of which to find the encloser
    * @return the class within which the class with the input name is declared or
    *         null if there is no such class
    */
   public String getEnclosingClassName( String className ) {
+      // TODO: might be able to change this to just a simple string op since we're using fully qualified names now
       if ( className == null ) return null;
       String[] parsedNames;
       String enclosingClassName;
@@ -1184,21 +1188,26 @@ ClassData {
 
   /**
    * Look for a class declaration of a particular name nested inside another class declaration.
-   * @param className
-   * @param classDecl
-   * @return
+   * @param className (fully qualified) name of class to be found
+   * @param classDecl ClassOrInterfaceDeclaration object within which to look
+   * @return a matching ClassOrInterfaceDeclaration object
    */
   public static ClassOrInterfaceDeclaration getClassDeclaration( String className,
                                                                  ClassOrInterfaceDeclaration classDecl ) {
     // First check and see if this is "the one."
-    if ( classDecl.getName().equals( className ) ) {
+    // only need to check simple name; this gets called by getClassDeclaration(String) which will find the enclosing class
+    // using a fully qualified name. This will only search within an enclosing class
+    if ( classDecl.getName().equals( ClassUtils.simpleName(className) ) ) {
       return classDecl;
     } else {
       // Now check nested classes.
       if ( classDecl != null && classDecl.getMembers() != null ) {
+        // iterate through nested declarations
         for ( BodyDeclaration bd : classDecl.getMembers() ) {
           if ( bd instanceof ClassOrInterfaceDeclaration ) {
             ClassOrInterfaceDeclaration nestedClassDecl = (ClassOrInterfaceDeclaration)bd;
+
+            // will likely only recurse one level because getEnclosingClass from getDeclaration(String) only goes up one level
             nestedClassDecl = getClassDeclaration( className, nestedClassDecl );
             if ( nestedClassDecl != null ) return nestedClassDecl;
           }
@@ -1207,12 +1216,20 @@ ClassData {
     }
     return null;
   }
-  
+
+  /**
+   * Look for a class declaration of a particular name within a certain compilation unit
+   * @param className (fully qualified) name of class to be found
+   * @param cu compilation unit within which to look
+   * @return ClassOrInterfaceDeclaration object matching with the given class name
+   */
   public static ClassOrInterfaceDeclaration getClassDeclaration( String className,
                                                           CompilationUnit cu ) {
     if ( cu == null || cu.getTypes() == null ) return null;
+    // iterate through the types in the compilation unit
     for ( TypeDeclaration t : cu.getTypes() ) {
       if ( t instanceof ClassOrInterfaceDeclaration ) {
+        // look inside each ClassOrInterface object for the given class name
         ClassOrInterfaceDeclaration classDecl = 
             getClassDeclaration( className, (ClassOrInterfaceDeclaration)t );
         if ( classDecl != null ) return classDecl;
@@ -1220,24 +1237,40 @@ ClassData {
     }
     return null;
   }
-  
+
+  /**
+   * Look for a class declaration matching a particular name
+   * @param className (fully qualified) name of class to be found
+   * @return matching class declaration
+   */
   public ClassOrInterfaceDeclaration getClassDeclaration( String className ) {
-    className = ClassUtils.simpleName( className );
     ClassOrInterfaceDeclaration classDecl = null;
+
+    // try to find a matching CompilationUnit - should probably only find one when className is "Global"
     CompilationUnit cu = getClasses().get( className );
-    if ( cu == null ) {
-      // See if enclosing class declaration has this one's.
-      String parentClassName = getEnclosingClassName( className );
-      if ( !Utils.isNullOrEmpty( parentClassName ) ) {
-        ClassOrInterfaceDeclaration parentDecl = getClassDeclaration( parentClassName );
-        if ( parentDecl != null && parentDecl.getMembers() != null ) {
-          classDecl = getClassDeclaration( className, parentDecl );
+
+    if ( cu == null ) { // didn't find one
+      // go one level up to look for the enclosing class declaration
+      String enclosingClassName = getEnclosingClassName( className );
+
+      if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
+        // recurse to find the enclosing class's declaration object. Will eventually get to Global, which is base case
+        ClassOrInterfaceDeclaration enclosingDecl = getClassDeclaration( enclosingClassName );
+
+        //once enclosing class declaration is found, look within it for className
+        if ( enclosingDecl != null && enclosingDecl.getMembers() != null ) {
+          classDecl = getClassDeclaration( className, enclosingDecl );
           return classDecl;
         }
       }
-      return null;
+
+      return null; // should not reach here - means it couldn't find the enclosing class name
     }
+
+    // base case for Global - look in compilation unit
     classDecl = getClassDeclaration( className, cu );
+
+    // look in other compilation units
     if ( classDecl == null ) {
       for ( CompilationUnit cu2 : getClasses().values() ) {
         if ( cu == cu2 ) continue;

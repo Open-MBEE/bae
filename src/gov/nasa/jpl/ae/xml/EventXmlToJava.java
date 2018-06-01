@@ -1514,13 +1514,13 @@ public class EventXmlToJava {
 
   private CompilationUnit initCompilationUnit( String name ) {
     getClassData().setCurrentCompilationUnit( new CompilationUnit() );
-    getClassData().getClasses().put( ClassUtils.simpleName(name), getClassData().getCurrentCompilationUnit() );
+    getClassData().getClasses().put( name, getClassData().getCurrentCompilationUnit() );
     setPackage();
     return getClassData().getCurrentCompilationUnit();
   }
   
   private CompilationUnit initClassCompilationUnit( String name ) {
-    getClassData().setCurrentCompilationUnit( initCompilationUnit( ClassUtils.simpleName(name) ) );
+    getClassData().setCurrentCompilationUnit( initCompilationUnit( name ) );
     // REVIEW -- How can we access eclipse's ability to auto-remove unused
     // imports?
     //addImport( "gov.nasa.jpl.ae.event.*" );
