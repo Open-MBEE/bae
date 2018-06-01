@@ -1197,9 +1197,9 @@ public class JavaForFunctionCall {
           if ( classNameString == null ) {
             classNameString = "null";
           } else if (classNameString.equals("this")) {
-            classNameString = "\"" + fullClassName(getClassName()) + "\"";
+            classNameString = "\"" + getClassName() + "\"";
           } else {
-            classNameString = "\"" + fullClassName(classNameString) + "\"";
+            classNameString = "\"" + classNameString + "\"";
           }
         }
         String preferredPackageNameString;
