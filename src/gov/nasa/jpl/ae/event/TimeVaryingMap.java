@@ -8,7 +8,6 @@ import gov.nasa.jpl.ae.solver.ComparableDomain;
 import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.solver.IntegerDomain;
 import gov.nasa.jpl.ae.solver.LongDomain;
 import gov.nasa.jpl.ae.solver.MultiDomain;
 import gov.nasa.jpl.ae.solver.RangeDomain;
@@ -1117,8 +1116,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   @Override
   public void deconstruct() {
-    System.out.println("@@@  deconstructing timeline: " + name );
-    setStaleAnyReferencesToTimeVarying();
+    System.out.println("@@@  deconstructing timeline: " + getQualifiedName( null )  + " with qualified id: " + getQualifiedId( null ));
+    // setStaleAnyReferencesToTimeVarying();
     name = "DECONSTRUCTED_" + name;
     if ( deconstructingMap ) {
       deconstructMap( this, this );
@@ -1129,7 +1128,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       tv.deconstruct();
     }
     floatingEffects.clear();
-    handleChangeToTimeVaryingMap();
+    // handleChangeToTimeVaryingMap();
   }
 
   protected void breakpoint() {}
@@ -5106,6 +5105,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( !appliedSet.contains(effect) ) {
       return;
     }
+    boolean didSetStale = false;
     Pair< Parameter< Long>, V > p = null;
     if ( isArithmeticEffect( effect ) ) {
       Effect undoEffect = getUndoEffect( effect, timeArgFirst );
@@ -5117,6 +5117,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                                      null ) );
       }
       if ( canBeApplied( undoEffect ) ) {
+        if ( !didSetStale ) setStaleAnyReferencesToTimeVarying();
+        didSetStale = true;
         undoEffect.applyTo( this, true );
         appliedSet.remove( effect );
         appliedSet.remove( undoEffect );
@@ -5130,9 +5132,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       p = getTimeAndValueOfEffect( effect, timeArgFirst );
     }
     if ( p != null ) {
+      if ( !didSetStale ) setStaleAnyReferencesToTimeVarying();
+      didSetStale = true;
       unsetValue( p.first, p.second );
       appliedSet.remove(effect);
     }
+    if ( didSetStale ) handleChangeToTimeVaryingMap();
   }
 
   public Effect getInverseEffect( Effect effect ) {
@@ -6730,7 +6735,6 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     boolean isInt = ClassUtils.isLong( getType() );
     Long minInt = Long.MAX_VALUE;
     Double minDouble = Double.MAX_VALUE;
-    long mul = isMin ? 1 : -1;
     if ( start == null || start.getValueNoPropagate() == null) {
       start = firstKey();
     }
@@ -6743,16 +6747,41 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     NavigableMap< Parameter< Long >, V > map = subMap( start, true, end, true );
     Collection< V > vals = map.values();
     for ( V v : vals ) {
-      if ( v != null &&  v instanceof Number ) {
+      Number n = newMinMax( v, isInt, minInt, minDouble, isMin );
+      if ( n != null ) {
         if ( isInt ) {
-          Long i = ((Number)v).longValue();
-          if ( minInt == Long.MAX_VALUE || mul * i.longValue() < mul * minInt.longValue() ) {
-            minInt = i;
-          }
+          minInt = n.longValue();
         } else {
-          Double d = ((Number)v).doubleValue();
-          if ( minDouble == Double.MAX_VALUE || mul * d.doubleValue() < mul * minDouble.doubleValue() ) {
-            minDouble = d;
+          minDouble = n.doubleValue();
+        }
+      }
+    }
+    if ( map.isEmpty() ) {
+      if ( start != null ) {
+        Long k = start.getValueNoPropagate();
+        if ( k != null ) {
+          V v = getValue( k );
+          Number n = newMinMax( v, isInt, minInt, minDouble, isMin );
+          if ( n != null ) {
+            if ( isInt ) {
+              minInt = n.longValue();
+            } else {
+              minDouble = n.doubleValue();
+            }
+          }
+        }
+      }
+      if ( end != null ) {
+        Long k = end.getValueNoPropagate();
+        if ( k != null ) {
+          V v = getValue( k );
+          Number n = newMinMax( v, isInt, minInt, minDouble, isMin );
+          if ( n != null ) {
+            if ( isInt ) {
+              minInt = n.longValue();
+            } else {
+              minDouble = n.doubleValue();
+            }
           }
         }
       }
@@ -6762,6 +6791,24 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       System.out.println( "submap = {" + map.firstKey() + "(" + Timepoint.toTimestamp( map.firstKey().getValue() ) + ":?,...," + map.lastKey() + "(" + Timepoint.toTimestamp( map.lastKey().getValue() ) + ":?}");
     }
     return isInt ? minInt : minDouble;
+  }
+
+  protected Number newMinMax( V v, boolean isInt, Long minInt, Double minDouble, boolean isMin ) {
+    long mul = isMin ? 1 : -1;
+    if ( v != null && v instanceof Number ) {
+      if ( isInt ) {
+        Long i = ((Number)v).longValue();
+        if ( minInt == Long.MAX_VALUE || mul * i.longValue() < mul * minInt.longValue() ) {
+          return i;
+        }
+      } else {
+        Double d = ((Number)v).doubleValue();
+        if ( minDouble == Double.MAX_VALUE || mul * d.doubleValue() < mul * minDouble.doubleValue() ) {
+          return d;
+        }
+      }
+    }
+    return null;
   }
 
   @Override
