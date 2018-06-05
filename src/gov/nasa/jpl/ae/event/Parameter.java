@@ -427,9 +427,6 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + this.toString( true, false, null ) + ")" );
         setValueOwner(val);
         // lazy/passive updating
-        if (name.contains("SOC")) {
-          System.out.println("hey!");
-        }
         owner.setStaleAnyReferencesTo( this, null );
 
         // set isGrounded constraint stale
