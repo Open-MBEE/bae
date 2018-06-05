@@ -569,6 +569,11 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
   }
 
   @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
+  }
+
+  @Override
   public boolean hasParameter( Parameter< ? > parameter, boolean deep,
                                Set< HasParameters > seen ) {
     boolean has = HasParameters.Helper.hasParameter( this, parameter, deep, seen );

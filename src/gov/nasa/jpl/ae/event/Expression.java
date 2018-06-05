@@ -702,7 +702,7 @@ public class Expression< ResultType > extends HasIdImpl
 
   @Override
   public boolean isGrounded(boolean deep, Set< Groundable > seen) {
-    if ( expression == null ) return false;
+    if ( expression == null && form != Form.Value) return false;
     if (expression instanceof Groundable) {
       return ((Groundable)expression).isGrounded(deep, seen);
     }
@@ -795,6 +795,13 @@ public class Expression< ResultType > extends HasIdImpl
 //    }
     if ( Debug.isOn() ) Debug.outln( "setStale(" + staleness + ") to " + this );
     // TODO -- REVIEW -- Do nothing?
+  }
+
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    if(expression instanceof LazyUpdate) {
+      ((LazyUpdate) expression).setStale(staleness, deep, seen);
+    }
   }
 
   @Override

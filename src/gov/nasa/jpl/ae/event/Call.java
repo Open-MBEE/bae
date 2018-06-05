@@ -1334,6 +1334,58 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     stale = alwaysStale || staleness;
   }
 
+
+  /**
+   * Recursively make this and associated arguments, parameters stale.
+   * @param staleness desired staleness
+   * @param deep whether or not to recurse - will pass staleness onto setStale(boolean) if false
+   * @param seen Set of LazyUpdate objects that have already been seen - will be populated during the recursion
+   */
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    if (deep) {
+      Pair< Boolean, Set< LazyUpdate > > pair = Utils.seen( this, deep, seen );
+      if ( pair.first ) return;
+      seen = pair.second;
+
+      if ( alwaysNotStale ) {
+        return;
+      }
+
+      setStale(staleness);
+
+      if ( evaluatedArguments != null ) {
+        for ( Object arg : evaluatedArguments ) {
+          if ( arg instanceof LazyUpdate )  {
+            ((LazyUpdate) arg).setStale(staleness, deep, seen);
+          }
+        }
+      }
+
+      if ( arguments != null ) {
+        for ( Object arg : arguments ) {
+            if ( arg instanceof LazyUpdate )  {
+                ((LazyUpdate) arg).setStale(staleness, deep, seen);
+            }
+        }
+      }
+
+      for ( Parameter< ? > p : getParameters( false, null ) ) {
+        setStale(staleness, deep, seen);
+      }
+      if ( nestedCall != null ) {
+        nestedCall.setStale(staleness, deep, seen);
+      }
+      if ( object instanceof LazyUpdate && !isStatic() )  {
+        ((LazyUpdate) object).setStale(staleness, deep, seen);
+      }
+    }
+
+    else {
+      setStale(staleness);
+    }
+  }
+
   @Override
   public boolean hasParameter( Parameter< ? > parameter, boolean deep,
                                Set<HasParameters> seen ) {
