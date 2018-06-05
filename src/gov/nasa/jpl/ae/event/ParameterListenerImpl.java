@@ -773,6 +773,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     seen = pair.second;
 
     if ( isSatisfied( deep, null ) ) return true;
+    if ( !amTopEventToSimulate ) return false;
     double clockStart = System.currentTimeMillis();
     long numLoops = 0;
     long mostConstraints = 0;
@@ -1711,6 +1712,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   // TODO -- add this to Deconstructable interface.
+  //@Override
   public boolean isDeconstructed() {
     if ( name.startsWith( "DECONSTRUCTED_" )
          || ( Utils.isNullOrEmpty( parameters )

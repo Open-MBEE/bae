@@ -742,7 +742,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     String classlessTypeWithScope = getClassData().getClassNameWithScope(classlessType);
 
     final String prefix =
-        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessTypeWithScope ) ? "" : "<" + classlessTypeWithScope + ">" ) + "( (Object)";
+        "new Expression" + ( isTimeVarying || Utils.isNullOrEmpty( classlessTypeWithScope ) ? "" : "<" + classlessTypeWithScope + ">" ) + "((Object)";
     final String suffix = " )";
     String middle = null;
     /*** BinaryExpr ***/
@@ -997,7 +997,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       }
       gov.nasa.jpl.ae.event.Expression<?> aeExpr = null;
       final String prefix =
-          "new Expression" + ( Utils.isNullOrEmpty( classlessType ) ? "" : "<" + classlessType + ">" ) + "( (Object)";
+          "new Expression" + ( Utils.isNullOrEmpty( classlessType ) ? "" : "<" + classlessType + ">" ) + "((Object)";
       final String suffix = " )";
       //String middle = null;
       /*** BinaryExpr ***/
@@ -2352,7 +2352,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
   public String[] convertToTypeAndConstructorArgs( ClassData.Param p, String enclosingObject ) {
     boolean evaluateForType = true;
 
-    String ret[] = new String[ 3 ];
+    String ret[] = new String[ 4 ];
     String type = "Parameter";
     String parameterTypes = p.type;
 
@@ -2484,6 +2484,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     ret[ 0 ] = type;
     ret[ 1 ] = parameterTypes;
     ret[ 2 ] = args;
+    ret[ 3 ] = valueArg;
     return ret;
   }
 

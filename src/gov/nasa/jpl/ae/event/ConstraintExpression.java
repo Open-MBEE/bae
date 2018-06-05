@@ -26,6 +26,9 @@ public class ConstraintExpression extends Expression< Boolean >
                                                           // ParameterListener
                                                           // {
 
+  protected boolean applicableAsDependency = false;
+  protected Parameter<?> dependentVar = null;
+
   /**
    * @param value
    */
@@ -98,14 +101,20 @@ public class ConstraintExpression extends Expression< Boolean >
 
 
   public <T> boolean applyAsIfDependency() {
+    applicableAsDependency = false;
     Pair<Parameter<?>, Object> p = valueToSetLikeDependency();
     if ( p == null ) return false;
     Parameter<T> dependentVar = (Parameter<T>) p.first;
+    this.dependentVar = dependentVar;
     if ( dependentVar == null ) return false;
     T oldVal = dependentVar.getValueNoPropagate();
+
+    // fix domain for null
     if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded && dependentVar.getDomain() instanceof ObjectDomain ) {
       ((ObjectDomain)dependentVar.getDomain()).add(null);
     }
+
+    applicableAsDependency = true;
     dependentVar.setValue((T)p.second, true);
     T newVal = dependentVar.getValueNoPropagate();
     if ( oldVal == newVal ) return false;
@@ -267,6 +276,7 @@ public class ConstraintExpression extends Expression< Boolean >
       for ( Variable< ? > v : Utils.scramble(a) ) {
         // Make sure the variable is not dependent and not locked.
         if ( ( !( v instanceof Parameter ) || (!( (Parameter)v ).isDependent() || Random.global.nextDouble() < 0.1) )
+             && ( !applicableAsDependency || dependentVar != v )
                   && ( v.getDomain() == null || v.getDomain().magnitude() != 1 ) ) {//&& (!(v.getValue( false ) instanceof TimeVaryingMap) ||  ) {
           boolean picked = false;
           boolean p = pickingDeep && !copy.contains( v );

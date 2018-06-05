@@ -258,7 +258,36 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       arguments = oldArguments;
       return ans;
   }
-  
+
+  public Boolean objectHasTypeErrors( Object evaluatedObject ) {
+    Boolean gotErrors = false;
+    // test object
+    if ( !isStatic() ) {
+      if ( evaluatedObject == null ) {
+        gotErrors = true;
+      } else {
+        Class<?> c = getMember() == null ? null : getMember().getDeclaringClass();
+        if ( c == null ) {
+          if ( getMember() == null ) {
+            gotErrors = true;
+          }
+        } else {
+          if ( !c.isAssignableFrom( evaluatedObject.getClass() ) &&
+               !Collection.class.isAssignableFrom( c ) &&
+               ( !evaluatedObject.getClass().isArray() ||
+                 ( ((Object[])evaluatedObject).length > 0 &&
+                   !c.isAssignableFrom(((Object[])evaluatedObject)[0].getClass())))) {
+            gotErrors = true;
+          }
+        }
+      }
+    }
+    if ( gotErrors ) {
+      System.out.println("WARNING! objectHasTypeErrors(" + evaluatedObject + ") returning true for " + this + "!");
+    }
+    return gotErrors;
+  }
+
   public Boolean hasTypeErrors( Object[] evaluatedArgs ) {
     boolean gotErrors = hasTypeErrors();
     int numEvalArgs = 0;

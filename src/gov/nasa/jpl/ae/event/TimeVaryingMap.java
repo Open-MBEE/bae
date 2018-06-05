@@ -153,6 +153,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   protected Object owner = null;
  
   protected Domain<V> domain = null;
+
+  protected boolean deconstructed = false;
   
 
   /**
@@ -213,6 +215,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
     public TimeValue( Parameter< Long> t, V v ) {
       super( t, v );
+    }
+
+    //@Override
+    public boolean isDeconstructed() {
+      return false;
     }
 
     @Override
@@ -1114,10 +1121,18 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   //protected boolean deconstructingKeys = true;
   //protected boolean deconstructingValues = false;
 
+  //@Override
+  public boolean isDeconstructed() {
+    return deconstructed;
+  }
+
   @Override
   public void deconstruct() {
+    if ( isDeconstructed() ) {
+      return;
+    }
     System.out.println("@@@  deconstructing timeline: " + getQualifiedName( null )  + " with qualified id: " + getQualifiedId( null ));
-    // setStaleAnyReferencesToTimeVarying();
+    //setStaleAnyReferencesToTimeVarying();
     name = "DECONSTRUCTED_" + name;
     if ( deconstructingMap ) {
       deconstructMap( this, this );
@@ -1128,7 +1143,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       tv.deconstruct();
     }
     floatingEffects.clear();
-    // handleChangeToTimeVaryingMap();
+    //handleChangeToTimeVaryingMap();
+    deconstructed = true;
   }
 
   protected void breakpoint() {}

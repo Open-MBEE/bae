@@ -324,7 +324,7 @@ public class FunctionCall extends Call {
       evaluationSucceeded = false;
       return null;
     }
-    if ( hasTypeErrors( evaluatedArgs ) ) {
+    if ( hasTypeErrors( evaluatedArgs ) || objectHasTypeErrors( evaluatedObject ) ) {
       if ( Debug.isOn() ) Debug.errln( "Warning! Tried calling " + this
                                        + " with bad argument types! "
                                        + MoreToString.Helper.toString( evaluatedArgs ) );
@@ -346,6 +346,9 @@ public class FunctionCall extends Call {
 //    Debug.turnOn();
     try {
       Object newValue = method.invoke( evaluatedObject, evaluatedArgs );
+      if ( id == 1199 ) {
+        System.out.println( "^^^^^^^^^^^  result: " + newValue + " = " +  MoreToString.Helper.toLongString( this ) + "  ^^^^^^^^^^^" );
+      }
       setReturnValue(newValue);
       if ( Debug.isOn() ) {
           System.out.println("FunctionCall method = " + method.toGenericString());

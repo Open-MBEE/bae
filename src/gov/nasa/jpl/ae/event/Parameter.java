@@ -61,6 +61,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   protected ParameterListener owner = null; // REVIEW -- Only one listener!
   protected boolean stale;
   protected List< Constraint > constraintList = new ArrayList< Constraint >();
+  protected boolean deconstructed = false;
 
   public Parameter() {}
 
@@ -141,8 +142,20 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   }
 */
 
+  //@Override
+  public boolean isDeconstructed() {
+    if ( deconstructed ) return true;
+    if ( value instanceof Deconstructable ) {
+//      if ( ( (Deconstructable)value ).isDeconstructed() ) {
+//        return true;
+//      }
+    }
+    return false;
+  }
+
   @Override
   public void deconstruct() {
+    if ( isDeconstructed() ) return;
     name = "DECONSTRUCTED_"
             + ( getOwner() == null ? "" : getOwner().getName() + "_"
                                           + getOwner().getId() + "_" ) + name;
@@ -156,6 +169,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         ( (Deconstructable)c ).deconstruct();
       }
     }
+    deconstructed = true;
   }
 
 
@@ -412,6 +426,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + this.toString( true, false, null ) + ")" );
         setValueOwner(val);
         // lazy/passive updating
+        if (name.contains("SOC")) {
+          System.out.println("hey!");
+        }
         owner.setStaleAnyReferencesTo( this, null );
 
         // set isGrounded constraint stale
@@ -432,10 +449,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + "): owner is null" );
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
-//if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-  //System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
-  //        .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
-//}
+if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
+  System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
+          .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
