@@ -2462,9 +2462,11 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       if ( evaluateForType ) {
         String typePlaceholder2 = typePlaceholder + ".class";
         args = args.replace(typePlaceholder2, "null");
+        valueArg = valueArg.replace(typePlaceholder2, "null");
       } else {
         String typePlaceholder1 = "(" + typePlaceholder + ")";
         args = args.replace(typePlaceholder1, "");
+        valueArg = valueArg.replace(typePlaceholder1, "");
       }
     } else {
       String castTypeNoParams;
@@ -2474,6 +2476,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         castTypeNoParams = castType;
       }
       args = args.replace( typePlaceholder, castTypeNoParams );
+      valueArg = valueArg.replace( typePlaceholder, castTypeNoParams );
     }
 
     // HACK -- TODO
