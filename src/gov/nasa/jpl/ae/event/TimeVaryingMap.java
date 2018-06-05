@@ -234,6 +234,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
 
     @Override
+    public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+      setStale(staleness);
+    }
+
+    @Override
     public Set< Parameter< ? > > getParameters( boolean deep,
                                                 Set< HasParameters > seen ) {
       Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
@@ -419,7 +424,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       domain = DomainHelper.getDomainForClass( type );
     }
   }
-  protected TimeVaryingMap( String name, String fileName, Date offset, TimeUtils.Units units, Class<V> type ) {
+  public TimeVaryingMap( String name, String fileName, Date offset, TimeUtils.Units units, Class<V> type ) {
     this(name, type);
     fromCsvFile( fileName, offset, units, type );
     if ( domain == null && type != null ) {
@@ -1470,6 +1475,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                      + toShortString() );
     if ( Debug.isOn() ) Debug.outln( "setStale(" + staleness + ") to " + this );
     Debug.error( "This method is not supported!");
+  }
+
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
   }
 
   /* (non-Javadoc)

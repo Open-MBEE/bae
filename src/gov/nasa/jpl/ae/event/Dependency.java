@@ -671,6 +671,11 @@ public class Dependency< T > extends HasIdImpl
   }
 
   @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
+  }
+
+  @Override
   public boolean refresh( Parameter< ? > parameter ) {
     if ( this.parameter == parameter ) {
       if ( !refreshing ) {

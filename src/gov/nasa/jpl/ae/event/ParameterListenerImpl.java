@@ -150,6 +150,16 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     counter = 0;
   }
 
+  /**
+   * Sets all constraints to stale to force the engine to visit every single one at least once.
+   * Used at the end of the generated constructors after all parameters have been initialized.
+   */
+  public void setAllConstraintsToStale() {
+    for(ConstraintExpression c : constraintExpressions) {
+      c.setStale(true, true, null);
+    }
+  }
+
   public static final boolean smartEquals = true;
 
   @Override
@@ -1587,6 +1597,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                               + staleness + "): " + toShortString() );
     // TODO -- REVIEW -- Need anything here?
     assert false;
+  }
+
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
   }
 
   @Override

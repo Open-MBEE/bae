@@ -171,6 +171,12 @@ public interface ParameterListener extends HasParameters, HasName< String > {
     }
     @Override public void setStale( boolean staleness ) {
     }
+
+    @Override
+    public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+
+    }
+
     @Override public Integer getId() {
       return null;
     }

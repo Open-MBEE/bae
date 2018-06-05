@@ -82,9 +82,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 //    } else {
 //      domain = new SingleValueDomain< T >(v);
 //    }
-    value = v;
-    setValueOwner(value);
+    //setValueOwner(value);
+
     owner = o;
+    setValue(v);
     stale = !isGrounded( true, null );
   }
 
@@ -95,8 +96,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     domain = d;
     if ( fc != null ) {
       try {
-        value = (T)fc.evaluate( propagate );
-        setValueOwner(value);
+          //setValueOwner(value);
+          setValue((T)fc.evaluate( propagate ));
       } catch ( IllegalAccessException e ) {
         // TODO Auto-generated catch block
         //e.printStackTrace();
@@ -118,10 +119,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public Parameter( Parameter< T > parameter ) {
     name = parameter.name;
-    value = parameter.value;
-    setValueOwner(value);
-    domain = parameter.domain;
+    //setValueOwner(value);
     owner = parameter.owner;
+    setValue(parameter.value);
+    domain = parameter.domain;
     stale = !isGrounded( true, null );
   }
 
@@ -432,10 +433,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + "): owner is null" );
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
-//if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-  //System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
-  //        .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
-//}
+      //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
+        System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
+                .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+      //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
@@ -898,10 +899,17 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     stale = staleness;
   }
 
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    Pair< Boolean, Set< LazyUpdate > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return;
+    seen = pair.second;
 
+    setStale(staleness);
+  }
 
-  public Collection< Constraint > getConstraints( boolean deep,
-                                                  Set<HasConstraints> seen ) {
+  public Collection< Constraint > getConstraints(boolean deep,
+                                                 Set<HasConstraints> seen ) {
     Pair< Boolean, Set< HasConstraints > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) return Utils.getEmptySet();
     seen = pair.second;

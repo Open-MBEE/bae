@@ -65,6 +65,11 @@ public class EffectInstance extends HasIdImpl implements HasParameters {
   }
 
   @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
+  }
+
+  @Override
   public Parameter< ? > getParameter( String name ) {
     return HasParameters.Helper.getParameter( this, name );
   }

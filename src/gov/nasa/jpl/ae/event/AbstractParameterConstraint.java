@@ -175,6 +175,11 @@ public abstract class AbstractParameterConstraint implements ParameterConstraint
     ParameterConstraint.Helper.setStale( this, staleness );
   }
 
+  @Override
+  public void setStale(boolean staleness, boolean deep, Set<LazyUpdate> seen) {
+    setStale(staleness);
+  }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.HasParameters#getParameters(boolean)
    */
