@@ -78,15 +78,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   // }
   public Parameter( String n, Domain< T > d, T v, ParameterListener o ) {
     name = n;
-//    if ( d != null ) {
-      domain = d;
-//    } else {
-//      domain = new SingleValueDomain< T >(v);
-//    }
-    //setValueOwner(value);
-
+    domain = d;
+    value = v;
+    setValueOwner(value);
     owner = o;
-    setValue(v);
     stale = !isGrounded( true, null );
   }
 
@@ -97,8 +92,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     domain = d;
     if ( fc != null ) {
       try {
-          //setValueOwner(value);
-          setValue((T)fc.evaluate( propagate ));
+          value = (T)fc.evaluate( propagate );
+          setValueOwner(value);
       } catch ( IllegalAccessException e ) {
         // TODO Auto-generated catch block
         //e.printStackTrace();
@@ -120,10 +115,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public Parameter( Parameter< T > parameter ) {
     name = parameter.name;
-    //setValueOwner(value);
-    owner = parameter.owner;
-    setValue(parameter.value);
+    value = parameter.value;
+    setValueOwner(value);
     domain = parameter.domain;
+    owner = parameter.owner;
     stale = !isGrounded( true, null );
   }
 
@@ -739,7 +734,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     StringBuffer sb  = new StringBuffer();
     if ( withOwner && getOwner() != null ) {
       if ( Utils.isNullOrEmpty( getOwner().getName() ) ) {
-        sb.append( "<EVT>@" + getOwner().hashCode() + ":");
+        if ( getOwner() instanceof Variable ) {
+          sb.append( "<VAR>@" + getOwner().hashCode() + ":");
+        } else if ( getOwner() instanceof Event ) {
+          sb.append( "<EVT>@" + getOwner().hashCode() + ":");
+        } else {
+          sb.append( "<OBJ>@" + getOwner().hashCode() + ":");
+        }
       } else {
         sb.append( getOwner().getName() + ":");
       }

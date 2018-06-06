@@ -419,7 +419,7 @@ public class Timepoint extends LongParameter implements TimeVariable {
     if ( getEpoch() != null ) {
       long millis = horizon.getTime() - getEpoch().getTime();
       horizonDuration = milliseconds( millis );
-      System.out.println("Horizon duration = " + horizon );
+      System.out.println("Horizon duration = " + horizonDuration );
     }
     return true;
   }

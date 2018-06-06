@@ -276,6 +276,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
                !Collection.class.isAssignableFrom( c ) &&
                ( !evaluatedObject.getClass().isArray() ||
                  ( ((Object[])evaluatedObject).length > 0 &&
+                   ((Object[])evaluatedObject)[0] != null &&
                    !c.isAssignableFrom(((Object[])evaluatedObject)[0].getClass())))) {
             gotErrors = true;
           }
@@ -315,12 +316,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         if ( c.isPrimitive() ) {
           gotErrors = true; 
         }
-      } else if ( !c.isAssignableFrom( evaluatedArgs[ i ].getClass() )
-                  && ( !isVarArgs() || 
-                       ( !Collection.class.isAssignableFrom( c ) &&
-                         ( !evaluatedArgs[ i ].getClass().isArray() || 
-                           ( ((Object[])evaluatedArgs[ i ]).length > 0 && 
-                             !c.isAssignableFrom(((Object[])evaluatedArgs[ i ])[0].getClass())))))) {
+      } else if (!c.isAssignableFrom( evaluatedArgs[ i ].getClass() ) &&
+                  ( !isVarArgs() ||
+                    ( !Collection.class.isAssignableFrom( c ) &&
+                      ( !evaluatedArgs[ i ].getClass().isArray() ||
+                        ( ((Object[])evaluatedArgs[ i ]).length > 0 &&
+                          ((Object[])evaluatedArgs[ i ])[0] != null &&
+                          !c.isAssignableFrom(((Object[])evaluatedArgs[ i ])[0].getClass())))))) {
         gotErrors = true;
       }
     }

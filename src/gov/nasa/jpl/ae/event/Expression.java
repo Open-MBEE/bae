@@ -1059,7 +1059,8 @@ public class Expression< ResultType > extends HasIdImpl
       value = ( (Call)object ).evaluate( propagate );
       return evaluate( value, cls, propagate, allowWrapping );  
     }
-    else if ( cls != null && ClassUtils.isNumber( cls ) && 
+    else if ( cls != null && ClassUtils.isNumber( cls ) &&
+              object != null &&
               ClassUtils.isNumber( object.getClass() ) ) {
       try {
         Number n = (Number)object;
