@@ -87,7 +87,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   };
   public static final TimeVaryingMap<Double> time = one.integrate();
   public static final TimeVaryingMap<Long> longTime = longOne.integrate();
-  
+  protected static boolean notDeconstructing = true;
+
   public static class Interpolation  {
     public static final byte STEP = 0; // value for key = get(floorKey( key ))
     public static final byte LINEAR = 1; // floorVal+(ceilVal-floorVal)*(key-floorKey)/(ceilKey-floorKey)
@@ -1133,6 +1134,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   @Override
   public void deconstruct() {
+    if ( notDeconstructing ) {
+      return;
+    }
     if ( isDeconstructed() ) {
       return;
     }

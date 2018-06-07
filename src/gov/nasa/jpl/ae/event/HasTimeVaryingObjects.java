@@ -9,12 +9,15 @@ import java.util.*;
 public interface HasTimeVaryingObjects extends HasId<Integer>, Deconstructable {
   public Set< TimeVarying< ?, ? > > getTimeVaryingObjects( boolean deep,
                                                         Set<HasTimeVaryingObjects> seen );
+  //public void setStaleAnyReferencesToTimeVarying();
+  //public boolean hasTimeVaryingObject();
 
-  /**
-   * This helper class provides static methods for making calls on Objects and
-   * Collections (from other objects) that may or may not implement
-   * HasTimeVaryingObjects or contain objects that do.
-   */
+
+    /**
+     * This helper class provides static methods for making calls on Objects and
+     * Collections (from other objects) that may or may not implement
+     * HasTimeVaryingObjects or contain objects that do.
+     */
   public static class Helper {
 
     // WARNING! Do not call from o.getTimeVaryingObjects() -- infinite loop

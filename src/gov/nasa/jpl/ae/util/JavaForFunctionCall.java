@@ -20,7 +20,6 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
-import java.time.Duration;
 
 /**
  * @author bclement
@@ -1516,6 +1515,46 @@ public class JavaForFunctionCall {
 
   protected static boolean checkedUtilPackages = false;
 
+
+  public Member bestMethodForArgs( Member m1, Member m2, Collection<Class> argTypes ) {
+    if ( argTypes == null ) return null;
+    Class[] clss = new Class[argTypes.size()];
+    int i = 0;
+    for ( Class cls : argTypes ) {
+      clss[i] = cls;
+      ++i;
+    }
+    Member result = bestMethodForArgs( m1, m2, clss );
+    return result;
+  }
+
+  public Member bestMethodForArgs( Member m1, Member m2, Class[] argTypes ) {
+    Member[] methods = new Member[]{m1, m2};
+    ClassUtils.ArgTypeCompare atc = new ClassUtils.ArgTypeCompare(null, null, argTypes);
+    String callNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(callName));
+    if (methods != null) {
+      for (Member m : methods) {
+        if (m != null && m.getName() != null ) {
+          String mNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(m.getName()));
+
+          if ( mNameNoParams.equals(callNameNoParams) ) {
+            //if ( m.getName().equals(callName) ) {
+            Class<?>[] params = m instanceof Method ? ((Method)m).getParameterTypes() : ((Constructor<?>)m).getParameterTypes();
+            boolean isVarArgs = m instanceof Method ? ((Method)m).isVarArgs() : ((Constructor<?>)m).isVarArgs();
+            atc.compare(m, params, isVarArgs);
+          }
+        } else {
+          //System.out.println("WWWWWWWWWWWWWWWWWWWW    method has no name!!! " + m + "    WWWWWWWWWWWWWWWWWWWW");
+        }
+      }
+    }
+    if ( atc.best != null ) {
+      Member mm = (Member)atc.best;
+      return mm;
+    }
+    return null;
+  }
+
   /**
    * Return a Call object based on the passed operation and arguments
    * 
@@ -1674,11 +1713,14 @@ public class JavaForFunctionCall {
           else if ( ma == null ) method = mt;
           else if ( mt.equals(ma) ) method = mt;
           else {
-            // need a tie breaker
-            if ( argEmptyCount > typeEmptyCount ) {
-              method = mt;
-            } else {
-              method = ma;
+            method = (Method)bestMethodForArgs( mt, ma, argTypeArray );
+            if ( method == null ) {
+              // need a tie breaker
+              if ( argEmptyCount > typeEmptyCount ) {
+                method = mt;
+              } else {
+                method = ma;
+              }
             }
           }
         }

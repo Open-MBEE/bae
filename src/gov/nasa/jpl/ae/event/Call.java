@@ -1327,9 +1327,6 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public void setStale( boolean staleness ) {
     if ( stale != staleness && Debug.isOn() ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
-//    if ( stale != staleness ) System.out.println( "setStale(" + staleness + "): "
-//                                                           + toShortString() );
-
     if ( staleness ) {
       clearCache();
     }
@@ -1964,36 +1961,105 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
     // System.out.println("setStaleAnyReferencesTo(" + changedParameter.name + ") in " + toShortString() );
 
-    if ( hasParameter( changedParameter, false, null ) ) {
-      setStale(true);
+    // TODO -- REVIEW -- seems like we ought to return
+    if ( stale == false ) {
+      if ( hasParameter( changedParameter, false, null ) ) {
+        setStale( true );
+      }
+      if ( changedParameter.getValueNoPropagate() instanceof TimeVarying ) {
+        if ( containsValue( changedParameter.getValueNoPropagate(), false, null ) ) {
+          this.setStale( true );
+        }
+      }
     }
-    // TODO -- make a helper for ParameterListener since this should be applied
-    // to Collections, etc. that are not ParameterListerners.
-    // TODO -- This could produce infinite recursion!  Make a helper!
+
     for ( Object o : getArguments() ) {
       if ( o instanceof ParameterListener ) {
-        ((ParameterListener)o).setStaleAnyReferencesTo( changedParameter, seen );
+        ParameterListener pl = (ParameterListener)o;
+        pl.setStaleAnyReferencesTo( changedParameter, seen );
+//        if ( !stale && pl.isStale() ) {
+//          setStale(true);
+//        }
       }
     }
     if ( object instanceof ParameterListener && !isStatic() ) {
-      ( (ParameterListener)object ).setStaleAnyReferencesTo( changedParameter, seen );
+      ParameterListener pl = (ParameterListener)object;
+      pl.setStaleAnyReferencesTo( changedParameter, seen );
+//      if ( !stale && pl.isStale() ) {
+//        setStale(true);
+//      }
     }
     if ( nestedCall instanceof ParameterListener ) {
-      ( (ParameterListener)nestedCall ).setStaleAnyReferencesTo( changedParameter, seen );
+      ParameterListener pl = (ParameterListener)nestedCall;
+      pl.setStaleAnyReferencesTo( changedParameter, seen );
+//      if ( !stale && pl.isStale() ) {
+//        setStale(true);
+//      }
     }
     if ( returnValue instanceof ParameterListener ) {
-      ( (ParameterListener)returnValue ).setStaleAnyReferencesTo( changedParameter, seen );
+      ParameterListener pl = (ParameterListener)returnValue;
+      pl.setStaleAnyReferencesTo( changedParameter, seen );
+//      if ( !stale && pl.isStale() ) {
+//        setStale(true);
+//      }
     }
     if ( getEvaluatedArguments() != null ) {
       for ( Object o : getEvaluatedArguments() ) {
-        if ( o instanceof ParameterListener ) {
-          ((ParameterListener)o).setStaleAnyReferencesTo( changedParameter, seen );
-        }
+        ParameterListener pl = (ParameterListener)o;
+        pl.setStaleAnyReferencesTo( changedParameter, seen );
+//        if ( !stale && pl.isStale() ) {
+//          setStale(true);
+//        }
       }
     }
     if ( !proactiveEvaluation ) return;
     // TODO -- How do we proactively handle this?  evaluate() wouldn't change anything, right? 
   }
+
+  public boolean containsValue( Object value, boolean deep, Set<Object> seen ) {
+    if ( value == null ) return false;
+    if ( this == value ) {
+      return true;
+    }
+
+    Pair< Boolean, Set< Object > > p = Utils.seen( this, true, seen );
+    if (p.first) return false;
+    seen = p.second;
+
+    Set<Parameter<?>> params = getParameters( deep, null );
+    for ( Parameter<?> parm : params ) {
+      if ( parm == value ) {
+        return true;
+      }
+      Object v = parm.getValueNoPropagate();
+      if ( Expression.contains( v, value, deep, seen ) ) {
+        return true;
+      }
+    }
+    for ( Object o : getArguments() ) {
+      if ( Expression.contains( o, value, deep, seen ) ) {
+        return true;
+      }
+    }
+    if ( Expression.contains( object, value, deep, seen ) ) {
+      return true;
+    }
+    if ( Expression.contains( nestedCall, value, deep, seen ) ) {
+      return true;
+    }
+    if ( Expression.contains( returnValue, value, deep, seen ) ) {
+      return true;
+    }
+    if ( getEvaluatedArguments() != null ) {
+      for ( Object o : getEvaluatedArguments() ) {
+        if ( Expression.contains( o, value, deep, seen ) ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.ParameterListener#detach(gov.nasa.jpl.ae.event.Parameter)
    */

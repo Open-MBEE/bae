@@ -346,9 +346,6 @@ public class FunctionCall extends Call {
 //    Debug.turnOn();
     try {
       Object newValue = method.invoke( evaluatedObject, evaluatedArgs );
-      if ( id == 1199 ) {
-        System.out.println( "^^^^^^^^^^^  result: " + newValue + " = " +  MoreToString.Helper.toLongString( this ) + "  ^^^^^^^^^^^" );
-      }
       setReturnValue(newValue);
       if ( Debug.isOn() ) {
           System.out.println("FunctionCall method = " + method.toGenericString());

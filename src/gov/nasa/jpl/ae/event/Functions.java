@@ -2562,12 +2562,15 @@ public class Functions {
                                  false );
         if ( x == null ) x = result;
         // TODO: type casting this w/ V1 assume that it is the dominant class
+        //System.out.println("divide(r1,r2) = " + x + "= divide(" + MoreToString.Helper.toLongString(o1) + ", " + MoreToString.Helper.toLongString(o1) + ")");
         return (V1)x;
       }
+      //System.out.println("divide(r1,r2) = " + result + "= divide(" + MoreToString.Helper.toLongString(o1) + ", " + MoreToString.Helper.toLongString(o1) + ")");
       return (V1)result;
     } catch ( ClassCastException e ) {
       e.printStackTrace();
     }
+    //System.out.println("divide(r1,r2) = null = divide(" + MoreToString.Helper.toLongString(o1) + ", " + MoreToString.Helper.toLongString(o1) + ")");
     return null;
   }
 
@@ -2740,11 +2743,16 @@ public class Functions {
                  Expression< TT > o2 ) throws IllegalAccessException,
                                        InvocationTargetException,
                                        InstantiationException {
-    if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
-    if ( r1 == null || r2 == null ) return null;
-    return divide( r1, r2 );
+    T result = null;
+    if ( o1 != null && o2 != null ) {
+      T r1 = (T)o1.evaluate( false );
+      TT r2 = (TT)o2.evaluate( false );
+      if ( r1 != null && r2 != null ) {
+        result = divide( r1, r2 );
+      }
+    }
+    //System.out.println("divide(o1,o2) = " + result + "= divide(" + MoreToString.Helper.toLongString(o1) + ", " + MoreToString.Helper.toLongString(o1) + ")");
+    return result;
   }
 
   public static < T, TT > T pow( Expression< T > o1,

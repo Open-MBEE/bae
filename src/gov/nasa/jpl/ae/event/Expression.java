@@ -811,6 +811,39 @@ public class Expression< ResultType > extends HasIdImpl
     return has;
   }
 
+  // TODO -- REVIEW -- make or add to an interfacce?
+  public static boolean contains( Object o, Object value, boolean deep, Set<Object> seen ) {
+    if (value == null ) return false;
+    if ( o == value ) {
+      return true;
+    }
+    if ( deep && o instanceof Call ) {
+      if (((Call)o).containsValue( value, deep, seen ) ) {
+        return true;
+      }
+    }
+    if ( o instanceof Expression ) {
+      if (((Expression)o).containsValue( value, deep, seen ) ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean containsValue( Object value, boolean deep, Set<Object> seen ) {
+    if (value == null ) return false;
+    if ( expression == value ) return true;
+
+    Pair< Boolean, Set< Object > > p = Utils.seen( this, true, seen );
+    if (p.first) return false;
+    seen = p.second;
+
+    if ( contains(expression, value, deep, seen) ) {
+      return true;
+    }
+    return false;
+  }
+
   @Override
   public boolean isFreeParameter( Parameter< ? > p, boolean deep,
                                   Set<HasParameters> seen ) {
