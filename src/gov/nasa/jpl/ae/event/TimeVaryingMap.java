@@ -6260,6 +6260,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     TimeZone gmtZone = TimeZone.getTimeZone( "GMT" );
     Date d = TimeUtils.dateFromTimestamp( value, gmtZone );
     if ( d != null ) longValue = Timepoint.fromDateToInteger( d );
+
     if ( longValue == null ) {
       // If the key is not a timestamp but a number, then we need to consider
       // that it may be a Julian date or an offset from some date (maybe just
@@ -6274,18 +6275,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
           // assume that it is a Julian date.
           if ( offset == null && units == null && dKey != null ) {
             longValue = Timepoint.julianToInteger( dKey );
-          } else {
+          } else { // convert to milliseconds and add in the offset
             longValue = resolveOffset( dKey, units, offset );
           }
-          if ( longValue != null && offset != null ) {
-            if ( units == null ) {
-              longValue += Timepoint.fromDateToInteger( offset );
-            } else {
-              longValue = ( (Double)( Timepoint.fromDateToInteger( offset )
-                                + longValue / Timepoint.conversionFactor( units ) ) ).longValue();
-            }
-            TimeUtils.julianToMillis( TimeUtils.Julian_Jan_1_2000 );
-          } if ( longValue == null ) {
+
+          // if the above all failed
+          if ( longValue == null ) {
             longValue = dKey.longValue();
           }
         } catch ( NumberFormatException ee ) {
@@ -6293,6 +6288,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         }
       }
     }
+
     if ( longValue != null ) {
       SimpleTimepoint tp = new SimpleTimepoint( null, longValue, null );
       return tp;
@@ -6307,12 +6303,15 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public void fromStringMap( Map<String,String> map,
                              Date offset, TimeUtils.Units units, Class<V> cls ) {
     clear();
+
+    // pre_tp is going to be the latest timepoint before the epoch - used for interpolating the 0 value with pre_value
     SimpleTimepoint pre_tp = null;
     V pre_value = null;
     TimeZone gmtZone = TimeZone.getTimeZone( "GMT" );
 
     int ct = 0;
     for ( Entry<String, String> ss : map.entrySet() ) {
+      // convert the key to a timepoint
       SimpleTimepoint tp = getTimepointFromString( ss.getKey(), units, offset );
       if ( tp != null ) {
         tp.setOwner( this );
@@ -6320,13 +6319,17 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         Long t = tp.getValueNoPropagate();
         if ( t != null ) 
         {
+           // t < 0 means the timepoint is before the epoch
            if(t < 0 ) {
+             // update pre_tp and pre_value if pre_tp has not been set yet or tp is closer to the epoch than pre_tp
              if ( pre_tp == null || tp.compareTo( pre_tp ) > 0 )
              {
                pre_tp = tp;
                pre_value = valueFromString( ss.getValue() );
              }
            }
+
+           // add timepoint and value to this TimeVaryingMap if it's before the horizon
            else if ( t < Timepoint.getHorizonDuration() ) {
                V value = valueFromString( ss.getValue() );
                setValue( tp, value );
@@ -6337,6 +6340,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       }
       ++ct;
     }
+
+    // interpolate the value of the zero timepoint, if possible
     if( pre_tp != null )
     {
       if( getValue(0L) == null && this.interpolation.type != Interpolation.NONE )
@@ -6354,6 +6359,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         }
       }
     }
+
     if ( type == null ) {
       Class<?> c = ClassUtils.dominantObjectType( values() );
       if ( cls != null && cls.isAssignableFrom( c ) ) {
@@ -6435,6 +6441,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( fName == null && backupFileName == null ) return;
     if ( fName == null ) fName = backupFileName;
     try {
+      // get the file open
       File f = findFile( fName, backupFileName );
       if ( f == null ) {
         Debug.error(true, false, "Error!  Could not find csv file! " + fileName);
@@ -6444,6 +6451,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         Debug.error(true, false, "Error!  csv file does not exist! " + f);
       }
       if (f != null ) System.out.println("Loading timeline from csv file, " + f.toString() + ".");
+
+      // read the entries from the csv into a map (csv should be key/value since this is TimeVaryingMap)
       ArrayList< ArrayList< String > > lines = FileUtils.fromCsvFile( f );
       //String s = FileUtils.fileToString( f );
       Map<String,String> map = new TreeMap<String,String>();
@@ -6456,6 +6465,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
           map.put( line.get(0), line.get(1) );
         }
       }
+
+      // fill in this TimeVaryingMap from the Map<String,String>
       fromStringMap( map, offset, units, cls );
       if ( Debug.isOn() ) Debug.outln( "read map from file, " + fName + ":\n" + this.toString() );
     } catch ( IOException e ) {
