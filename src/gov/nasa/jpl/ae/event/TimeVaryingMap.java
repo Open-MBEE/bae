@@ -1669,11 +1669,13 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   
   public V interpolatedValue(Long t1, Long t, Long t2, V v1, V v2 ) {
+    V v = null;
     try {
-      v1 = Functions.plus( v1,
+       v = Functions.plus( v1,
                            Functions.divide( Functions.times( Functions.minus( v2, v1 ),
                                                               Functions.minus( t, t1 ) ),
                                              Functions.minus( t2, t1 ) ) );
+      //System.out.println("v = v1 + (v2 - v1) * (t - t1) / (t2 - t1) = " + v + " = " + v1 + "+ (" + v2 + " - " + v1 + ") * (" + t + " - " + t1 + ") / (" + t2 + " - " + t1 + ")" );
     } catch ( ClassCastException e ) {
       e.printStackTrace();
     } catch ( IllegalAccessException e ) {
@@ -1683,7 +1685,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     } catch ( InstantiationException e ) {
       e.printStackTrace();
     }
-    return v1;
+    return v;
   }
 
   public Long interpolatedTime(Parameter< Long> t1, Parameter< Long> t2, V v1, V v, V v2 ) {
@@ -7523,6 +7525,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Long nextTime = null;
     V lastValue = null;
     V nextValue = null;
+//    for ( int i = 0; i < Timepoint.getHorizonDuration() / period; ++i ) {
+//      //for ( Map.Entry< Parameter<Long>, V > e : entrySet() ) {
+//      nextTime = i * period;
+//      nextValue = getValue(nextTime);
     for ( Map.Entry< Parameter<Long>, V > e : entrySet() ) {
       nextTime = e.getKey().getValue();
       nextValue = e.getValue();
@@ -7531,7 +7537,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         while ( t < e.getKey().getValue() ) {
           V v = lastValue;
           if ( interpolation == LINEAR ) {
-            v = interpolatedValue( t, lastTime, nextTime, lastValue, nextValue );
+            v = interpolatedValue( lastTime, t, nextTime, lastValue, nextValue );
           }
           tvm.put( new SimpleTimepoint( "", t, tvm ), v );
           t += period;

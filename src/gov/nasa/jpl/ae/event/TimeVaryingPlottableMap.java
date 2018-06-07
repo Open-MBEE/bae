@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.Wraps;
 
 /**
@@ -79,6 +80,17 @@ public class TimeVaryingPlottableMap< V > extends TimeVaryingMap< V > implements
                                   Object o, long samplePeriod,
                                   long horizonDuration ) {
     super( name, initialValueFunction, o, samplePeriod, horizonDuration );
+    init();
+  }
+
+  public TimeVaryingPlottableMap( String name, String className, String initialValueFunction,
+                                  Object o, long samplePeriod,
+                                  long horizonDuration, boolean complain ) {
+    super( name,
+           ClassUtils.getMethodForArgTypes(className, null,
+                                           initialValueFunction, complain,
+                                           new Class[]{long.class}),
+           o, samplePeriod, horizonDuration );
     init();
   }
 
