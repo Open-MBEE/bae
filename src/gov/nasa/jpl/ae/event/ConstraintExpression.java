@@ -132,7 +132,9 @@ public class ConstraintExpression extends Expression< Boolean >
     boolean succ = false;
     try {
       value = Expression.evaluateDeep(p.second, dependentVar.getType(), true, false);
-      succ = true;
+      if ( !(p.second instanceof Call) || ((Call)p.second).didEvaluationSucceed() ) {
+        succ = true;
+      }
     } catch (IllegalAccessException e) {
       e.printStackTrace();
     } catch (InvocationTargetException e) {

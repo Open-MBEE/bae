@@ -1327,6 +1327,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public void setStale( boolean staleness ) {
     if ( stale != staleness && Debug.isOn() ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
+    //System.out.println( "_______   Call@" + getId() + ".setStale(" + staleness + "): " + toString( true, false, null ) + "   _______");
     if ( staleness ) {
       clearCache();
     }
@@ -1964,11 +1965,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // TODO -- REVIEW -- seems like we ought to return
     if ( stale == false ) {
       if ( hasParameter( changedParameter, false, null ) ) {
-        setStale( true );
+        this.setStaleOnChangedParameter( true );
       }
       if ( changedParameter.getValueNoPropagate() instanceof TimeVarying ) {
         if ( containsValue( changedParameter.getValueNoPropagate(), false, null ) ) {
-          this.setStale( true );
+          this.setStaleOnChangedParameter( true );
         }
       }
     }
@@ -2005,15 +2006,26 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     if ( getEvaluatedArguments() != null ) {
       for ( Object o : getEvaluatedArguments() ) {
-        ParameterListener pl = (ParameterListener)o;
-        pl.setStaleAnyReferencesTo( changedParameter, seen );
+        if ( o instanceof ParameterListener ) {
+          ParameterListener pl = (ParameterListener)o;
+
+          pl.setStaleAnyReferencesTo( changedParameter, seen );
 //        if ( !stale && pl.isStale() ) {
 //          setStale(true);
 //        }
+        }
       }
     }
     if ( !proactiveEvaluation ) return;
     // TODO -- How do we proactively handle this?  evaluate() wouldn't change anything, right? 
+  }
+
+  /**
+   * In some cases, changing the parameters may not require re-evaluation.
+   * @param b
+   */
+  protected void setStaleOnChangedParameter( boolean b ) {
+    setStale( b );
   }
 
   public boolean containsValue( Object value, boolean deep, Set<Object> seen ) {

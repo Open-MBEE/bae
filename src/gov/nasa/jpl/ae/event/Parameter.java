@@ -443,8 +443,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-        System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
-                .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+      //  System.out.println( " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
+      //          .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -533,6 +533,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
     }
     return false;
+  }
+
+  public static boolean setAllowPickValue( boolean allow ) {
+    allowPickValue = allow;
+    return true;
   }
 
   @Override

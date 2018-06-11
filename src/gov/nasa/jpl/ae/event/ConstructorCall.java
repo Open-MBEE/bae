@@ -390,7 +390,6 @@ public class ConstructorCall extends Call {
     if (_isParameterListenerImpl != null ) {
       return _isParameterListenerImpl;
     }
-    _isParameterListenerImpl = false;
     if ( this.getMember() == null ) return false;
     Class<?> c = this.getMember().getDeclaringClass();
     while ( c != null ) {
@@ -400,7 +399,37 @@ public class ConstructorCall extends Call {
       }
       c = c.getSuperclass();
     }
+    _isParameterListenerImpl = false;
     return false;
+  }
+
+  protected Boolean _isTimeVaryingMap = null;
+
+  public boolean isTimeVaryingMap() {
+    if (_isTimeVaryingMap != null ) {
+      return _isTimeVaryingMap;
+    }
+    _isTimeVaryingMap = false;
+    if ( this.getMember() == null ) return false;
+    Class<?> c = this.getMember().getDeclaringClass();
+    while ( c != null ) {
+      if ( "TimeVaryingMap".equals( c.getSimpleName() ) ) {
+        _isTimeVaryingMap = true;
+        return true;
+      }
+      c = c.getSuperclass();
+    }
+    return false;
+  }
+
+  /**
+   * In some cases, changing the parameters may not require re-evaluation.
+   * @param b
+   */
+  @Override
+  protected void setStaleOnChangedParameter( boolean b ) {
+    if ( b && isParameterListenerImpl() ) return;
+    setStale( b );
   }
 
 
