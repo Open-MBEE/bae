@@ -45,25 +45,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public static boolean usingArcConsistency = true;
   public static boolean arcConsistencyQuiet = true;
 
-  // Constants
+  protected static double timeoutSeconds = 900.0;
+  protected static int maxLoopsWithNoProgress = 50;
+  protected static long maxPassesAtConstraints = 10000;
+  protected static boolean usingTimeLimit = false;
+  protected static boolean usingLoopLimit = true;
 
-  protected double timeoutSeconds = 900.0;
-  protected int maxLoopsWithNoProgress = 50;
-  protected long maxPassesAtConstraints = 10000;
-  protected boolean usingTimeLimit = false;
-  protected boolean usingLoopLimit = true;
+  protected static boolean snapshotSimulationDuringSolve = false;
+  protected static boolean snapshotToSameFile = true;
+  protected static int loopsPerSnapshot = 20; // set to 1 to take snapshot every time
+  protected static String baseSnapshotFileName = "simulationSnapshot.txt";
 
-  protected boolean snapshotSimulationDuringSolve = false;
-  protected boolean snapshotToSameFile = true;
-  protected int loopsPerSnapshot = 20; // set to 1 to take snapshot every time
-  protected String baseSnapshotFileName = "simulationSnapshot.txt";
   public boolean amTopEventToSimulate = false;
-
-//  protected boolean redirectStdOut = false;
-//  protected PrintStream oldOut = System.out;
-//  protected PrintStream oldErr = System.err;
-
-  // Static members
 
   protected static int counter = 0;
   public static boolean settingTimeVaryingMapOwners = false;
@@ -73,6 +66,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected String name = null;
   protected List< Parameter< ? > > parameters =
       new ArrayList< Parameter< ? > >();
+
   protected List< ConstraintExpression > constraintExpressions =
       new ArrayList< ConstraintExpression >();
   protected CollectionTree< Constraint > constraintCollection = null;
@@ -1742,7 +1736,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   /**
    * @return the timeoutSeconds
    */
-  public double getTimeoutSeconds() {
+  public static double getTimeoutSeconds() {
     return timeoutSeconds;
   }
 
@@ -1750,14 +1744,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param timeoutSeconds
    *          the timeoutSeconds to set
    */
-  public void setTimeoutSeconds( double timeoutSeconds ) {
-    this.timeoutSeconds = timeoutSeconds;
+  public static void setTimeoutSeconds( double timeoutSeconds ) {
+    ParameterListenerImpl.timeoutSeconds = timeoutSeconds;
   }
 
   /**
    * @return the maxLoopsWithNoProgress
    */
-  public int getMaxLoopsWithNoProgress() {
+  public static int getMaxLoopsWithNoProgress() {
     return maxLoopsWithNoProgress;
   }
 
@@ -1765,14 +1759,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param maxLoopsWithNoProgress
    *          the maxLoopsWithNoProgress to set
    */
-  public void setMaxLoopsWithNoProgress( int maxLoopsWithNoProgress ) {
-    this.maxLoopsWithNoProgress = maxLoopsWithNoProgress;
+  public static void setMaxLoopsWithNoProgress( int maxLoopsWithNoProgress ) {
+    ParameterListenerImpl.maxLoopsWithNoProgress = maxLoopsWithNoProgress;
   }
 
   /**
    * @return the maxPassesAtConstraints
    */
-  public long getMaxPassesAtConstraints() {
+  public static long getMaxPassesAtConstraints() {
     return maxPassesAtConstraints;
   }
 
@@ -1780,14 +1774,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param maxPassesAtConstraints
    *          the maxPassesAtConstraints to set
    */
-  public void setMaxPassesAtConstraints( long maxPassesAtConstraints ) {
-    this.maxPassesAtConstraints = maxPassesAtConstraints;
+  public static void setMaxPassesAtConstraints( long maxPassesAtConstraints ) {
+    ParameterListenerImpl.maxPassesAtConstraints = maxPassesAtConstraints;
   }
 
   /**
    * @return the usingTimeLimit
    */
-  public boolean isUsingTimeLimit() {
+  public static boolean isUsingTimeLimit() {
     return usingTimeLimit;
   }
 
@@ -1795,14 +1789,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param usingTimeLimit
    *          the usingTimeLimit to set
    */
-  public void setUsingTimeLimit( boolean usingTimeLimit ) {
-    this.usingTimeLimit = usingTimeLimit;
+  public static void setUsingTimeLimit( boolean usingTimeLimit ) {
+    ParameterListenerImpl.usingTimeLimit = usingTimeLimit;
   }
 
   /**
    * @return the usingLoopLimit
    */
-  public boolean isUsingLoopLimit() {
+  public static boolean isUsingLoopLimit() {
     return usingLoopLimit;
   }
 
@@ -1810,14 +1804,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param usingLoopLimit
    *          the usingLoopLimit to set
    */
-  public void setUsingLoopLimit( boolean usingLoopLimit ) {
-    this.usingLoopLimit = usingLoopLimit;
+  public static void setUsingLoopLimit( boolean usingLoopLimit ) {
+    ParameterListenerImpl.usingLoopLimit = usingLoopLimit;
   }
 
   /**
    * @return the snapshotSimulationDuringSolve
    */
-  public boolean isSnapshotSimulationDuringSolve() {
+  public static boolean isSnapshotSimulationDuringSolve() {
     return snapshotSimulationDuringSolve;
   }
 
@@ -1825,15 +1819,15 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param snapshotSimulationDuringSolve
    *          the snapshotSimulationDuringSolve to set
    */
-  public void
+  public static void
          setSnapshotSimulationDuringSolve( boolean snapshotSimulationDuringSolve ) {
-    this.snapshotSimulationDuringSolve = snapshotSimulationDuringSolve;
+    ParameterListenerImpl.snapshotSimulationDuringSolve = snapshotSimulationDuringSolve;
   }
 
   /**
    * @return the snapshotToSameFile
    */
-  public boolean isSnapshotToSameFile() {
+  public static boolean isSnapshotToSameFile() {
     return snapshotToSameFile;
   }
 
@@ -1841,14 +1835,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @param snapshotToSameFile
    *          the snapshotToSameFile to set
    */
-  public void setSnapshotToSameFile( boolean snapshotToSameFile ) {
-    this.snapshotToSameFile = snapshotToSameFile;
+  public static void setSnapshotToSameFile( boolean snapshotToSameFile ) {
+    ParameterListenerImpl.snapshotToSameFile = snapshotToSameFile;
   }
 
   /**
    * @return the loopsPerSnapshot
    */
-  public int getLoopsPerSnapshot() {
+  public static int getLoopsPerSnapshot() {
     return loopsPerSnapshot;
   }
 
@@ -1857,7 +1851,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    *          the loopsPerSnapshot to set
    */
   public void setLoopsPerSnapshot( int loopsPerSnapshot ) {
-    this.loopsPerSnapshot = loopsPerSnapshot;
+    ParameterListenerImpl.loopsPerSnapshot = loopsPerSnapshot;
   }
 
   /**
@@ -1872,7 +1866,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    *          the baseSnapshotFileName to set
    */
   public void setBaseSnapshotFileName( String baseSnapshotFileName ) {
-    this.baseSnapshotFileName = baseSnapshotFileName;
+    ParameterListenerImpl.baseSnapshotFileName = baseSnapshotFileName;
   }
 
   /**
@@ -1887,7 +1881,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    *          the amTopEventToSimulate to set
    */
   public void setAmTopEventToSimulate( boolean amTopEventToSimulate ) {
-    this.amTopEventToSimulate = amTopEventToSimulate;
+    amTopEventToSimulate = amTopEventToSimulate;
   }
 
   /**
@@ -1924,7 +1918,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   public void setUsingCollectionTree( boolean usingCollectionTree ) {
-    this.usingCollectionTree = usingCollectionTree;
+    usingCollectionTree = usingCollectionTree;
   }
 
   public static boolean isSmartEquals() {
@@ -1936,7 +1930,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   public void setSimpleDeconstruct( boolean simpleDeconstruct ) {
-    this.simpleDeconstruct = simpleDeconstruct;
+    simpleDeconstruct = simpleDeconstruct;
   }
 
 
