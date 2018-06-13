@@ -7,9 +7,7 @@ import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
-import japa.parser.ast.body.ConstructorDeclaration;
-import japa.parser.ast.body.MethodDeclaration;
-import japa.parser.ast.body.ModifierSet;
+import japa.parser.ast.body.*;
 import japa.parser.ast.body.Parameter;
 import japa.parser.ast.expr.Expression;
 import japa.parser.ast.expr.MethodCallExpr;
@@ -569,13 +567,27 @@ public class JavaForFunctionCall {
     // Now check in parsed class data.
     String s = null;
     // Check if method is in class
-    if ( getMethodDeclInClass( getClassName() ) != null ) {
+    MethodDeclaration mDecl = getMethodDeclInClass( getClassName() );
+    if ( mDecl != null ) {
+      if ( methodDecl == null ) {
+        methodDecl = mDecl;
+      }
+      String cName = exprXlator.getClassData().getClassNameForMethodDeclaration( mDecl );
+      if ( cName != null ) {
+        return cName;
+      }
+    }
+    if ( mDecl != null ) {
+      // REVIEW -- should never get here
       Debug.out("findClassNameWithMatchingMethod(): returning this");
       return "this";
     }
 
     // Try lookupMethodByName.
-    Map<String, List<Object>> decls = exprXlator.getClassData().lookupMethodByName(className, getCallName(), true, false);
+    Map<String, List<Object>> decls = exprXlator.getClassData().lookupMethodByName(className,
+                                                                                   getCallName(),
+                                                                                   true,
+                                                                                   false);
     if ( !Utils.isNullOrEmpty( decls ) ) {
       className = decls.keySet().iterator().next();
       if ( !Utils.isNullOrEmpty(className) ) {
@@ -949,7 +961,7 @@ public class JavaForFunctionCall {
     Method m1 = ClassUtils.getMethodForArgTypes(getClassName(),
                                                getPreferredPackageName(),
                                                getCallName(),
-                                               getArgTypes(),
+                                               getArgTypes(false),
                                                false);
     Debug.out("getMatchingMethod(): m1 = " + m1);
     Member mm = m1;
@@ -1088,7 +1100,10 @@ public class JavaForFunctionCall {
     return getArgTypes( true );
   }
   public Class< ? >[] getArgTypes(boolean complainIfNotFound) {
-    if ( argTypes == null ) initArgs(complainIfNotFound);
+    if ( argTypes == null ) initArgs(false);
+    if ( argTypes == null && complainIfNotFound && !Utils.isNullOrEmpty( getArgExpressions() )) {
+      Debug.error( true, true, "Error! Could not get argument types for Call: " + expression );
+    }
     return argTypes;
   }
 

@@ -72,7 +72,7 @@ public class ConstraintLoopSolver implements Solver {
         int i = intList.get( j );
         Constraint c = unsatisfiedConstraints.get( i );
         if ( Debug.isOn() ) Debug.outln( "checking constraint " + i + ": " + c );
-       // System.out.println( "checking constraint " + i + ": " + c );
+        // System.out.println( "checking constraint " + i + ": " + c );
         //Debug.turnOn();
         boolean thisSatisfied = c.isSatisfied( deep, null );
         if ( !thisSatisfied ) {

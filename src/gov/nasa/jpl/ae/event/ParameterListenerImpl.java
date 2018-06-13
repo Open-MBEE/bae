@@ -1907,6 +1907,39 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         settingTimeVaryingMapOwners;
   }
 
+  public static boolean isUsingArcConsistency() {
+    return usingArcConsistency;
+  }
+
+  public static boolean isArcConsistencyQuiet() {
+    return arcConsistencyQuiet;
+  }
+
+  public static void setArcConsistencyQuiet( boolean arcConsistencyQuiet ) {
+    ParameterListenerImpl.arcConsistencyQuiet = arcConsistencyQuiet;
+  }
+
+  public boolean isUsingCollectionTree() {
+    return usingCollectionTree;
+  }
+
+  public void setUsingCollectionTree( boolean usingCollectionTree ) {
+    this.usingCollectionTree = usingCollectionTree;
+  }
+
+  public static boolean isSmartEquals() {
+    return smartEquals;
+  }
+
+  public boolean isSimpleDeconstruct() {
+    return simpleDeconstruct;
+  }
+
+  public void setSimpleDeconstruct( boolean simpleDeconstruct ) {
+    this.simpleDeconstruct = simpleDeconstruct;
+  }
+
+
   /*
    * (non-Javadoc)
    *

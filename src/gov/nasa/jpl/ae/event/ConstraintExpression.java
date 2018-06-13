@@ -28,6 +28,7 @@ public class ConstraintExpression extends Expression< Boolean >
 
   protected boolean applicableAsDependency = false;
   protected Parameter<?> dependentVar = null;
+  public static double probabilityOfApplyingDependency = 0.7;
 
   /**
    * @param value
@@ -245,7 +246,7 @@ public class ConstraintExpression extends Expression< Boolean >
     // have valid values.
     HasParameters.Helper.satisfy( this, true, null );
 
-    if ( Random.global.nextDouble() < 0.7 && !isSatisfied(deep, seen) )  {
+    if ( Random.global.nextDouble() < probabilityOfApplyingDependency && !isSatisfied(deep, seen) )  {
       applyAsIfDependency();
     }
 
@@ -481,5 +482,15 @@ public class ConstraintExpression extends Expression< Boolean >
     return null;
   }
 
-  
+  public static double getProbabilityOfApplyingDependency() {
+    return probabilityOfApplyingDependency;
+  }
+
+  public static void setProbabilityOfApplyingDependency(
+          double probabilityOfApplyingDependency ) {
+    ConstraintExpression.probabilityOfApplyingDependency =
+            probabilityOfApplyingDependency;
+  }
+
+
 }
