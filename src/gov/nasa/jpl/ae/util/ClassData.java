@@ -978,6 +978,30 @@ ClassData {
     return decls;
   }
 
+  public String getClassNameForMethodDeclaration(
+          MethodDeclaration mDecl ) {
+    if ( mDecl == null ) return null;
+    for ( Map.Entry<String, Map<String, Set<MethodDeclaration>>> e : getMethodTable().entrySet() ) {
+      Map<String, Set<MethodDeclaration>> m1 = e.getValue();
+      Set<MethodDeclaration> s = m1.get( mDecl.getName() );
+      if ( s.contains( mDecl ) ) {
+        return e.getKey();
+      }
+    }
+    return null;
+  }
+  public ClassOrInterfaceDeclaration getClassForMethodDeclaration(
+          MethodDeclaration mDecl ) {
+    String clsName = getClassNameForMethodDeclaration( mDecl );
+    if ( !Utils.isNullOrEmpty( clsName ) ) {
+      ClassOrInterfaceDeclaration cdecl = getClassDeclaration( clsName );
+      return cdecl;
+    }
+    return null;
+  }
+
+
+
   public Set< String > getAllEnclosingClassNames(String className ) {
     Set<String> all = new LinkedHashSet<>();
     String encloser = className;

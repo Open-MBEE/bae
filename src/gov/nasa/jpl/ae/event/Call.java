@@ -5,14 +5,7 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.MoreToString;
-import gov.nasa.jpl.mbee.util.Random;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Wraps;
+import gov.nasa.jpl.mbee.util.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
@@ -313,7 +306,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         }
       }
       if ( evaluatedArgs[ i ] == null ) {
-        if ( c.isPrimitive() ) {
+        if ( oc.isPrimitive() ) {
           gotErrors = true; 
         }
       } else if (!c.isAssignableFrom( evaluatedArgs[ i ].getClass() ) &&
@@ -391,10 +384,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         evaluationSucceeded = true;
         return returnValue;
     }
-    //System.out.println("Calling " + toShortString());
     setReturnValue(null);
 
-    return evaluate(propagate, true);
+    Object retVal = evaluate(propagate, true);
+//      System.out.println(
+//              "Evaluated " + getName() + "@" + getId() + "(): " + toShortString() + " = " + retVal );
+    return retVal;
   }
   
   // TODO -- consider an abstract Call class
@@ -671,10 +666,18 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     //Object result = Expression.evaluate( unevaluatedArg, c, propagate, true );
     Object result = evaluateArg( unevaluatedArg, c, propagate);
     if ( complainIfError && !( result == null || c == null || c.isInstance( result ) )) {
-      Debug.error( true, "\nArgument " + result +
-                         ( result == null ?
-                           "" : " of type " + result.getClass().getCanonicalName() )
-                         + " is not an instance of " + c.getSimpleName() + " for call to " + this.getMember() );
+      boolean isOkay = false;
+      if ( result != null && c != null && (c.isPrimitive() || result.getClass().isPrimitive()) ) {
+        Object x = Expression.evaluate( result, c, false, false );
+        isOkay = x != null;
+      }
+      if ( !isOkay ) {
+        Debug.error( true, "\nArgument " + result + ( result == null ? "" :
+                                                      " of type " + result.getClass()
+                                                                          .getCanonicalName() )
+                           + " is not an instance of " + c.getSimpleName()
+                           + " for call to " + this.getMember() );
+      }
     }
     return result;
   }
@@ -1159,8 +1162,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       if ( tvm != null ) {
         sb.append(MoreToString.Helper.toString(object, withHash, false, seen, otherOptions) + ".");
       } else {
-        if ( object instanceof DurativeEvent ) {
-          sb.append( ((DurativeEvent)object).getName() + "." );
+        if ( object instanceof HasName ) {
+          sb.append( "" + ((HasName)object).getName() + "." );
+        } else if ( object instanceof DurativeEvent ) {
+          sb.append( "" + ((DurativeEvent)object).getName() + "." );
         } else if ( object instanceof Class ) {
             sb.append( ClassUtils.toString( (Class<?>)object ) + "." );
         } else {
@@ -1327,7 +1332,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public void setStale( boolean staleness ) {
     if ( stale != staleness && Debug.isOn() ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
-    //System.out.println( "_______   Call@" + getId() + ".setStale(" + staleness + "): " + toString( true, false, null ) + "   _______");
+//      System.out.println( "_______   Call@" + getId() + ".setStale(" + staleness + "): " + toString( true, false, null ) + "   _______");
     if ( staleness ) {
       clearCache();
     }

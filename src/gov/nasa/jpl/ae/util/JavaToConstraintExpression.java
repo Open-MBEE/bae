@@ -2218,7 +2218,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         if ( complainIfNotFound ) {
           Debug.error( true, "Could not find a parameter or class for name expression \"" + aeString + "\"." );
         }
-        
+
         return null;
       }
 
@@ -2229,7 +2229,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                                                                   getParameterValue,
                                                                   propagate );
 //      gov.nasa.jpl.ae.event.Expression< T > aeExpression = null;
-//      
+//
 //      if ( wrapInFunction ) {
 //        aeExpression =
 //            new gov.nasa.jpl.ae.event.Expression<T>( new FunctionCall( parameter,
