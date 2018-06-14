@@ -1625,12 +1625,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         return null;
       }
       if ( interpolation.type == Interpolation.STEP ) {
-        System.out.println("STEP    e: " + e);
         return e.getValue();
       }
       if ( interpolation.isLinear() ) {
         V v = interpolatedValue( tp, e );
-        System.out.println("LINE 1635. v = " + v + ". tp = " + tp + ". e = " + e);
         return v;
       } else {
         Debug.error( true, "Interpolation " + interpolation + " not expected!");
