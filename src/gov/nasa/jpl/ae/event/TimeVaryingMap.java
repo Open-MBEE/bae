@@ -396,6 +396,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
 
   public TimeVaryingMap() {
+
     super(TimeComparator.instance);
   }
 
@@ -405,7 +406,6 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public TimeVaryingMap( String name ) {
     this();
     this.name = name;
-
   }
   
   public TimeVaryingMap( String name, String fileName ) {
@@ -1595,6 +1595,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     } else if ( interpolation.type == Interpolation.LINEAR ) {
       if ( m.isEmpty() ) return null;
       V v = interpolatedValue( t, m.lastEntry() );
+      System.out.println("LINE 1600. v = " + v);
       return v;
     }
     Debug.error( true,
@@ -1624,10 +1625,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
         return null;
       }
       if ( interpolation.type == Interpolation.STEP ) {
+        System.out.println("STEP    e: " + e);
         return e.getValue();
       }
       if ( interpolation.isLinear() ) {
         V v = interpolatedValue( tp, e );
+        System.out.println("LINE 1635. v = " + v + ". tp = " + tp + ". e = " + e);
         return v;
       } else {
         Debug.error( true, "Interpolation " + interpolation + " not expected!");
@@ -1660,7 +1663,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Parameter< Long> t2 = getTimepointAfter( t );
     //v1 = get( t1 );
     
-    return interpolatedValue( t1, t1, t2, v1, v2 );
+    return interpolatedValue( t1, t, t2, v1, v2 );
   }
 
   public V interpolatedValue(Parameter< Long> t1, Parameter< Long> t, Parameter< Long> t2, V v1, V v2 ) {

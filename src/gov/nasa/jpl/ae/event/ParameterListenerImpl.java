@@ -48,7 +48,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   // Constants
 
   protected double timeoutSeconds = 900.0;
-  protected int maxLoopsWithNoProgress = 50;
+  protected int maxLoopsWithNoProgress = 100;
   protected long maxPassesAtConstraints = 10000;
   protected boolean usingTimeLimit = false;
   protected boolean usingLoopLimit = true;

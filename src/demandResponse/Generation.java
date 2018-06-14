@@ -7,6 +7,7 @@ import java.util.Map;
 
 import gov.nasa.jpl.ae.event.LinearTimeline;
 import gov.nasa.jpl.ae.event.Parameter;
+import gov.nasa.jpl.ae.event.TimeVaryingMap;
 import gov.nasa.jpl.ae.event.Timepoint;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.TimeUtils;
@@ -50,7 +51,7 @@ public class Generation extends LinearTimeline {
    */
   public Generation( String name, Double defaultValue, int numCustomers,
                      boolean projected ) {
-    super( name, defaultValue, projected );
+    super( name, TimeVaryingMap.LINEAR);
     numberOfCustomers = numCustomers;
     init();
   }
