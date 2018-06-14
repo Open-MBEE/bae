@@ -21,37 +21,18 @@ public class LinearTimeline extends TimeVaryingMap< Double > {
    */
   private static final long serialVersionUID = -4707739577094130809L;
 
-
   /**
-   * @param name
    */
-  public LinearTimeline( String name ) {
-    super( name );
+  public LinearTimeline( ) {
+    super( "name", null, null, Double.class, TimeVaryingMap.LINEAR );
   }
 
-  /**
-   * @param name
-   * @param defaultValue
-   */
-  public LinearTimeline( String name, Interpolation interpolation ) {
-    super( name, Double.class, null, null,null, interpolation );
-  }
-
-  /**
-   * @param name
-   * @param initialValueFunction
-   * @param o
-   * @param samplePeriod
-   * @param horizonDuration
-   */
-  public LinearTimeline( String name, Method initialValueFunction, Object o,
-                         int samplePeriod, int horizonDuration ) {
-    super( name, initialValueFunction, o, samplePeriod, horizonDuration );
-  }
-  
-  public LinearTimeline( LinearTimeline timeline ) {
-    super(timeline);
-  }
+//  /**
+//   * @param name
+//   */
+//  public LinearTimeline( String name ) {
+//    super( name, Double.class, null, null, null, TimeVaryingMap.LINEAR );
+//  }
   
 //  @Override
 //  public LinearTimeline clone() {
