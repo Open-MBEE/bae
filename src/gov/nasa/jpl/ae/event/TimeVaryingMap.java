@@ -15,16 +15,8 @@ import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.StringDomain;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.util.DomainHelper;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.FileUtils;
-import gov.nasa.jpl.mbee.util.MoreToString;
-import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
-import gov.nasa.jpl.mbee.util.TimeUtils;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Wraps;
 
 import java.io.File;
 import java.io.IOException;
@@ -1336,6 +1328,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( !containsKey( t ) ) return;
     V value = get( t );
     if ( Debug.isOn() ) Debug.outln( getName() + ": floating effect, (" + t + ", " + value + ")" );
+    setStaleAnyReferencesToTimeVarying();
     floatingEffects.add( new TimeValue( t, value ) );
     remove( t );
     if ( Debug.isOn() || checkConsistency ) isConsistent();
@@ -1346,12 +1339,17 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( t == null ) return;
     if ( t.getValueNoPropagate() == null ) return;
     ArrayList<TimeValue> copy = new ArrayList<TimeValue>( floatingEffects );
+    int i = floatingEffects.size();
     for ( TimeValue e : copy ) {
       if ( e.first.compareTo( t ) == 0 ) {
         put( e.first, e.second );
         floatingEffects.remove( e );
         if ( Debug.isOn() ) Debug.outln( getName() + ": unfloated effect, " + e );
+        // break;  // Can we do this?
       }
+    }
+    if (i != floatingEffects.size()) {
+      handleChangeToTimeVaryingMap();
     }
     if ( Debug.isOn() || checkConsistency ) isConsistent();
   }
@@ -3439,7 +3437,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     } else {
       Debug.error( true, "No support yet for quadratic interpolation as integral of linear function!" );
     }
-    
+String n = owner instanceof HasName
+&& ((HasName)owner).getName() != null ? ((HasName<String>)owner).getName() : name;
+
     boolean same = toKey == fromKey;  // include the key if same
     Parameter< Long > insertedFromKey = null;
     Parameter< Long > insertedToKey = null;
@@ -3487,9 +3487,15 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
             } else {
               try {
                 integralValue =
-                    tryCastValue( Functions.plus( lastIntegralValue, 
+                    tryCastValue( Functions.plus( lastIntegralValue,
                                   Functions.times( Functions.divide( Functions.plus(endValue, ePrev.getValue()), 2 ),
                                   timeDiff ) ) );
+                if ( "netPower".equals(n) ) {
+                  System.out.println("%%%%  " + n + ".integrate(): " + integralValue +
+                                     " = " + lastIntegralValue + " + ((" +
+                                     endValue + " + " + ePrev.getValue() + ") / 2) * " +
+                                     timeDiff  );
+                }
               } catch ( IllegalAccessException e1 ) {
                 e1.printStackTrace();
                 return null;
@@ -3518,6 +3524,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( insertedToKey != null ) {
       remove(insertedToKey);
     }
+    System.out.println( "%%%%  " + n + ".integrate(): " + MoreToString.Helper.toLongString( this ) + ".integrate() = " + MoreToString.Helper.toLongString( tvm ) );
     //if (succeededSomewhere) appliedSet.add(  )
     return tvm;
   }

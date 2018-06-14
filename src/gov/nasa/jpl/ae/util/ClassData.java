@@ -984,7 +984,7 @@ ClassData {
     for ( Map.Entry<String, Map<String, Set<MethodDeclaration>>> e : getMethodTable().entrySet() ) {
       Map<String, Set<MethodDeclaration>> m1 = e.getValue();
       Set<MethodDeclaration> s = m1.get( mDecl.getName() );
-      if ( s.contains( mDecl ) ) {
+      if ( s != null && s.contains( mDecl ) ) {
         return e.getKey();
       }
     }

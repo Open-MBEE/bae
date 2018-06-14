@@ -1945,8 +1945,8 @@ public class Functions {
                                                        InvocationTargetException,
                                                        InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return min( r1, r2 );
   }
@@ -1956,8 +1956,8 @@ public class Functions {
                                                        InvocationTargetException,
                                                        InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return max( r1, r2 );
   }
@@ -2509,11 +2509,7 @@ public class Functions {
         }
       } else if ( Zero.isEqual( n1 ) ) {
         try {
-          if ( Zero.isEqual( n2 ) ) {
-            result = One.forClass( o1.getClass(), n1.getClass() );
-          } else {
-            result = Zero.forClass( o1.getClass(), n1.getClass() );
-          }
+          result = Zero.forClass( o1.getClass(), n1.getClass() );
         } catch ( ClassCastException e ) {
           e.printStackTrace();
         }
@@ -2708,8 +2704,8 @@ public class Functions {
                                                        InvocationTargetException,
                                                        InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return plus( r1, r2 );
   }
@@ -2720,8 +2716,8 @@ public class Functions {
                                          InvocationTargetException,
                                          InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return minus( r1, r2 );
   }
@@ -2732,8 +2728,10 @@ public class Functions {
                                       InvocationTargetException,
                                       InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+//    T r1 = (T)o1.evaluate( false );
+//    TT r2 = (TT)o2.evaluate( false );
+      T r1 = Expression.evaluateDeep(o1, null, false, false);
+      TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return times( r1, r2 );
   }
@@ -2745,8 +2743,10 @@ public class Functions {
                                        InstantiationException {
     T result = null;
     if ( o1 != null && o2 != null ) {
-      T r1 = (T)o1.evaluate( false );
-      TT r2 = (TT)o2.evaluate( false );
+//      T r1 = (T)o1.evaluate( false );
+//      TT r2 = (TT)o2.evaluate( false );
+        T r1 = Expression.evaluateDeep(o1, null, false, false);
+        TT r2 = Expression.evaluateDeep(o2, null, false, false);
       if ( r1 != null && r2 != null ) {
         result = divide( r1, r2 );
       }
@@ -2760,8 +2760,8 @@ public class Functions {
                                                        InvocationTargetException,
                                                        InstantiationException {
     if ( o1 == null || o2 == null ) return null;
-    T r1 = (T)o1.evaluate( false );
-    TT r2 = (TT)o2.evaluate( false );
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return pow( r1, r2 );
   }
@@ -2920,7 +2920,7 @@ public class Functions {
     if ( o == null ) return null;
     T r = null;
     try {
-      r = (T)o.evaluate( false );
+      r = Expression.evaluateDeep(o, null, false, false);
     } catch ( ClassCastException e ) {
       e.printStackTrace();
     }
@@ -3050,7 +3050,7 @@ public class Functions {
     if ( o == null ) return null;
     T r = null;
     try {
-      r = (T)o.evaluate( false );
+      r = Expression.evaluateDeep(o, null, false, false);
     } catch ( ClassCastException e ) {
       e.printStackTrace();
     }
@@ -3060,6 +3060,14 @@ public class Functions {
     return null;
   }
 
+
+  protected static boolean isParameter(Object o) {
+    Parameter p = null;
+    try {
+      p = Expression.evaluate( o, Parameter.class, false, false );
+    } catch ( Throwable t ) {}
+    return p != null;
+  }
 
   // Inequality functions
 
@@ -3080,6 +3088,29 @@ public class Functions {
     public EQ< T > clone() {
       return new EQ< T >( this );
     }
+
+    /**
+     * Determine whether the arguments to the call are grounded.  Parameter
+     * arguments do not need to be grounded foe EQ.
+     * @param deep
+     * @param seen
+     * @return
+     */
+    @Override
+    public synchronized boolean areArgumentsGrounded( boolean deep,
+                                                      Set< Groundable > seen ) {
+      // Check if arguments are grounded if groundable.  Ok for arguments to be null.
+      if ( arguments != null ) {
+        for ( Object o : arguments ) {
+          if ( o != null && o instanceof Groundable && !isParameter( o )
+               && !( (Groundable)o ).isGrounded( deep, seen ) ) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
 
     @Override
     public Domain<?> inverseDomain(Domain<?> returnValue, Object argument) {
@@ -4371,7 +4402,7 @@ public class Functions {
     // the variable is. Just evaluate the expression:
     if ( variable instanceof Parameter
          && !o.hasParameter( (Parameter< T >)variable, true, null ) ) {
-      return (Boolean)o.evaluate( false );
+      return (Boolean)o.evaluate( Boolean.class, false );
     }
     Domain< T > d = variable.getDomain();
     Boolean b = null;
@@ -4380,7 +4411,7 @@ public class Functions {
     // expression:
     // REVIEW
     if ( d == null || d.magnitude() == 0 ) {
-      b = (Boolean)o.evaluate( false );
+      b = (Boolean)o.evaluate( Boolean.class, false );
     }
 
     RangeDomain< T > rd = null;
@@ -4392,14 +4423,17 @@ public class Functions {
     // at the range endpoints:
     if ( b == null && isMonotonic( o ) && rd != null ) {
       variable.setValue( rd.getLowerBound() );
-      if ( !(Boolean)o.evaluate( true ) ) {
+      if ( !(Boolean)o.evaluate( Boolean.class, true ) ) {
         b = false;
       } else {
         variable.setValue( rd.getUpperBound() );
-        if ( !(Boolean)o.evaluate( true ) ) {
-          b = false;
-        } else {
-          b = true;
+        Boolean tb = (Boolean)o.evaluate( Boolean.class, true );
+        if ( tb != null ) {
+          if ( !tb ) {
+            b = false;
+          } else {
+            b = true;
+          }
         }
       }
     }
@@ -4411,9 +4445,12 @@ public class Functions {
       b = true;
       for ( long i = 0; i < d.magnitude(); ++i ) {
         variable.setValue( afrd.getNthValue( i ) );
-        if ( !(Boolean)o.evaluate( true ) ) {
-          b = false;
-          break;
+        Boolean tb = (Boolean)o.evaluate( Boolean.class, true );
+        if ( tb != null ) {
+          if ( !tb ) {
+            b = false;
+            break;
+          }
         }
       }
     }
@@ -4552,8 +4589,8 @@ public class Functions {
                                  InvocationTargetException,
                                  InstantiationException {
     if ( o1 == null && o2 == null ) return null;
-    Object r1 = ( o1 == null ? null : o1.evaluate( false ) );
-    Object r2 = ( o2 == null ? null : o2.evaluate( false ) );
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Object r2 = ( o2 == null ? null : Expression.evaluateDeep( o2, null, false, false ) );
     return compare( r1, r2, i );
   }
 
@@ -4665,8 +4702,8 @@ public class Functions {
                                              InvocationTargetException,
                                              InstantiationException {
     if ( o1 == null && o2 == null ) return null;
-    Object r1 = ( o1 == null ? null : o1.evaluate( false ) );
-    Object r2 = ( o2 == null ? null : o2.evaluate( false ) );
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Object r2 = ( o2 == null ? null : Expression.evaluateDeep( o2, null, false, false ) );
     return applyBool( r1, r2, i );
   }
 
@@ -4833,7 +4870,7 @@ public class Functions {
     if ( o == null ) return null;
     T r = null;
     try {
-      r = (T)o.evaluate( false );
+      r = (T)Expression.evaluateDeep( o, null, false, false );
     } catch ( IllegalAccessException e ) {
       // TODO Auto-generated catch block
       // e.printStackTrace();
@@ -4905,7 +4942,7 @@ public class Functions {
     if ( o == null ) return null;
     T r = null;
     try {
-      r = (T)o.evaluate( false );
+      r = (T)Expression.evaluateDeep( o, null, false, false );
     } catch ( IllegalAccessException e ) {
       // TODO Auto-generated catch block
       // e.printStackTrace();
@@ -4971,7 +5008,7 @@ public class Functions {
       try {
         Expression<T> target = forward ? o1 : o2;
         Expression<T> val = forward ? o2 : o1;
-        t = (T)( val.evaluate( false ) );
+        t = (T)( val.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
         // Don't pick values for timeline variables that are part of an expression.
         if ( t instanceof TimeVaryingMap ) {
           Parameter v = null;
@@ -5023,7 +5060,7 @@ public class Functions {
     if ( o == null ) return null;
     T r = null;
     try {
-      r = (T)o.evaluate( false );
+      r = (T)o.evaluate( false );  // REVIEW -- Need to evaluate deep?
     } catch ( IllegalAccessException e ) {
       // TODO Auto-generated catch block
       // e.printStackTrace();
@@ -5074,7 +5111,7 @@ public class Functions {
         } else {
           // Evaluate the function and see if we can pickFrom the result.
           try {
-            Object o = c.evaluate( false );
+            Object o = c.evaluate( false );  // REVIEW -- Need to evaluate deep?
             return pickTrue( o, variableForPick );
           } catch ( IllegalAccessException e ) {
             // TODO Auto-generated catch block
@@ -5162,7 +5199,7 @@ public class Functions {
                                       InstantiationException {
     // if ( o1 == o2 ) return true;
     // if ( o1 == null || o2 == null ) return false;
-    T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );
+    T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
     T r2 = (T)( o2 == null ? null : o2.evaluate( false ) );
     if ( r1 == r2 ) return true;
     if ( r1 == null || r2 == null ) return false;
@@ -5280,7 +5317,7 @@ public class Functions {
                     Expression< T > o2 ) throws IllegalAccessException,
                                          InvocationTargetException,
                                          InstantiationException {
-    T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );
+    T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
     T r2 = (T)( o2 == null ? null : o2.evaluate( false ) );
     Pair< Object, TimeVaryingMap< ? > > p1 = objectOrTimeline( r1 );
     Pair< Object, TimeVaryingMap< ? > > p2 = objectOrTimeline( r2 );
