@@ -199,7 +199,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   protected static Collection< Method > arithmeticMethods;
 
-
+  public void setLinear() {
+    this.interpolation = TimeVaryingMap.LINEAR;
+  }
 
   public class TimeValue extends Pair< Parameter< Long>, V >
                                implements HasParameters {
@@ -266,11 +268,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     public boolean isFreeParameter( Parameter< ? > parameter, boolean deep,
                                     Set< HasParameters > seen ) {
       // TODO -- REVIEW -- not sure about this
-      Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
-      if ( pair.first ) return false;
+      Pair<Boolean, Set<HasParameters>> pair = Utils.seen(this, deep, seen);
+      if (pair.first) return false;
       seen = pair.second;
       //if ( Utils.seen( this, deep, seen ) ) return false;
-      return HasParameters.Helper.isFreeParameter( this, parameter, deep, seen, false );
+      return HasParameters.Helper.isFreeParameter(this, parameter, deep, seen, false);
     }
 
     @Override
@@ -388,6 +390,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
 
   public TimeVaryingMap() {
+
     super(TimeComparator.instance);
   }
 
@@ -397,7 +400,6 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public TimeVaryingMap( String name ) {
     this();
     this.name = name;
-
   }
   
   public TimeVaryingMap( String name, String fileName ) {
@@ -1632,6 +1634,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     } else if ( interpolation.type == Interpolation.LINEAR ) {
       if ( m.isEmpty() ) return null;
       V v = interpolatedValue( t, m.lastEntry() );
+      System.out.println("LINE 1600. v = " + v);
       return v;
     }
     Debug.error( true,
@@ -1697,7 +1700,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Parameter< Long> t2 = getTimepointAfter( t );
     //v1 = get( t1 );
     
-    return interpolatedValue( t1, t1, t2, v1, v2 );
+    return interpolatedValue( t1, t, t2, v1, v2 );
   }
 
   public V interpolatedValue(Parameter< Long> t1, Parameter< Long> t, Parameter< Long> t2, V v1, V v2 ) {

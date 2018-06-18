@@ -48,7 +48,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public static boolean usingDependencyGraphSolver = false;
 
   protected static double timeoutSeconds = 900.0;
-  protected static int maxLoopsWithNoProgress = 50;
+  protected static int maxLoopsWithNoProgress =50;
   protected static long maxPassesAtConstraints = 10000;
   protected static boolean usingTimeLimit = false;
   protected static boolean usingLoopLimit = true;

@@ -2011,10 +2011,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     if ( getEvaluatedArguments() != null ) {
       for ( Object o : getEvaluatedArguments() ) {
-        if ( o instanceof ParameterListener ) {
-          ParameterListener pl = (ParameterListener)o;
-
-          pl.setStaleAnyReferencesTo( changedParameter, seen );
+        if (o instanceof ParameterListener) {
+          ParameterListener pl = (ParameterListener) o;
+          pl.setStaleAnyReferencesTo(changedParameter, seen);
 //        if ( !stale && pl.isStale() ) {
 //          setStale(true);
 //        }

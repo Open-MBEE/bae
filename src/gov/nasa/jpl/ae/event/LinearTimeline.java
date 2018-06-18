@@ -14,97 +14,37 @@ import java.util.Map.Entry;
  * and is, thus, a step function.
  * 
  */
-public class LinearTimeline extends TimeVaryingPlottableMap< Double > {
+public class LinearTimeline extends TimeVaryingMap< Double > {
 
   /**
    * 
    */
   private static final long serialVersionUID = -4707739577094130809L;
 
+  /**
+   */
+  public LinearTimeline( ) {
+    super( "name", null, null, Double.class, TimeVaryingMap.LINEAR );
+  }
 
   /**
    * @param name
    */
   public LinearTimeline( String name ) {
-    super( name );
-  }
-
-  /**
-   * @param name
-   * @param defaultValue
-   */
-  public LinearTimeline( String name, Double defaultValue, boolean projected ) {
-    super( name, null, defaultValue, Double.class, projected );
-  }
-
-  /**
-   * @param name
-   * @param initialValueFunction
-   * @param o
-   * @param samplePeriod
-   * @param horizonDuration
-   */
-  public LinearTimeline( String name, Method initialValueFunction, Object o,
-                         int samplePeriod, int horizonDuration ) {
-    super( name, initialValueFunction, o, samplePeriod, horizonDuration );
+    super( name, null, null, Double.class, TimeVaryingMap.LINEAR );
   }
   
-  public LinearTimeline( LinearTimeline timeline ) {
-    super(timeline);
-  }
-  
-  @Override
-  public LinearTimeline clone() {
-    return new LinearTimeline( this );
-  }
-  
-  @Override
-  public LinearTimeline emptyClone() {
-    LinearTimeline timeline = new LinearTimeline( getName(), null, isProjection() );
-    return timeline;
-  }
-
-  @Override
-  public Double getValue( Long t ) {
-    if ( t == null ) return null;
-    if ( Debug.isOn() ) isConsistent();
-    Parameter< Long > tp = makeTempTimepoint( t, true );
-    Entry< Parameter< Long >, Double > eBefore = this.floorEntry( tp );
-    if ( eBefore == null ) return null;
-    Entry< Parameter< Long >, Double > eAfter = this.ceilingEntry( tp );
-    if ( eAfter == null ) return eBefore.getValue();
-    double timeDiff =
-        eAfter.getKey().getValue( false ) - eBefore.getKey().getValue( false );
-    double valueDiff = 0.0;
-    if ( eAfter.getValue() != null ) {
-      if ( eBefore.getValue() == null ) {
-        valueDiff = eAfter.getValue();
-      } else {
-        valueDiff = eAfter.getValue() - eBefore.getValue();
-      }
-    }
-    double interpolatedValue = 0.0;
-    if ( eBefore.getValue() == null ) {
-      interpolatedValue = valueDiff; 
-    } else {
-      if ( timeDiff <= 0.0 ) {
-        interpolatedValue = eBefore.getValue() + valueDiff / 2.0;
-      } else {
-        interpolatedValue =
-            eBefore.getValue() + 
-            valueDiff * ( t - eBefore.getKey().getValue( false ) ) / timeDiff;
-      }
-    }
-    return interpolatedValue;
-  }
-
-  
-//  /**
-//   * @param args
-//   */
-//  public static void main( String[] args ) {
-//    // TODO Auto-generated method stub
-//
+//  @Override
+//  public LinearTimeline clone() {
+//    return new LinearTimeline( this );
 //  }
+//
+//  @Override
+//  public LinearTimeline emptyClone() {
+//    LinearTimeline timeline = new LinearTimeline( getName(), null, true, this.interpolation );
+//    return timeline;
+//  }
+
+
 
 }
