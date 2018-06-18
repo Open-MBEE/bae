@@ -100,14 +100,27 @@ public class ConstraintExpression extends Expression< Boolean >
     return sat;
   }
 
-
   public <T> boolean applyAsIfDependency() {
+    return applyAsIfDependency( null, null );
+  }
+
+  public <T> boolean applyAsIfDependency( Parameter<?> noChangeParam, Set<HasParameters> seen ) {
+
+    Pair< Boolean, Set< HasParameters > > pair =
+            Utils.seen( this, true, seen );
+    if ( pair.first ) {
+      return false;
+    }
+    seen = pair.second;
+
     applicableAsDependency = false;
     Pair<Parameter<?>, Object> p = valueToSetLikeDependency();
     if ( p == null ) return false;
     Parameter<T> dependentVar = (Parameter<T>) p.first;
     this.dependentVar = dependentVar;
     if ( dependentVar == null ) return false;
+    if ( dependentVar == noChangeParam ) return false;
+
     T oldVal = dependentVar.getValueNoPropagate();
 
     // fix domain for null
@@ -116,7 +129,7 @@ public class ConstraintExpression extends Expression< Boolean >
     }
 
     applicableAsDependency = true;
-    dependentVar.setValue((T)p.second, true);
+    dependentVar.setValue((T)p.second, true, seen);
     T newVal = dependentVar.getValueNoPropagate();
     if ( oldVal == newVal ) return false;
     return true;
@@ -458,6 +471,12 @@ public class ConstraintExpression extends Expression< Boolean >
 //    if ( Debug.isOn() ) Debug.outln( "setStale(" + staleness + ") to " + this );
 //    ParameterConstraint.Helper.setStale( this, staleness );
 //  }
+
+  @Override public void handleValueChangeEvent( Parameter<?> parameter,
+                                                Set<HasParameters> seen ) {
+    super.handleValueChangeEvent( parameter, seen );
+    //applyAsIfDependency(parameter, seen);
+  }
 
   @Override
   public < T > T evaluate( Class< T > cls, boolean propagate ) {

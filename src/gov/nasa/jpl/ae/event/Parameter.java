@@ -21,19 +21,10 @@ import gov.nasa.jpl.ae.solver.HasConstraints;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.ObjectDomain;
-import gov.nasa.jpl.mbee.util.Random;
+import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.solver.RangeDomain;
 import gov.nasa.jpl.ae.solver.Satisfiable;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.Evaluatable;
-import gov.nasa.jpl.mbee.util.HasId;
-import gov.nasa.jpl.mbee.util.MoreToString;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Wraps;
 
 /**
  *
@@ -382,6 +373,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   // setValue( value, false ) is lazy/passive updating
   // setValue( value, true ) is proactive updating
   protected void setValue( T val, boolean propagateChange ) {
+    setValue( val, propagateChange, null );
+  }
+  protected void setValue( T val, boolean propagateChange, Set<HasParameters> seen ) {
     String valString = null;
     //Debug.turnOn();
     if ( Debug.isOn() ) {
@@ -445,8 +439,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
         //if ( "burn1Duration".equals(name) || "maxDischargeDuration".equals(name) || "avgBatteryDischargeRate".equals(name) ) {
             System.out.println(
-                    " $$$$$$$$$$$$$$   setValue(" + valString + "): " + this
-                            .toString( true, false, null ) + "   $$$$$$$$$$$$$" );
+                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
         //}
       //}
       if ( Debug.isOn() ) {

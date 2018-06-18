@@ -1234,7 +1234,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                                        getClassData().getPackageName(),
                                        evaluateCall,
                                        returnType);
-          aeExpr = javaForFunctionCall.toNewExpression();
+          aeExpr = javaForFunctionCall.toNewExpression(complainIfDeclNotFound);
         }
           //return aeExpr;
 //          //if ( convertFcnCallArgsToExprs ) {

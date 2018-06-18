@@ -44,6 +44,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean usingArcConsistency = true;
   public static boolean arcConsistencyQuiet = true;
+  public static boolean usingConstraintLoopSolver = true;
+  public static boolean usingDependencyGraphSolver = false;
 
   protected static double timeoutSeconds = 900.0;
   protected static int maxLoopsWithNoProgress = 50;
@@ -76,13 +78,13 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected ArrayList< Dependency< ? > > externalDependencies =
       new ArrayList< Dependency< ? > >();
   protected Solver solver = new ConstraintLoopSolver();
+  protected DependencyGraphSolver solver2 = null;
 
   protected Set< TimeVarying< ?, ? > > timeVaryingObjects =
       new LinkedHashSet< TimeVarying< ?, ? > >();
   protected boolean usingCollectionTree = false;
   protected Object owner = null;
   protected Object enclosingInstance = null;
-
   // TODO -- Need to keep a collection of ParameterListeners (just as
   // DurativeEvent has getEvents())
 
@@ -425,6 +427,16 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean setUsingArcConsistency(boolean b) {
     usingArcConsistency = b;
+    return true;
+  }
+
+  public static boolean setUsingConstraintLoopSolver(boolean b) {
+    usingConstraintLoopSolver= b;
+    return true;
+  }
+
+  public static boolean setUsingDependencyGraphSolver(boolean b) {
+    usingDependencyGraphSolver = b;
     return true;
   }
 
@@ -1025,7 +1037,19 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
     // Now assign values to variables within their domains to satisfy
     // constraints.
-    boolean satisfied = solver.solve( allConstraints );
+    boolean satisfied = false;
+    if ( usingConstraintLoopSolver ) {
+      satisfied = solver.solve( allConstraints );
+    }
+
+//    if (!satisfied ) {
+    if ( usingDependencyGraphSolver ) {
+      System.out.println( "Dependency solver" );
+      solver2 = new DependencyGraphSolver( allConstraints );
+      satisfied = solver2.solveDependencies();
+    }
+//    }
+
     //System.out.println( MoreToString.Helper.toShortString( allConstraints ) );
     if ( usingArcConsistency ) {
       ac.restoreDomains();
@@ -1511,6 +1535,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       }
     }
     name = "DECONSTRUCTED_" + name;
+
+    if ( getOwner() instanceof Parameter &&
+        ((Parameter)getOwner()).getValueNoPropagate() == this ) {
+      ((Parameter)getOwner()).setValue(null);
+    }
 
     dependencies.clear();
     externalDependencies.clear();

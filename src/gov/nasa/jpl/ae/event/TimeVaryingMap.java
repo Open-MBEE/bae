@@ -1220,6 +1220,45 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return justAfterTime;
   }
 
+  public Long getTimeWhenValue( Long t, V val ) {
+    // TODO -- fix for linear interpolation
+    if ( t == null ) return null;
+    Set<Parameter<Long>> s = getKeys( t );
+    Parameter<Long> tp = null;
+    if ( !Utils.isNullOrEmpty( s ) ) {
+      tp = s.iterator().next();
+    } else {
+      V valAtTime = getValue( t );
+      if ( equals( valAtTime, val ) ) {
+        return t;
+      }
+      tp = getTimepointAfter( t );
+    }
+    return getTimeWhenValue( tp, val );
+  }
+
+  public Long getTimeWhenValue( Parameter<Long> t, V val ) {
+    // TODO -- fix for linear interpolation
+    if ( t == null ) return null;
+    Parameter<Long> tp = t;
+    Long tt = t.getValueNoPropagate();
+    V valAtTime = getValue( t );
+    while ( true ) {
+      if ( equals( valAtTime, val ) ) {
+        return tt;
+      }
+      tp = getTimepointAfter( tp );
+      if ( tp == null ) {
+        return Long.MAX_VALUE; // TODO -- Need Math.longInfinity!
+      }
+      Long newTime = tp.getValueNoPropagate();
+      if ( newTime < tt ) return null; // prevent infinite loop
+      tt = newTime;
+      valAtTime = getValue( tp );
+    }
+  }
+
+
   public V getValueBefore( Parameter< Long> t ) {
     if ( t == null ) return null;
     Parameter< Long> justBeforeTime = getTimepointBefore( t );
@@ -2689,13 +2728,28 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( map != null ) {
       keys.addAll( map.keySet() );
     }
+    Long lastTime = null;
+    VVV lastValue = null;
     for ( Parameter< Long> k : keys ) {
       V v1 = this.getValue( k );
       VV v2 = map == null ? null : map.getValue( k );
       Object v3 = applyOperation( v1, v2, op );
       VVV v4 = newTvm.tryCastValue( v3 );
+
       if ( v4 != null ) {
-        newTvm.setValue( k, v4 );
+        // Before setting value, make sure it's not a duplicate of the last.
+        boolean sameAsLast = false;
+        if ( Utils.valuesEqual( v4, lastValue ) ) {
+          Long thisTime = k.getValueNoPropagate();
+          sameAsLast = thisTime.equals( lastTime );
+        }
+        if ( !sameAsLast ) {
+
+          newTvm.setValue( k, v4 );
+
+          lastTime = k.getValueNoPropagate();
+          lastValue = v4;
+        }
       }
     }
     return newTvm;

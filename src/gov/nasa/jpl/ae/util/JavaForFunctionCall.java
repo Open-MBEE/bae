@@ -225,10 +225,11 @@ public class JavaForFunctionCall {
     return Utils.isNullOrEmpty( getObject() );
   }
 
-  public Call toNewFunctionCall() {
+  public Call toNewFunctionCall(boolean complainIfNotFound) {
+    Call c = getCall( complainIfNotFound );
     if ( Debug.isOn() ) Debug.outln( "JavaForFunctionCall.toNewFunctionCall() --> "
-                                     + getCall() );
-    return getCall();
+                                     + c );
+    return c;
   }
 
   public String getReturnTypeString() {
@@ -312,9 +313,9 @@ public class JavaForFunctionCall {
     return "" + expression; //toNewFunctionCallString();
   }
 
-  public < T > gov.nasa.jpl.ae.event.Expression< T > toNewExpression() {
+  public < T > gov.nasa.jpl.ae.event.Expression< T > toNewExpression(boolean complainIfNotFound) {
     gov.nasa.jpl.ae.event.Expression< T > r =
-        new gov.nasa.jpl.ae.event.Expression< T >( toNewFunctionCall() );
+        new gov.nasa.jpl.ae.event.Expression< T >( toNewFunctionCall(complainIfNotFound) );
     if ( Debug.isOn() ) Debug.outln( "JavaForFunctionCall.toNewExpression() --> "
                                      + r );
     return r;
@@ -1463,7 +1464,7 @@ public class JavaForFunctionCall {
   /**
    * @return the call
    */
-  public Call getCall() {
+  public Call getCall(boolean complainIfNotFound) {
     if ( call == null ) {
       // This call causes infinite recursion!
       // The problem is that we may be trying to create a method that does not
@@ -1491,12 +1492,8 @@ public class JavaForFunctionCall {
         }
       } else {
         if ( getMatchingMethod() == null ) {
-          Call scall = null;
-           //String java = toNewFunctionCallString();
-          if ( scall == null ) {
+          if ( complainIfNotFound ) {
             Debug.error( true, "Cannot create method! " + this );
-          } else {
-            setCall( scall );
           }
         } else if ( isEffectFunction() ) {
           setCall( new EffectFunction( expression, getMatchingMethod(),
