@@ -27,12 +27,12 @@ public class LinearTimeline extends TimeVaryingMap< Double > {
     super( "name", null, null, Double.class, TimeVaryingMap.LINEAR );
   }
 
-//  /**
-//   * @param name
-//   */
-//  public LinearTimeline( String name ) {
-//    super( name, Double.class, null, null, null, TimeVaryingMap.LINEAR );
-//  }
+  /**
+   * @param name
+   */
+  public LinearTimeline( String name ) {
+    super( name, null, null, Double.class, TimeVaryingMap.LINEAR );
+  }
   
 //  @Override
 //  public LinearTimeline clone() {

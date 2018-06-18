@@ -40,6 +40,7 @@ public class Generation extends LinearTimeline {
    * @param name
    */
   public Generation( String name, int numCustomers ) {
+
     super( name );
     numberOfCustomers = numCustomers;
     init();
@@ -51,7 +52,7 @@ public class Generation extends LinearTimeline {
    */
   public Generation( String name, Double defaultValue, int numCustomers,
                      boolean projected ) {
-    super( name, TimeVaryingMap.LINEAR);
+    super( name );
     numberOfCustomers = numCustomers;
     init();
   }

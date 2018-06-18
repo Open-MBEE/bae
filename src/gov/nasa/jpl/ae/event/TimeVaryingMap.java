@@ -207,7 +207,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   protected static Collection< Method > arithmeticMethods;
 
-
+  public void setLinear() {
+    this.interpolation = TimeVaryingMap.LINEAR;
+  }
 
   public class TimeValue extends Pair< Parameter< Long>, V >
                                implements HasParameters {
@@ -274,11 +276,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     public boolean isFreeParameter( Parameter< ? > parameter, boolean deep,
                                     Set< HasParameters > seen ) {
       // TODO -- REVIEW -- not sure about this
-      Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
-      if ( pair.first ) return false;
+      Pair<Boolean, Set<HasParameters>> pair = Utils.seen(this, deep, seen);
+      if (pair.first) return false;
       seen = pair.second;
       //if ( Utils.seen( this, deep, seen ) ) return false;
-      return HasParameters.Helper.isFreeParameter( this, parameter, deep, seen, false );
+      return HasParameters.Helper.isFreeParameter(this, parameter, deep, seen, false);
     }
 
     @Override
