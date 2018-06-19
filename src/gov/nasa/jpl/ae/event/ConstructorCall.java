@@ -469,6 +469,13 @@ public class ConstructorCall extends Call {
       return true;
     }
 
+    // Stale arguments don't make stale the constructors of ParameterListenerImpls
+    // since the corresponding dependencies become stale instead.  Constructors of
+    // ParameterListenerImpls are to be interpreted as simply a constraint on type.
+    if ( isParameterListenerImpl() ) {
+      return false;
+    }
+
     boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
     if ( argsStale ) {
       return true;

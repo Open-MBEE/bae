@@ -3547,12 +3547,6 @@ String n = owner instanceof HasName
                     tryCastValue( Functions.plus( lastIntegralValue,
                                   Functions.times( Functions.divide( Functions.plus(endValue, ePrev.getValue()), 2 ),
                                   timeDiff ) ) );
-                if ( "netPower".equals(n) ) {
-                  System.out.println("%%%%  " + n + ".integrate(): " + integralValue +
-                                     " = " + lastIntegralValue + " + ((" +
-                                     endValue + " + " + ePrev.getValue() + ") / 2) * " +
-                                     timeDiff  );
-                }
               } catch ( IllegalAccessException e1 ) {
                 e1.printStackTrace();
                 return null;
@@ -8245,7 +8239,12 @@ String n = owner instanceof HasName
   }
 
   public int compareValues( V v1,  V v2 ) {
-    int comp = CompareUtils.compare( (Number)v1, (Number)v2 );
+      int comp = 1;
+      if ( v1 instanceof Number && v2 instanceof Number ) {
+          comp = CompareUtils.compare( (Number)v1, (Number)v2 );
+      } else {
+          comp = CompareUtils.compare( v1, v2 );
+      }
     return comp;
   }
 
