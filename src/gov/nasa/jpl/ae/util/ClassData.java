@@ -264,12 +264,7 @@ ClassData {
     return null;
   }
 
-  public String getImportedClassNameWithScope( String className ) {
-    String otherClassName = null;
-//            ClassUtils.getFullyQualifiedName( className, false );
-//    if ( !Utils.isNullOrEmpty( otherClassName ) ) {
-//      return otherClassName;
-//    }
+  public Set<String> getImportedClassNames() {
     Collection<String> importNames = imports.keySet();
     // Make sure current class is first
     if ( !Utils.isNullOrEmpty( getCurrentClass() ) ) {
@@ -280,6 +275,16 @@ ClassData {
         importNames = newNames;
       }
     }
+    return new LinkedHashSet<>( importNames );
+  }
+
+    public String getImportedClassNameWithScope( String className ) {
+    String otherClassName = null;
+//            ClassUtils.getFullyQualifiedName( className, false );
+//    if ( !Utils.isNullOrEmpty( otherClassName ) ) {
+//      return otherClassName;
+//    }
+    Collection<String> importNames = getImportedClassNames();
     for ( String impName : importNames ) {
       Set<String> imps = imports.get( impName );
       if ( imps == null ) continue;

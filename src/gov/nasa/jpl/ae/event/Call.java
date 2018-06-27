@@ -513,10 +513,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       evaluatedArgs = fixArgsForVarArgs( evaluatedArgs, false );
       
       Object newValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
-      setReturnValue(newValue);
 
-      // No longer stale after invoked with updated arguments and result is cached.
-      if ( evaluationSucceeded ) setStale( false );
+      if ( evaluationSucceeded ) {
+        setReturnValue( newValue );
+
+        // No longer stale after invoked with updated arguments and result is cached.
+        setStale( false );
+      }
       
     } catch ( ClassCastException e ) {
       evaluationSucceeded = false;

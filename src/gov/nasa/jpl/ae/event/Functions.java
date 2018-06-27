@@ -5221,8 +5221,12 @@ public class Functions {
     } else if ( tvm2 != null ) {
       tvm = true;
       tvmResult = compare( r1, tvm2, Inequality.EQ );
-    } else if (DistributionHelper.isDistribution(r1) || DistributionHelper.isDistribution(r2)) {
-      return eqDistribution(o1, o2);
+    } else {
+      Object d1 = getDistribution( r1 );
+      Object d2 = getDistribution( r2 );
+      if (DistributionHelper.isDistribution(d1) || DistributionHelper.isDistribution(d2)) {
+        return eqDistribution(d1, d2);
+      }
     }
     if (tvm) {
       boolean allSame = tvmResult.allValuesSame();
@@ -5243,6 +5247,29 @@ public class Functions {
       }
     }
     return eq( r1, r2 );
+  }
+
+  protected static Object getDistribution( Object o ) {
+    return getDistribution( o, null );
+  }
+  protected static Object getDistribution( Object o, Set<Object> seen ) {
+    if ( o == null ) return null;
+
+    Pair< Boolean, Set< Object > > pair = Utils.seen( o, true, seen );
+    if ( pair.first ) return null;
+    seen = pair.second;
+
+    if ( DistributionHelper.isDistribution( o ) ) {
+      return o;
+    }
+    if ( o instanceof Wraps ) { // This covers expressions, parameters, calls, and TimeVaryingMaps.
+      Object oo = ((Wraps)o).getValue( false );
+      Object d = getDistribution( oo, seen ); // warning! infinite loop
+      if ( d != null ) {
+        return d;
+      }
+    }
+    return null;
   }
 
   protected static BooleanDistribution eqDistribution(Object o1, Object o2){

@@ -377,9 +377,7 @@ public class ConstructorCall extends Call {
                             + "): ConstructorCall{" + this + "} " + e.getMessage() );
         e.printStackTrace();
       }
-      if ( Debug.isOn() ) {
-        throw e;
-      }
+      throw e;
     }
     return returnValue; //newObject;
   }

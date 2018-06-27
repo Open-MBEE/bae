@@ -75,7 +75,7 @@ public class DistributionHelper {
                     d = new BooleanDistribution(((BinomialDistribution) o1).probability(result.second));
                 }
             }
-        } else if (o1 instanceof RealDistribution) {
+        } else if (o1 instanceof RealDistribution) {  // TODO - below looks wrong
 
             if (o2 instanceof IntegerDistribution) {
             } else if (o2 instanceof RealDistribution) {
@@ -87,7 +87,7 @@ public class DistributionHelper {
                     d = new BooleanDistribution(((RealDistribution) o1).probability(result.second));
                 }
             }
-        } else if (o1 instanceof MultivariateRealDistribution) {
+        } else if (o1 instanceof MultivariateRealDistribution) {  // TODO - below looks wrong
             if (o2 instanceof IntegerDistribution) {
             } else if (o2 instanceof RealDistribution) {
             } else if (o2 instanceof MultivariateRealDistribution) {
@@ -100,7 +100,7 @@ public class DistributionHelper {
                     //                    d = new BooleanDistribution(((MultivariateRealDistribution) o1).density(result.second));
                 }
             }
-        } else if (o1 instanceof EnumeratedDistribution) {
+        } else if (o1 instanceof EnumeratedDistribution) {  // TODO - below looks wrong
             if (o2 instanceof IntegerDistribution) {
             } else if (o2 instanceof RealDistribution) {
             } else if (o2 instanceof MultivariateRealDistribution) {

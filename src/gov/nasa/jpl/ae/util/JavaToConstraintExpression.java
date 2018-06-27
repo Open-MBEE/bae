@@ -194,20 +194,36 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     return bo;
   }
   
-  public static Call javaCallToEventFunction( String fName,
+  public Call javaCallToEventFunction( String fName,
+                                              Class<?> returnType,
+                                              Vector<Object> arguments,
+                                              Class<?>... argTypes) {
+    return javaCallToEventFunction(getClassData(), fName, returnType, arguments, argTypes );
+  }
+  public static Call javaCallToEventFunction( ClassData classData,
+                                              String fName,
                                               Class<?> returnType,
                                               Vector<Object> arguments,
                                               Class<?>... argTypes) {
 
     String[] packages = new String[]{"gov.nasa.jpl.view_repo.sysml"};
-    return javaCallToCall(packages, fName, returnType, arguments, argTypes );
+    return javaCallToCall(packages, fName, returnType, arguments, argTypes, classData );
   }
 
-  public static Call javaCallToCall( String[] packages,
+  public Call javaCallToCall( String[] packages,
                                      String fName,
                                      Class<?> returnType,
                                      Vector<Object> arguments,
                                      Class<?>[] argTypes) {
+    return javaCallToCall( packages, fName, returnType, arguments, argTypes,
+                           getClassData() );
+  }
+  public static Call javaCallToCall( String[] packages,
+                                     String fName,
+                                     Class<?> returnType,
+                                     Vector<Object> arguments,
+                                     Class<?>[] argTypes,
+                                     ClassData classData ) {
     Class<?> cls = null;
     Method method = null;
     Call call = null;
@@ -236,7 +252,13 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       // Search by class:
       cls = ClassUtils.getClassForName(fName, null,
                                        packages,  false);
-      
+      if ( cls == null && classData != null && fName != null ) {
+        String fName2 = classData.getImportedClassNameWithScope( fName );
+        if ( !fName.equals( fName2 ) ) {
+          cls = ClassUtils.getClassForName( fName2, null, packages, false );
+        }
+      }
+
       if ( cls == null ) {
         if ( Debug.isOn() ) Debug.errln( "javaCallToEventFunction( " + fName +
                  "): no class found!" );
@@ -1589,40 +1611,45 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       result = fieldAccessExpr.toString();
     } else {
 
-      //FieldAccessExpr fieldAccessExpr = (FieldAccessExpr)expr;
-      // The member/field type is defined in its parent's class, and the parent
-      // class can be found by getting the type of the FiedAccessExpr's scope.
-      // if ( fieldAccessExpr.getScope() instanceof FieldAccessExpr ) {
-      String parentType =
-          astToAeExprType( fieldAccessExpr.getScope(), fieldAccessExpr.getField(),
-                           lookOutsideClassData, false );
-      ClassData.Param p = null;
-      if ( !Utils.isNullOrEmpty( parentType ) ) {
-        p = getClassData().lookupMemberByName( parentType,
-                                               fieldAccessExpr.getField(),
-                                               lookOutsideClassData, false );
-      }
-      // }
-      if ( p == null ) {
-        // If the member is static, then the scope is a class name, and we can
-        // try looking it up. // TODO -- Check to see if it's static.
-        p = getClassData().lookupMemberByName( fieldAccessExpr.getScope().toString(),
-                                               fieldAccessExpr.getField(),
-                                               lookOutsideClassData, false );
-      }
-      if ( p != null ) {
-        result = p.type;
+      Package pkg = Package.getPackage( fieldAccessExpr.toString() );
+      if ( pkg != null ) {
+        result = fieldAccessExpr.toString();
       } else {
-        // Maybe it's not a field access, but an enclosed class.
-        if ( Utils.isNullOrEmpty( parentType ) ) {
-          parentType = fieldAccessExpr.getScope().toString();
+        //FieldAccessExpr fieldAccessExpr = (FieldAccessExpr)expr;
+        // The member/field type is defined in its parent's class, and the parent
+        // class can be found by getting the type of the FiedAccessExpr's scope.
+        // if ( fieldAccessExpr.getScope() instanceof FieldAccessExpr ) {
+        String parentType =
+                astToAeExprType( fieldAccessExpr.getScope(), fieldAccessExpr.getField(),
+                                 lookOutsideClassData, false );
+        ClassData.Param p = null;
+        if ( !Utils.isNullOrEmpty( parentType ) ) {
+          p = getClassData().lookupMemberByName( parentType, fieldAccessExpr.getField(),
+                                                 lookOutsideClassData, false );
         }
-        Class< ? > classForName =
-            ClassUtils.getClassOfClass( parentType,
-                                        fieldAccessExpr.getField().toString(),
-                                        getClassData().getPackageName(), false );
-        if ( classForName != null ) {
-          result = classForName.getName();
+        // }
+        if ( p == null ) {
+          // If the member is static, then the scope is a class name, and we can
+          // try looking it up. // TODO -- Check to see if it's static.
+          p = getClassData().lookupMemberByName( fieldAccessExpr.getScope().toString(),
+                                                 fieldAccessExpr.getField(),
+                                                 lookOutsideClassData, false );
+        }
+        if ( p != null ) {
+          result = p.type;
+        } else {
+          // Maybe it's not a field access, but an enclosed class.
+          if ( Utils.isNullOrEmpty( parentType ) ) {
+            parentType = fieldAccessExpr.getScope().toString();
+          }
+          Class<?> classForName = ClassUtils.getClassOfClass( parentType,
+                                                              fieldAccessExpr.getField()
+                                                                             .toString(),
+                                                              getClassData().getPackageName(),
+                                                              false );
+          if ( classForName != null ) {
+            result = classForName.getName();
+          }
         }
       }
     }

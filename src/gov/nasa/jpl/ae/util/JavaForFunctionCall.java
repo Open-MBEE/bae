@@ -816,7 +816,7 @@ public class JavaForFunctionCall {
             if ( matchingMethod == null && c.getMember() instanceof Method ) {
               setMatchingMethod((Method)c.getMember());
             }
-            if ( this.call == null ) setCall( call );
+            if ( this.call == null ) setCall( c );
           }
         }
       }
@@ -993,7 +993,7 @@ public class JavaForFunctionCall {
           if (m != null && m.getName() != null ) {
             String mNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(m.getName()));
 
-            if ( mNameNoParams.equals(callNameNoParams) ) {
+            if ( mNameNoParams.equals(callNameNoParams) || mNameNoParams.endsWith( "$" + m.getName() ) ) {
             //if ( m.getName().equals(callName) ) {
               Class<?>[] params = m instanceof Method ? ((Method)m).getParameterTypes() : ((Constructor<?>)m).getParameterTypes();
               boolean isVarArgs = m instanceof Method ? ((Method)m).isVarArgs() : ((Constructor<?>)m).isVarArgs();
@@ -1006,6 +1006,10 @@ public class JavaForFunctionCall {
       }
       if ( atc.best != null ) {
         mm = (Member) atc.best;
+      } else if ( m1 != null ) {
+        mm = m1;
+      } else if ( m2 != null ) {
+        mm = m2;
       }
 //      if ( mm != m1 && mm == m2 ) {
 //        System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
@@ -1596,7 +1600,8 @@ public class JavaForFunctionCall {
      * 4. Common Java classes (assume its a FunctionCall)
      * 4. Timepoint class
      * 5. The mbee.util package (assume its a FunctionCall)
-     * 
+     * 6. Check imported classes.
+     *
      */
     if ( operationName == null ) return null;
 
@@ -1653,13 +1658,14 @@ public class JavaForFunctionCall {
     // object = model;
     // }
     // else {
-    // 2.
-    call =
-        JavaToConstraintExpression.javaCallToEventFunction( operationName, null,
-                                                            argumentss,
-                                                            argTypeArray );
 
-    if ( call == null ) {
+
+    if ( method == null ) {
+      // 2.
+      call = exprXlator.javaCallToEventFunction( operationName,null,
+                                                 argumentss, argTypeArray );
+    }
+    if ( method == null && call == null ) {
       // 3.
       if ( argSize == 1 ) {
         call =
@@ -1688,7 +1694,7 @@ public class JavaForFunctionCall {
 
       if ( call != null ) {
         call.setArguments( argumentss );
-      } else {
+      } else if ( method == null ) {
         // 4.
         Method mt = null;
         Method ma = null;
@@ -1753,11 +1759,19 @@ public class JavaForFunctionCall {
             }
           }
 
-          call = JavaToConstraintExpression.javaCallToCall(packages, operationName,
-                                                          null, argumentss,
-                                                           argTypeArray);
+          call = exprXlator.javaCallToCall(packages, operationName,
+                                           null, argumentss,
+                                           argTypeArray);
         }
 
+        // 6. check imported classes
+//        if ( method == null && call == null ) {
+//          Set<String> classNames = exprXlator.getClassData().getImportedClassNames();
+//          for ( String c : classNames ) {
+//            method = ClassUtils.getMethodForArgTypes( c, getPreferredPackageName(),
+//                                                      operationName, argTypes, false );
+//          }
+//        }
       }
 
     } // Ends call == null

@@ -203,7 +203,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     this.interpolation = TimeVaryingMap.LINEAR;
   }
 
-  public class TimeValue extends Pair< Parameter< Long>, V >
+  public class TimeValue extends Pair< Parameter< Long >, V >
                                implements HasParameters {
 
     protected final int id = HasIdImpl.getNext();
@@ -319,7 +319,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
     @Override
     public String toShortString() {
-      return MoreToString.Helper.toShortString( this, null, true );
+      return MoreToString.Helper.toShortString( this, null, false );
     }
 
     @Override
