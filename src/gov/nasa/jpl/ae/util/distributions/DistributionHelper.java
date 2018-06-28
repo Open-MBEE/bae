@@ -64,6 +64,7 @@ public class DistributionHelper {
                 }
 
                 d = new BooleanDistribution(sum);
+                return d;
 
             } else if (o2 instanceof RealDistribution) {
             } else if (o2 instanceof MultivariateRealDistribution) {
@@ -135,7 +136,8 @@ public class DistributionHelper {
                 return new BooleanDistribution(o1.equals(o2) ? 1.0 : 0.0);
             }
         }
-        return d;
+        //return d;
+        return null;
     }
 
     public static Double test() {

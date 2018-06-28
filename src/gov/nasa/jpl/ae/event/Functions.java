@@ -5225,7 +5225,12 @@ public class Functions {
       Object d1 = getDistribution( r1 );
       Object d2 = getDistribution( r2 );
       if (DistributionHelper.isDistribution(d1) || DistributionHelper.isDistribution(d2)) {
-        return eqDistribution(d1, d2);
+        //FIXME -- eqDistribution() doesn't work in most cases.
+        //return eqDistribution(d1, d2);
+        Object e = eqDistribution(d1, d2);
+        if ( e != null ) {
+          return e;
+        }
       }
     }
     if (tvm) {
