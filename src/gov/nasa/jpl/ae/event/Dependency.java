@@ -262,7 +262,8 @@ public class Dependency< T > extends HasIdImpl
     if ( Debug.isOn() ) Debug.outln("Dependency.satisfy() calling ground: " + this );
     if ( expression == null ) return false;
     if ( parameter == null ) return false;
-    expression.ground(deep, null);
+    expression.ground(deep, Utils.asSet(seen, Groundable.class));
+    seen.remove(expression);
     expression.satisfy(deep, seen);
     //if ( expression.isGrounded(deep, null) ) {
       boolean applied = apply( true );

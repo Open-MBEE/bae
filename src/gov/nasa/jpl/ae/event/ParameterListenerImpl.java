@@ -581,8 +581,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         }
       }
       for ( Dependency< ? > d : getDependencies() ) {
-        if ( !d.isSatisfied( true, null ) ) {
-          if ( !d.satisfy( true, null ) ) {
+        if ( !d.isSatisfied( true, Utils.asSet(seen, Satisfiable.class) ) ) {
+          if ( !d.satisfy( true, Utils.asSet(seen, Satisfiable.class) ) ) {
             satisfied = false;
           }
         }

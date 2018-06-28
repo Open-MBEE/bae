@@ -2278,13 +2278,27 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                               boolean evaluateCall, boolean getParameterValue,
                               boolean propagate ) {
     if ( nameExpr == null ) return null;
-    if ( !getParameterValue ) return nameExpr.getName();
     String aeString = nameExpr.getName();
     ClassData.Param p =
         getClassData().lookupCurrentClassMember( aeString, false, false );
     if ( p == null ) {
       return aeString;
     }
+
+    // wrap member access in GetMember call
+    if ( !getParameterValue ) {
+      String objectEnclosingParam; // reference to object containing the desired parameter
+
+      // if currentClass contains p.scope, param is declared in an enclosing class
+      if(getClassData().getCurrentClass().contains(p.scope)) {
+        objectEnclosingParam = p.scope + ".this";
+      } else { // otherwise, param is declared in this (possibly a super class)
+        objectEnclosingParam = "this";
+      }
+
+      return "new Functions.GetMember(" + objectEnclosingParam + ", " + "\"" + p.name + "\"" + ")";
+    }
+
     if ( wrapInFunction ) {
       aeString =
           "new FunctionCall(" + aeString + ", Parameter.class, \"getValue\", "
@@ -2314,7 +2328,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
   }
 
   // Had to dodge the domain code in order to get 'Foo.new Bar()' to work.
-  protected static boolean useObjectDomain = true;
+  protected static boolean useObjectDomain = false;
 
   public String getDomainString(String type, String enclosingObject) {
     if (!useObjectDomain) return "null";
