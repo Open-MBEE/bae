@@ -115,10 +115,21 @@ ClassData {
   protected String packageName = null;
   
   /**
-   * Map: longName -> parameter name -> Param
+   * Map: class long name -> parameter name -> Param
    */
   protected Map< String, Map< String, Param > > paramTable =
       new TreeMap< String, Map< String, Param > >();
+
+  // TODO -- Need to handle local variables of function declarations
+  // TODO -- Consider creating a subclass of ParameterListenerImpl for each of these
+  // TODO -- instead of an actual function.
+
+  /**
+   * These are the parameters in the signatures of function declarations.
+   * Map: function long name -> parameter name -> Param
+   */
+  protected Map< String, Map< String, Param > > functionParamTable =
+          new TreeMap< String, Map< String, Param > >();
 
   /**
    * Parameters may be created for evaluation at parse time.
