@@ -438,9 +438,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
         //if ( "burn1Duration".equals(name) || "maxDischargeDuration".equals(name) || "avgBatteryDischargeRate".equals(name) ) {
-            System.out.println(
-                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
-        //}
+//            System.out.println(
+//                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
+//        //}
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -765,7 +765,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       if ( value != null && withHash && !ClassUtils.isPrimitive( value.getClass() ) ) {
         sb.append("@" + value.hashCode());
       }
-    } else if ( isGrounded( false, null ) ) {
+    } else if ( isGrounded( false, Utils.asSet(seen, Groundable.class) ) ) {
       T value = getValueNoPropagate();
       String valueString = null;
       if ( value instanceof MoreToString ) {
