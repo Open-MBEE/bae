@@ -2309,7 +2309,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         }
       }
       if ( !Utils.isNullOrEmpty(enclosingObject) ) {
-        return "new ObjectDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
+        return "new ClassDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
       }
     }
     return "null";

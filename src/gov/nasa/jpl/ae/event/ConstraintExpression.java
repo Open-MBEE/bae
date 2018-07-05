@@ -1,10 +1,7 @@
 package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.event.Functions.SuggestiveFunctionCall;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
@@ -103,8 +100,13 @@ public class ConstraintExpression extends Expression< Boolean >
     Parameter<T> dependentVar = (Parameter<T>) p.first;
     if ( dependentVar == null ) return false;
     T oldVal = dependentVar.getValueNoPropagate();
-    if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded && dependentVar.getDomain() instanceof ObjectDomain ) {
-      ((ObjectDomain)dependentVar.getDomain()).add(null);
+    if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded ) {
+      if ( dependentVar.getDomain() instanceof ObjectDomain ) {
+        ( (ObjectDomain)dependentVar.getDomain() ).add( null );
+      }
+      if ( dependentVar.getDomain() instanceof ClassDomain ) {
+        ( (ClassDomain)dependentVar.getDomain() ).setNullInDomain( true );
+      }
     }
     dependentVar.setValue((T)p.second, true);
     T newVal = dependentVar.getValueNoPropagate();

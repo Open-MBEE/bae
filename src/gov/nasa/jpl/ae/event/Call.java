@@ -969,6 +969,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // Check the object
     if ( !this.isStatic() ) {
       if ( (nestedCall == null && getObject() == null) || ( getObject() instanceof Parameter && !((Parameter) getObject()).hasValue()) ) {
+        if ( getMember().getName().equals( "inDomain" ) ) {
+          // HACK -- instead maybe create an InDomain subclass of Constraint or FunctionCall and override isGrounded().
+          return true;
+        }
         return false;
       }
     }
