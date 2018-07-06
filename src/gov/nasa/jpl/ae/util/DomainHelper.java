@@ -18,19 +18,7 @@ import gov.nasa.jpl.ae.event.FunctionCall;
 import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.TimeVaryingMap;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.MathOperation;
-import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
-import gov.nasa.jpl.ae.solver.BooleanDomain;
-import gov.nasa.jpl.ae.solver.ComparableDomain;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.DoubleDomain;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.IntegerDomain;
-import gov.nasa.jpl.ae.solver.LongDomain;
-import gov.nasa.jpl.ae.solver.MultiDomain;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
-import gov.nasa.jpl.ae.solver.RangeDomain;
-import gov.nasa.jpl.ae.solver.SingleValueDomain;
-import gov.nasa.jpl.ae.solver.StringDomain;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
@@ -197,6 +185,10 @@ public class DomainHelper {
           }
         }
         return null;
+      }
+      if ( d instanceof ClassDomain ) {
+        ComparableDomain<T> ard = getEmptyComparableDomain(d);
+        return ard;
       }
     }
     AbstractRangeDomain<T> ard = (AbstractRangeDomain<T>)getDomainForClass( o.getClass() );
@@ -755,6 +747,17 @@ public class DomainHelper {
           return null;
         }
       }
+    } else if ( domain instanceof ClassDomain ) {
+      ClassDomain<?> classDomain = (ClassDomain <?>)domain;
+      ComparableDomain< ? > cd = getEmptyComparableDomain( classDomain );
+      if ( cd != null ) {
+        representativeValues.add( cd );
+      } else {
+        if ( Debug.isOn() ) {
+          Debug.error(false, false, "Could not convert " + domain + " to ComparableDomain");
+        }
+        return null;
+      }
     }
     // Handle non-monotonic stuff
     if ( op == MathOperation.DIVIDE || op == MathOperation.LOG ) {
@@ -846,6 +849,9 @@ public class DomainHelper {
 //        odlb = it.next();
 //        odub = it.next();
 //      }
+    } else if ( domain instanceof ClassDomain ) {
+      ClassDomain<?> classDomain = (ClassDomain<?>)domain;
+      addAll(representativeValues, classDomain, flatten);
     }
     if ( odlb != null || odub != null ) {
 
