@@ -3045,7 +3045,57 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     return compare;
   }
 
-  private static boolean newChanges = true;
+  protected void effectsHandleValueChangeEvent(Parameter<?> parameter, Set<HasParameters> seen) {
+      for ( Pair< Parameter< ? >, Set< Effect > > effectPair : effects ) {
+          if ( effectPair == null ) continue;
+          Parameter< ? > par = effectPair.first;
+          TimeVaryingMap< ? > tvm = null;
+          Object pv = par.getValue();
+          if ( pv instanceof TimeVaryingMap ) {
+              tvm = (TimeVaryingMap< ? >)pv;
+          }
+          if ( par != null && parameter.equals( par ) ) {
+              // nothing to do -- it's already updated
+          }
+
+          Set< Effect > effectSet = effectPair.second;
+          for ( Effect effect : effectSet ) {
+              if ( effect instanceof EffectFunction ) {
+                  EffectFunction efff = (EffectFunction)effect;
+                  TimeVaryingMap< ? > tv =
+                          Functions.tryToGetTimelineQuick( efff.getObject() );
+                  if ( tv != null ) tvm = tv;
+                  if ( tvm == null ) continue;
+                  Pair< Parameter< Long >, Object > timeVal =
+                          tvm.getTimeAndValueOfEffect( efff );
+
+                  // Object v = tvm.getValueOfEffect( efff );
+                  int pos = tvm.getIndexOfValueArgument( efff );
+                  Object arg = pos >= 0 && pos < efff.getArguments().size()
+                          ? efff.getArgument( pos )
+                          : null;
+
+                  if ( HasParameters.Helper.hasParameter( arg, parameter, true, null,
+                          true ) ) {
+                      // unapply and reapply effect
+                      Object owner = tvm.getOwner();
+                      if ( owner instanceof Parameter ) {
+                          Parameter< ? > tvParam = (Parameter< ? >)owner;
+                          if ( efff.isApplied( tvParam ) ) {
+                              tvm.unapply( efff );
+                              if ( tvm.canBeApplied( efff ) ) {
+                                  efff.applyTo( tvm, true );
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+
+  }
+
+  private static boolean newChanges = false;
 
   /*
    * (non-Javadoc)
@@ -3073,50 +3123,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
     // Update effects before other things since they're probably going to be
     // handled more than once, and we want to handle it carefully at first.
-    if ( newChanges ) for ( Pair< Parameter< ? >, Set< Effect > > effectPair : effects ) {
-      if ( effectPair == null ) continue;
-      Parameter< ? > par = effectPair.first;
-      TimeVaryingMap< ? > tvm = null;
-      Object pv = par.getValue();
-      if ( pv instanceof TimeVaryingMap ) {
-        tvm = (TimeVaryingMap< ? >)pv;
-      }
-      if ( par != null && parameter.equals( par ) ) {
-        // nothing to do -- it's already updated
-      }
-      Set< Effect > effectSet = effectPair.second;
-      for ( Effect effect : effectSet ) {
-        if ( effect instanceof EffectFunction ) {
-          EffectFunction efff = (EffectFunction)effect;
-          TimeVaryingMap< ? > tv =
-              Functions.tryToGetTimelineQuick( efff.getObject() );
-          if ( tv != null ) tvm = tv;
-          if ( tvm == null ) continue;
-          Pair< Parameter< Long >, Object > timeVal =
-              tvm.getTimeAndValueOfEffect( efff );
-
-          // Object v = tvm.getValueOfEffect( efff );
-          int pos = tvm.getIndexOfValueArgument( efff );
-          Object arg = pos >= 0 && pos < efff.getArguments().size()
-                                                                    ? efff.getArgument( pos )
-                                                                    : null;
-
-          if ( HasParameters.Helper.hasParameter( arg, parameter, true, null,
-                                                  true ) ) {
-            // unapply and reapply effect
-            Object owner = tvm.getOwner();
-            if ( owner instanceof Parameter ) {
-              Parameter< ? > tvParam = (Parameter< ? >)owner;
-              if ( efff.isApplied( tvParam ) ) {
-                tvm.unapply( efff );
-                if ( tvm.canBeApplied( efff ) ) {
-                  efff.applyTo( tvm, true );
-                }
-              }
-            }
-          }
-        }
-      }
+    if ( newChanges ) {
+        effectsHandleValueChangeEvent(parameter, seen);
     }
 
     // The super class updates the dependencies.
@@ -3241,7 +3249,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     // Alert affected dependencies.
     super.setStaleAnyReferencesTo( changedParameter, seen );
 
-    for ( Event e : getEvents( false, null ) ) {
+    Set<Event> events = getEvents(false, null);
+    for ( Event e : events ) {
       if ( e instanceof ParameterListener ) {
         ( (ParameterListener)e ).setStaleAnyReferencesTo( changedParameter,
                                                           seen );

@@ -77,8 +77,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       setValue( Timepoint.getHorizonTimepoint(), 1L );
     }
   };
-  public static final TimeVaryingMap<Double> time = one.integrate();
-  public static final TimeVaryingMap<Long> longTime = longOne.integrate();
+  public static final TimeVaryingMap<Double> timeDouble = one.integrate();
+  public static final TimeVaryingMap<Long> time = longOne.integrate();
   protected static boolean notDeconstructing = true;
 
   public static class Interpolation  {
@@ -951,7 +951,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       } catch ( IllegalAccessException e ) {
         e.printStackTrace();
       } catch ( InvocationTargetException e ) {
-        e.printStackTrace();
+        if(e.getCause() instanceof IndexOutOfBoundsException) {
+          Debug.error(true, false, e.getCause().getLocalizedMessage());
+        } else {
+          e.printStackTrace();
+        }
+
       } catch ( InstantiationException e ) {
         e.printStackTrace();
       }      
@@ -1948,10 +1953,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( valueBefore != value ) {
         String warningMsg = null;
         if ( value != null && !getType().isAssignableFrom( value.getClass() ) ) {
-          Debug.error( false, warningMsg1(valueBefore, value) );
+          //Debug.error( false, warningMsg1(valueBefore, value) );
         } else {
           if ( Debug.isOn() ) {
-            Debug.errln( warningMsg1(valueBefore, value) );
+            //Debug.errln( warningMsg1(valueBefore, value) );
           }
         }
       }

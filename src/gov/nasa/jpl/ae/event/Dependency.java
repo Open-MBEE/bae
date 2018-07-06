@@ -168,6 +168,9 @@ public class Dependency< T > extends HasIdImpl
       if ( value == null && parameter.getDomain() != null && !parameter.getDomain().isNullInDomain() && parameter.getDomain() instanceof ObjectDomain ) {
         ((ObjectDomain)parameter.getDomain()).add(null);
       }
+      if ( value == null && parameter.getDomain() != null && !parameter.getDomain().isNullInDomain() && parameter.getDomain() instanceof ClassDomain ) {
+        ((ClassDomain)parameter.getDomain()).setNullInDomain(true);
+      }
 
       parameter.setValue( value, propagate );
       return true;
@@ -262,7 +265,8 @@ public class Dependency< T > extends HasIdImpl
     if ( Debug.isOn() ) Debug.outln("Dependency.satisfy() calling ground: " + this );
     if ( expression == null ) return false;
     if ( parameter == null ) return false;
-    expression.ground(deep, null);
+    expression.ground(deep, Utils.asSet(seen, Groundable.class));
+    seen.remove(expression);
     expression.satisfy(deep, seen);
     //if ( expression.isGrounded(deep, null) ) {
       boolean applied = apply( true );

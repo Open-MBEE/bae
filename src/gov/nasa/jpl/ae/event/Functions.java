@@ -5202,7 +5202,7 @@ public class Functions {
     T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
     T r2 = (T)( o2 == null ? null : o2.evaluate( false ) );
     if ( r1 == r2 ) return true;
-    if ( r1 == null || r2 == null ) return false;
+//    if ( r1 == null || r2 == null ) return false;
     Pair< Object, TimeVaryingMap< ? > > p1 = objectOrTimeline( r1 );
     Pair< Object, TimeVaryingMap< ? > > p2 = objectOrTimeline( r2 );
     TimeVaryingMap< ? > tvm1 = p1 == null ? null : p1.second;
@@ -5233,7 +5233,7 @@ public class Functions {
         }
       }
     }
-    if (tvm) {
+    if (tvm && tvmResult != null) {
       boolean allSame = tvmResult.allValuesSame();
       if (allSame) {
         if (!tvmResult.isEmpty()) {
