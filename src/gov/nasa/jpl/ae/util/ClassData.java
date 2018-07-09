@@ -817,7 +817,25 @@ ClassData {
     if ( params != null ) {
       p = params.get( paramName );
     }
-    // If not in the table and an inner class, check enclosing class's scope.
+
+    // if not in table look in superclasses
+    if ( p == null ) {
+      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
+      if ( clsDecl != null ) {
+        List<ClassOrInterfaceType> superclasses =
+                clsDecl.getExtends();
+        if ( superclasses != null ) {
+          for (ClassOrInterfaceType ciType : superclasses) {
+            String superclassName = ciType.toString();
+            p = lookupMemberByName( superclassName, paramName, lookOutsideClassData,
+                    complainIfNotFound && lookOutsideClassData );
+            if ( p != null ) break;
+          }
+        }
+      }
+    }
+
+    // If not in the table and an inner class/super class, check enclosing class's scope.
     if ( p == null && isInnerClass( className ) ) {
       String enclosingClassName = getEnclosingClassName( className );
       if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
@@ -840,23 +858,6 @@ ClassData {
         if ( field != null ) {
           p = new Param( paramName, ClassUtils.toString( field.getType() ),
                          null, classForName.getCanonicalName().replaceAll("<.*>", "") );
-        }
-      }
-    }
-
-    // FIXME -- TODO -- Superclasses should be explored before enclosing classes!!!
-    if ( p == null ) {
-      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
-      if ( clsDecl != null ) {
-        List<ClassOrInterfaceType> superclasses =
-                clsDecl.getExtends();
-        if ( superclasses != null ) {
-          for (ClassOrInterfaceType ciType : superclasses) {
-            String superclassName = ciType.toString();
-            p = lookupMemberByName( superclassName, paramName, lookOutsideClassData,
-                                        complainIfNotFound && lookOutsideClassData );
-            if ( p != null ) break;
-          }
         }
       }
     }
