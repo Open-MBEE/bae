@@ -2291,7 +2291,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 
       // split currentClass from ClassData by "." and check to see if p.scope appears anywhere in that list
       // if p.scope appears in the list, then p.scope is an enclosing class
-      if(Arrays.asList(getClassData().getCurrentClass().split(".")).contains(p.scope)) {
+      if(Arrays.asList(getClassData().getCurrentClass().split(Pattern.quote("."))).contains(p.scope)) {
         objectEnclosingParam = p.scope + ".this";
       } else { // otherwise, param is declared in this (possibly a super class)
         objectEnclosingParam = "this";
