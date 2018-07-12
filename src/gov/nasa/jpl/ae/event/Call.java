@@ -1968,7 +1968,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // System.out.println("setStaleAnyReferencesTo(" + changedParameter.name + ") in " + toShortString() );
 
     // TODO -- REVIEW -- seems like we ought to return
-    if ( stale == false ) {
+//    if ( stale == false ) {
+    if ( !stale ) {
       if ( hasParameter( changedParameter, false, null ) ) {
         this.setStaleOnChangedParameter( true );
       }

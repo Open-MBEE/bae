@@ -1026,6 +1026,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         t.printStackTrace();
       }
     }
+    allConstraints = getConstraints( deep, null );
     // restore domains of things that are not simple variables
     if ( ac != null ) {
       for (Entry<Variable<?>, Domain<?>> e : ac.savedDomains.entrySet()) {
@@ -1064,10 +1065,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + ( allConstraints.size() - unsat.size() )
                           + " constraints; failed to resolve " + unsat.size()
                           + " constraints" );
-      if ( unsat.size() <= 5 ) {
-        for ( Constraint c : unsat ) {
-          System.out.println( "unsatisfied --> " + c );
-        }
+      int printedConstraints = 0;
+      for ( Constraint c : unsat ) {
+        System.out.println( "unsatisfied --> " + c );
+        printedConstraints++;
+        if (printedConstraints >= 100) break;
       }
       t.stop();
       if ( Debug.isOn() ) System.out.println( this.getClass().getName() + " - "
