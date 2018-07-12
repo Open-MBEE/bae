@@ -861,9 +861,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       Class<?> methodClass = member.getDeclaringClass();
       objectMap = (TimeVaryingMap<?>)obj;
       // If the TVM values are compatible with the method's class or, in the case that the TVM value type is not known, and the TVM itself is not compatible with the method's class, then assume that the TVM values are meant to be the instance of the call.
-      if ( ( objectMap.getType() != null && 
-             ( methodClass.isAssignableFrom( objectMap.getType() ) ||
-               TimeVaryingMap.class.isAssignableFrom( methodClass ) ) ) ||
+      if ( ( objectMap.getType() != null && methodClass.isAssignableFrom( objectMap.getType() ) ) ||
           (objectMap.getType() == null && !methodClass.isInstance( obj ) ) ) {
         timePoints.addAll( objectMap.keySet() );
       } else {
