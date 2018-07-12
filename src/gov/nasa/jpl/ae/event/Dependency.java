@@ -267,6 +267,7 @@ public class Dependency< T > extends HasIdImpl
     expression.satisfy(deep, seen);
     T oldValue = parameter.getValueNoPropagate();
     //if ( expression.isGrounded(deep, null) ) {
+    T oldValue = parameter.getValue( false );
       boolean applied = apply( true );
     //} else {
     //  parameter.satisfy(deep, seen);

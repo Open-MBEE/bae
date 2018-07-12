@@ -7,13 +7,13 @@
 	</classpathentry>
 	<classpathentry combineaccessrules="false" kind="src" path="/util"/>
 	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
-	<classpathentry excluding="**/magicdrawPlugin/**" including="**/*.java" kind="src" output="target/classes" path="src">
+	<classpathentry excluding="**/magicdrawPlugin/**|generatedSrc/**/*.java|generatedSrc/**/*.class" including="**/*.java" kind="src" output="target/classes" path="src">
 		<attributes>
 			<attribute name="optional" value="true"/>
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry excluding="**/magicdrawPlugin/**" kind="src" output="target/classes" path="thirdParty/javaparser-1.0.8-src">
+	<classpathentry excluding="**/magicdrawPlugin/**|generatedSrc/**/*.java|generatedSrc/**/*.class" kind="src" output="target/classes" path="thirdParty/javaparser-1.0.8-src">
 		<attributes>
 			<attribute name="optional" value="true"/>
 			<attribute name="maven.pomderived" value="true"/>
@@ -22,7 +22,6 @@
 	<classpathentry excluding="douglascrockford-JSON-java-d15e776/|javaparser-1.0.8-src/" kind="src" path="thirdParty"/>
 	<classpathentry kind="con" path="gov.nasa.jpl.magicdraw.CLASSPATH_LIB_CONTAINER/,update/,lib/,lib/webservice/,lib/graphics"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
-	<!-- <classpathentry kind="src" path="/JavaPlot"/> -->
 	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
 		<attributes>
 			<attribute name="maven.pomderived" value="true"/>

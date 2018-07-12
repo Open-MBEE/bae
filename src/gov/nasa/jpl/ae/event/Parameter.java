@@ -424,6 +424,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
           for ( Constraint c : constraints ) {
             if ( c instanceof ConstraintExpression
                  && ( (ConstraintExpression)c ).expression instanceof Call ) {
+              c.setStale( true, false, null ); // REVIEW - I think the line below handles deep stuff, so we don't need to propagate or give a seen set
               ((Call)((ConstraintExpression)c).expression).setStaleAnyReferencesTo(this, null);
             //.setStale( true );
             } else if ( c instanceof ParameterListener ) {
@@ -931,10 +932,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     //if ( Utils.seen( this, deep, seen ) ) return Utils.getEmptySet();
 
     // check for cached constraints
-//    if ( !Utils.isNullOrEmpty( constraintList ) ) return constraintList;
-//    if ( constraintList == null ) {
+    if ( !Utils.isNullOrEmpty( constraintList ) ) return constraintList;
+    if ( constraintList == null ) {
       constraintList = new ArrayList< Constraint >();
-//    }
+    }
 
     // get domain constraints
     Method method;
