@@ -581,8 +581,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         }
       }
       for ( Dependency< ? > d : getDependencies() ) {
-        if ( !d.isSatisfied( true, Utils.asSet(seen, Satisfiable.class) ) ) {
-          if ( !d.satisfy( true, Utils.asSet(seen, Satisfiable.class) ) ) {
+        Set<Satisfiable> satSet =
+                seen == null ? null : Utils.asSet( seen, Satisfiable.class );
+        if ( !d.isSatisfied( false, satSet ) ) {
+          if ( !d.satisfy( false, satSet) ) {
             satisfied = false;
           }
         }
@@ -2090,7 +2092,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public Set<Event> getEvents(boolean deep, Set<HasEvents> seen) {
     Set<ParameterListenerImpl> objects = getObjects(deep, seen);
-    Set< Event > set = Utils.asSet( objects, Event.class);
+    Set< Event > set = objects == null ? null : Utils.asSet( objects, Event.class);
 
     return set;
 //

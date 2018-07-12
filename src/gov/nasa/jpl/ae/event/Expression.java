@@ -735,7 +735,7 @@ public class Expression< ResultType > extends HasIdImpl
    */
   @Override
   public boolean ground(boolean deep, Set< Groundable > seen) {
-    if (expression instanceof Groundable) {
+    if (expression instanceof Groundable && deep) {
       return ((Groundable)expression).ground(deep, seen);
     }
     if ( expression == null ) {
@@ -856,12 +856,12 @@ public class Expression< ResultType > extends HasIdImpl
 
   @Override
   public boolean isSatisfied(boolean deep, Set< Satisfiable > seen) {
-    return HasParameters.Helper.isSatisfied( this, true, null );
+    return HasParameters.Helper.isSatisfied( this, deep, seen );
   }
 
   @Override
   public boolean satisfy(boolean deep, Set< Satisfiable > seen) {
-    return HasParameters.Helper.satisfy( this, true, null );
+    return HasParameters.Helper.satisfy( this, deep, seen );
   }
 
   @Override

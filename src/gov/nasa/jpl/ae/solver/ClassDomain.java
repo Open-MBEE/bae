@@ -180,7 +180,7 @@ public class ClassDomain< T > implements Domain< T > {
                                                 getType() );
       Object o = cc.evaluate(true);
       if (o instanceof Groundable) {
-        ( (Groundable)o ).ground( true, null );
+        ( (Groundable)o ).ground( false, null );
       }
       return (T)o;
     } catch ( InstantiationException e ) {

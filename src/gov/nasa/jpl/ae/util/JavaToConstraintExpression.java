@@ -2329,10 +2329,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
   }
 
   // Had to dodge the domain code in order to get 'Foo.new Bar()' to work.
-  protected static boolean useObjectDomain = false;
+  protected static boolean useClassDomain = true;
 
   public String getDomainString(String type, String enclosingObject) {
-    if (!useObjectDomain) return "null";
+    if (!useClassDomain ) return "null";
     if (!type.equals( "Integer" ) && !type.equals("Boolean") &&!type.equals( "Double" ) && !type.equals( "String" )) {
       String qType = getClassData().getClassNameWithScope(type);
       if (qType == null) qType = type;
