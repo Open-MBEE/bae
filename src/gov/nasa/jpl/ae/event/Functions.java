@@ -1125,7 +1125,7 @@ public class Functions {
                                                                   // null!
       return new Minus< T, T >( returnValue, otherArg );
     }
-
+    
   }
 
   public static class Add< T, R > extends Sum< T, R > {
@@ -3339,6 +3339,36 @@ public class Functions {
       return new NEQ< T >( this );
     }
 
+    @Override
+    public Domain< ? > calculateDomain( boolean propagate, Set< HasDomain > seen ) {
+      if ( getArguments().size() != 2 ) {
+        return BooleanDomain.defaultDomain;
+      }
+      Object a1 = getArgument( 0 );
+      Object a2 = getArgument( 1 );
+      Domain< ? > d1 = DomainHelper.getDomain( a1 );
+      Domain< ? > d2 = DomainHelper.getDomain( a2 );
+      if ( d1 == null || d2 == null || d1.magnitude() <= 0
+           || d2.magnitude() <= 0 || gov.nasa.jpl.ae.util.Math.isInfinity(d1.magnitude()) || gov.nasa.jpl.ae.util.Math.isInfinity(d2.magnitude()) ) {
+        return BooleanDomain.defaultDomain;
+      }
+      
+      // hasFalse if the symmetric difference is non-empty
+      boolean hasFalse = !(d1.clone().subtract( d2 ).isEmpty() &&
+                           d2.clone().subtract( d1 ).isEmpty() );
+      // hasTrue if the intersection is non-empty
+      Domain< ? > x = d1.clone();
+      x.restrictTo( d2 );
+      boolean hasTrue = !x.isEmpty();
+      if (hasTrue && hasFalse) return BooleanDomain.defaultDomain;
+      if (hasTrue) return BooleanDomain.trueDomain;
+      if (hasFalse) return BooleanDomain.falseDomain;
+      // impossible situation: the domains are badly implemented, can't decide
+      // TODO: perhaps this should be some kind of "empty" domain?
+      System.err.println( "Empty BooleanDomain needed!" );
+      return BooleanDomain.defaultDomain;
+    }
+    
     // @Override
     // public < T1 > T1 pickValue( Variable< T1 > variable ) {
     // return pickValueBB( this, variable );
