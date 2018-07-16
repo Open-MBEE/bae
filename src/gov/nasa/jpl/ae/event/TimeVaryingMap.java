@@ -3478,6 +3478,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return add( n, fromKey, null );
   }
 
+  public V integral() {
+    return integral(new SimpleTimepoint("",0L, this),
+                    new SimpleTimepoint("", Timepoint.horizonDuration, this));
+  }
+
   public V integral(Parameter< Long > fromKey, Parameter< Long > toKey) {
     TimeVaryingMap< V > tvm = integrate(fromKey, toKey, null);
     if ( tvm == null || tvm.isEmpty() ) return tryCastValue( 0 );

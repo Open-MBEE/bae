@@ -271,13 +271,12 @@ public class Dependency< T > extends HasIdImpl
     //  parameter.satisfy(deep, seen);
     //}
     boolean succ = isSatisfied( false, null );
-    if ( expression.form == Form.Function
-         && ( (FunctionCall)expression.expression ).getMethod() != null
-         && ( (FunctionCall)expression.expression ).getMethod().getName()
-                                                   .contains( "minus" ) ) {
-      System.out.println( "minus dep was" + ( applied ? "" : " not" )
-                          + " applied," + ( succ ? "" : " not" )
-                          + " satisfied: " + this );
+    if (succ && !parameter.inDomain()) {
+      succ = false;
+      System.out.println( "Reversing Dependency!" );
+      parameter.setValue( oldValue );
+      seen.remove( this );
+      succ = getConstraintExpression().satisfy( deep, seen );
     }
     return succ;
   }

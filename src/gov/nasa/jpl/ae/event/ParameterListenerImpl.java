@@ -614,6 +614,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     seen = pair.second;
 
     // All parameters that have domains with single values are dependent.
+    if ( seen != null ) seen.remove(this);
     Set<Parameter<?>> params = getParameters(deep, seen);
     for ( Parameter<?> p : params ) {
       if ( p.getDomain() != null && p.getDomain().magnitude() == 1 ) {
@@ -622,50 +623,66 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       // TODO -- check if domain is { null }
     }
 
-    if ( false )
-    for ( Constraint c : getConstraints(deep, null) ) {
-      // Add the dependent variable in a dependency.
-      if ( c instanceof Dependency ) {
-        Dependency<?> d = (Dependency<?>) c;
-        set.add(d.parameter);
-      } else
+    // Add the dependent variable in a dependency.
+    Collection<Dependency<?>> deps = getDependencies();
+    if ( deps != null ) {
+      for ( Dependency d : deps ) {
+        if ( d != null && d.parameter != null ) {
+          set.add( d.parameter );
+        }
+      }
+    }
+
+//    if ( false )
+    Collection<Constraint> cstrs = getConstraints( deep, null );
+    if ( cstrs != null )
+    for ( Constraint c : cstrs ) {
+//      // Add the dependent variable in a dependency.
+//      if ( c instanceof Dependency ) {
+//        Dependency<?> d = (Dependency<?>) c;
+//        set.add(d.parameter);
+//      } else
       // A single parameter on one side of an equals constraint with no free
       // variables on the other side is dependent.
       if ( c instanceof ConstraintExpression ) {
         ConstraintExpression ce = (ConstraintExpression)c;
-        if ( ce.expression instanceof Functions.EQ ) {
-          Vector<Object> args = ((Functions.EQ) ce.expression).getArguments();
-          if ( args != null && args.size() >= 2 ) {  // It should always be 2, but . . .
-            for ( int i = 0; i < args.size(); ++i ) {
-              try {
-                Parameter<?> p = Expression.evaluate(args.get(i), Parameter.class, false);
-                if ( p != null && !set.contains(p) ) {
-                  for ( int j = 0; j < args.size(); ++j ) {
-                    if ( j != i ) {
-                      Object otherArg = args.get( j );
-                      if ( otherArg instanceof HasParameters ) {
-                        if ( !HasParameters.Helper.hasFreeParameter(otherArg, deep, seen) ) {
-                          set.add( p );
-                        }
-                      } else {
-                        set.add( p );
-                      }
-                    }
-                  }
-                }
-              } catch (IllegalAccessException e) {
-                e.printStackTrace();
-              } catch (InvocationTargetException e) {
-                e.printStackTrace();
-              } catch (InstantiationException e) {
-                e.printStackTrace();
-              }
-            }
-          }
+        Pair<Parameter<?>, Object> p = ce.dependencyLikeVar();
+        if ( p != null && p.first != null ) {
+          set.add( p.first );
         }
-//        if ( ((ConstraintExpression) c).form == Expression.Form.Function ) {
-//        } else if (((ConstraintExpression) c).form == Expression.Form.Constructor ) {
+//        if ( ce.expression instanceof Functions.EQ ) {
+//          Vector<Object> args = ((Functions.EQ) ce.expression).getArguments();
+//          if ( args != null && args.size() >= 2 ) {  // It should always be 2, but . . .
+//            for ( int i = 0; i < args.size(); ++i ) {
+//              try {
+//                Parameter<?> p = Expression.evaluate(args.get(i), Parameter.class, false);
+//                if ( p != null && !set.contains(p) ) {
+//                  for ( int j = 0; j < args.size(); ++j ) {
+//                    if ( j != i ) {
+//                      Object otherArg = args.get( j );
+//                      if ( otherArg instanceof HasParameters ) {
+//                        if ( !HasParameters.Helper.hasFreeParameter(otherArg, deep, seen) ) {
+//                          set.add( p );
+//                        }
+//                      } else {
+//                        set.add( p );
+//                      }
+//                    }
+//                  }
+//                }
+//              } catch (IllegalAccessException e) {
+//                e.printStackTrace();
+//              } catch (InvocationTargetException e) {
+//                e.printStackTrace();
+//              } catch (InstantiationException e) {
+//                e.printStackTrace();
+//              }
+//            }
+//          }
 //        }
+////        if ( ((ConstraintExpression) c).form == Expression.Form.Function ) {
+////        } else if (((ConstraintExpression) c).form == Expression.Form.Constructor ) {
+////        }
       }
     }
     return set;
@@ -1719,7 +1736,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( pair.first ) return false;
     seen = pair.second;
     // if ( Utils.seen( this, deep, seen ) ) return false;
-
+    seen.remove(this);
     return !getDependentParameters( deep, seen ).contains( p );
   }
 
@@ -1729,7 +1746,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       if ( d.pickParameterValue( variable ) ) return true;
     }
     for ( ConstraintExpression c : getConstraintExpressions() ) {
-      if ( c.pickParameterValue( variable ) ) return true;
+      if ( c != null && c.pickParameterValue( variable ) ) return true;
     }
     if ( variable instanceof Parameter
          && ( (Parameter< ? >)variable ).getOwner() != this

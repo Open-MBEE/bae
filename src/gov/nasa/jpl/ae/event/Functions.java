@@ -3114,8 +3114,10 @@ public class Functions {
 
     @Override
     public Domain<?> inverseDomain(Domain<?> returnValue, Object argument) {
+      if ( returnValue == null ) return null;
       if ( returnValue.magnitude() > 1 ) return DomainHelper.getDomain( argument );
-      boolean retVal = Utils.isTrue(returnValue.pickRandomValue());
+      Boolean retVal1 = Utils.isTrue(returnValue.pickRandomValue());
+      boolean retVal = retVal1 != null && retVal1;
       FunctionCall inverseCall = invert(retVal, argument);
       Domain<?> d =  inverseCall.getDomain(false, null);
       return d;

@@ -437,10 +437,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-        //if ( "burn1Duration".equals(name) || "maxDischargeDuration".equals(name) || "avgBatteryDischargeRate".equals(name) ) {
 //            System.out.println(
 //                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
-//        //}
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -579,18 +577,19 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( isGrounded(deep, null) ) return true;
     if ( refresh() ) return true;
     if ( isDependent()) return false;
-    if (Parameter.allowPickValue ){
-    	T newValue = pickRandomValue();
-    	if ( newValue != null ) {
-    		setValue( newValue );
-    		return true;
-    	}
-    }
 
     if ( deep && value instanceof Groundable ) {
       ((Groundable)value).ground(deep, seen);
+      if ( isGrounded(deep, null) ) return true;
     }
-    
+
+    if (Parameter.allowPickValue ){
+      T newValue = pickRandomValue();
+      if ( newValue != null ) {
+        setValue( newValue );
+        return true;
+      }
+    }
 
     // If the domain is an ObjectDomain, ground by constructing a new object.
     // This may contribute to thrashing in construction/deconstruction.
