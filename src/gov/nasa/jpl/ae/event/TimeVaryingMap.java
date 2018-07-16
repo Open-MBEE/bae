@@ -885,13 +885,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( call instanceof TimeVaryingFunctionCall ) {
         Object oo = null;
         try {
-          oo = call.evaluateArg( a, pType, true );
+          oo = call.evaluateArg( a, TimeVaryingMap.class, true);
+          if(oo == null || !(oo instanceof TimeVaryingMap)) {
+            oo = call.evaluateArg( a, pType, true );
+          }
         } catch (Throwable e ) {
         }
         if ( oo != null ) a = oo;
-//        if ( a instanceof TimeVaryingMap ) {
-//          objectMap = (TimeVaryingMap< ? >)obj;
-//        }
+
       }
       if ( a instanceof TimeVaryingMap ) {
         TimeVaryingMap<?> tv = (TimeVaryingMap<?>)a;
