@@ -714,12 +714,14 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     if ( lessEquals( lowerBound, lb) ) {
       lowerBound = lb;
       if ( !o.isLowerBoundIncluded() ) excludeLowerBound();
+      else includeLowerBound();
       //else if ( equals( lowerBound, o.lowerBound ) && includeLowerBound()
     }
     T ub = (T)ClassUtils.evaluate( o.upperBound, getType(), true );
     if ( greaterEquals( upperBound, ub) ) {
       upperBound = ub;
       if ( !o.isUpperBoundIncluded() ) excludeUpperBound();
+      else includeUpperBound();
     }
     return this.magnitude() != 0;
   }

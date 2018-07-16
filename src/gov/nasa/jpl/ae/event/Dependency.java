@@ -286,10 +286,11 @@ public class Dependency< T > extends HasIdImpl
 //                          + " satisfied: " + this );
 //    }
     if (succ && !parameter.inDomain()) {
+      succ = false;
       System.out.println( "Reversing Dependency!" );
       parameter.setValue( oldValue );
       seen.remove( this );
-      getConstraintExpression().satisfy( deep, seen );
+      succ = getConstraintExpression().satisfy( deep, seen );
     }
     return succ;
   }

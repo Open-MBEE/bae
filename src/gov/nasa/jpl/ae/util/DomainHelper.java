@@ -59,7 +59,9 @@ public class DomainHelper {
     AbstractRangeDomain<T> d = (AbstractRangeDomain< T >)getDomainForClass( t.getClass() );
     if ( d != null ) {
       d.setLowerBound( t );
+      d.includeLowerBound();
       d.setUpperBound( t );
+      d.includeUpperBound();
     }
     return d;
   }

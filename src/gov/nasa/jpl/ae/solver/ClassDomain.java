@@ -165,7 +165,8 @@ public class ClassDomain< T > implements Domain< T > {
    */
   @Override
   public T pickRandomValue() {
-    return constructObject();
+    return null;
+    //return constructObject();
   }
 
 
