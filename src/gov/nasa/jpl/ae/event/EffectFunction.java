@@ -222,7 +222,7 @@ public class EffectFunction extends FunctionCall implements Effect, HasTimeVaryi
     Object result =  evaluate(propagate, true);
     
     if ( evaluationSucceeded
-         && ( returnValue == null || !returnValue.equals( oldValue ) ) ) {
+         && ( (returnValue == null && oldValue != null) || (returnValue != null && !returnValue.equals( oldValue ) )) ) {
       handleChangeToTimeVaryingMap();
     }
     return result;
