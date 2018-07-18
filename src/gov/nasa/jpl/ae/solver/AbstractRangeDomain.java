@@ -712,15 +712,16 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   public boolean intersectRestrict( AbstractRangeDomain<T> o ) {
     T lb = (T)ClassUtils.evaluate( o.lowerBound, getType(), true );
     if ( lessEquals( lowerBound, lb) ) {
-      lowerBound = lb;
       if ( !o.isLowerBoundIncluded() ) excludeLowerBound();
-      // else includeLowerBound();
+      else if ( !equals( lowerBound, lb ) ) includeLowerBound();
+      lowerBound = lb;
       //else if ( equals( lowerBound, o.lowerBound ) && includeLowerBound()
     }
     T ub = (T)ClassUtils.evaluate( o.upperBound, getType(), true );
     if ( greaterEquals( upperBound, ub) ) {
-      upperBound = ub;
       if ( !o.isUpperBoundIncluded() ) excludeUpperBound();
+      else if ( !equals( upperBound, ub ) ) includeUpperBound();
+      upperBound = ub;
       // else includeUpperBound();
     }
     return this.magnitude() != 0;
