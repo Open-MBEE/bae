@@ -10,18 +10,10 @@ import java.util.Map.Entry;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
+import gov.nasa.jpl.ae.solver.*;
 import junit.framework.Assert;
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.ConstraintLoopSolver;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.mbee.util.Timer;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Solver;
-import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
@@ -1045,6 +1037,23 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         t.printStackTrace();
       }
     }
+
+
+    // assign vars
+    Map<Variable<?>, Domain<?>> original = ac.getDomainState();
+    Set<Variable<?>> vars = ac.getVariables();
+    for (Variable v : vars) {
+      if ( v instanceof Parameter && !( (Parameter)v ).isGrounded( false, null ) ) {
+        boolean s = v.pickValue();
+        if ( s ) {
+          v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ), true, null );
+          ac.arcConsistency( arcConsistencyQuiet );
+        }
+      }
+    }
+    ac.restoreDomains( original );
+
+
     allConstraints = getConstraints( deep, null );
     // restore domains of things that are not simple variables
     if ( ac != null ) {
