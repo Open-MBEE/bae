@@ -35,6 +35,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    Comparable< ParameterListenerImpl > {
 
   public static boolean usingArcConsistency = true;
+  public static boolean assigningVarsWithAC = usingArcConsistency;
   public static boolean arcConsistencyQuiet = true;
   public static boolean usingConstraintLoopSolver = true;
   public static boolean usingDependencyGraphSolver = false;
@@ -419,6 +420,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean setUsingArcConsistency(boolean b) {
     usingArcConsistency = b;
+    return true;
+  }
+
+  public static boolean setAssigningVarsWithAC(boolean b) {
+    assigningVarsWithAC = b;
     return true;
   }
 
@@ -1009,6 +1015,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return satisfied;
   }
 
+  protected boolean firstTryToSatisfy = true;
+
   protected boolean tryToSatisfy( boolean deep, Set< Satisfiable > seen ) {
     ground( deep, null );
     if ( Debug.isOn() ) Debug.outln( this.getClass().getName()
@@ -1037,22 +1045,29 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     }
 
 
-    // assign vars
-    Map<Variable<?>, Domain<?>> original = ac.getDomainState();
-    Set<Variable<?>> vars = ac.getVariables();
-    for (Variable v : vars) {
-      if ( v instanceof Parameter /*&& !( (Parameter)v ).isGrounded( false, null )*/ ) {
-        boolean s = v.pickValue();
-        if ( s ) {
-          v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ), true, null );
-          Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
-          ac.lastConstraintSet = null;
-          ac.arcConsistency( arcConsistencyQuiet, false );
-          ac.lastConstraintSet = lastConstraintSet;
+    // assign vars using arc consistency
+    if (usingArcConsistency && assigningVarsWithAC) {
+      Map<Variable<?>, Domain<?>> original = ac.getDomainState();
+      Set<Variable<?>> vars = ac.getVariables();
+      for ( Variable v : vars ) {
+        Parameter p = v instanceof Parameter ? (Parameter)v : null;
+        if ( p != null && ( firstTryToSatisfy ||
+                            !p.isGrounded( false, null ) ||
+                            !p.inDomain() ) ) {
+          boolean s = v.pickValue();
+          if ( s ) {
+            v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
+                              true, null );
+            Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
+            ac.lastConstraintSet = null;
+            ac.arcConsistency( arcConsistencyQuiet, false );
+            ac.lastConstraintSet = lastConstraintSet;
+          }
         }
       }
+      firstTryToSatisfy = false;
+      ac.restoreDomains( original );
     }
-    ac.restoreDomains( original );
 
 
     allConstraints = getConstraints( deep, null );
@@ -1065,20 +1080,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       }
     }
 
-    // Now assign values to variables within their domains to satisfy
-    // constraints.
     boolean satisfied = false;
-    if ( usingConstraintLoopSolver ) {
-      satisfied = solver.solve( allConstraints );
-    }
-
-//    if (!satisfied ) {
     if ( usingDependencyGraphSolver ) {
       System.out.println( "Dependency solver" );
       solver2 = new DependencyGraphSolver( allConstraints );
       satisfied = solver2.solveDependencies();
     }
-//    }
+
+    // Now assign values to variables within their domains to satisfy
+    // constraints.
+    if ( usingConstraintLoopSolver ) {
+      satisfied = solver.solve( allConstraints );
+    }
 
     //System.out.println( MoreToString.Helper.toShortString( allConstraints ) );
     if ( usingArcConsistency ) {
