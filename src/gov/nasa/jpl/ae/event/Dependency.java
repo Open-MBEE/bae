@@ -270,21 +270,13 @@ public class Dependency< T > extends HasIdImpl
       seen.remove( expression );
     }
     expression.satisfy(deep, seen);
+    T oldValue = parameter.getValueNoPropagate();
     //if ( expression.isGrounded(deep, null) ) {
-    T oldValue = parameter.getValue( false );
       boolean applied = apply( true );
     //} else {
     //  parameter.satisfy(deep, seen);
     //}
     boolean succ = isSatisfied( false, null );
-//    if ( expression.form == Form.Function
-//         && ( (FunctionCall)expression.expression ).getMethod() != null
-//         && ( (FunctionCall)expression.expression ).getMethod().getName()
-//                                                   .contains( "minus" ) ) {
-//      System.out.println( "minus dep was" + ( applied ? "" : " not" )
-//                          + " applied," + ( succ ? "" : " not" )
-//                          + " satisfied: " + this );
-//    }
     if (succ && !parameter.inDomain()) {
       succ = false;
       System.out.println( "Reversing Dependency!" );
