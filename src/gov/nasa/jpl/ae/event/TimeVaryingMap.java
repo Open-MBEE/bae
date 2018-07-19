@@ -1738,23 +1738,24 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return v;
   }
 
-  public Long interpolatedTime(Parameter< Long> t1, Parameter< Long> t2, V v1, V v, V v2 ) {
-    Long l1 = t1.getValue( false );
-    Long l2 = t2.getValue( false );
-    if ( Utils.valuesEqual( v1, v2 ) ) return l1;
+  public Double interpolatedTime(Parameter< Long> t1, Parameter< Long> t2, V v1, V v, V v2 ) {
     if ( t1 == null ) return null;
-    if ( t2 == null ) return l1;
+    Long l1 = t1.getValue( false );
+    if ( t2 == null ) return new Double(l1);
+    if ( Utils.valuesEqual( v1, v2 ) ) return new Double(l1);
+    Long l2 = t2.getValue( false );
     // floorVal+(ceilVal-floorVal)*(key-floorKey)/(ceilKey-floorKey)
     return interpolatedTime( l1, l2, v1, v, v2 );
   }
 
   // t = t1 + ((v - v1) / (v2 - v1)) + (t2 - t1)
-  public Long interpolatedTime(Long t1, Long t2, V v1, V v, V v2 ) {
+  public Double interpolatedTime(Long t1, Long t2, V v1, V v, V v2 ) {
     Object x = null;
     try {
-      x = Functions.plus( t1, Functions.divide(
+      x = Functions.plus( new Double(t1),
+                          Functions.divide(
                                       Functions.times(
-                                              Functions.minus( t2, t1 ),
+                                              Functions.minus( new Double(t2), new Double(t1) ),
                                               Functions.minus( v, v1 ) ),
                                       Functions.minus( v2, v1 ) ) );
     } catch ( ClassCastException e ) {
@@ -1767,7 +1768,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       e.printStackTrace();
     }
     if ( x instanceof Number ) {
-      return ( (Number)x ).longValue();
+      return ( (Number)x ).doubleValue();
     }
     return null;
   }
@@ -4661,6 +4662,9 @@ String n = owner instanceof HasName
   
   public static TimeVaryingMap<Boolean> compare(TimeVaryingMap<?> map, Number n, boolean reverse, Inequality i) {
     if ( map == null ) return null;
+    if ( map.getInterpolation().isLinear() && Number.class.isAssignableFrom( map.type ) ) {
+      return compareUsingInterpolation(new TimeVaryingMap<>( map, Number.class ), n, reverse, i);
+    }
     TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
     // handle time zero
     if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
@@ -4668,7 +4672,7 @@ String n = owner instanceof HasName
       Boolean value = null;
       if ( (mapVal != null && n != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
         value = reverse ? doesInequalityHold( n, mapVal, i )
-                : doesInequalityHold( mapVal, n, i );
+                        : doesInequalityHold( mapVal, n, i );
       }
       result.setValue( SimpleTimepoint.zero, value );
     }
@@ -4706,6 +4710,65 @@ String n = owner instanceof HasName
                         : doesInequalityHold( mapVal, o, i );
       }
       result.setValue( e.getKey(), value );
+    }
+    result.removeDuplicates();
+    return result;
+  }
+  
+  public static <V extends Number> TimeVaryingMap<Boolean> compareUsingInterpolation(TimeVaryingMap<V> map, V n, boolean reverse, Inequality i) {
+    if (map == null) return null;
+    TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
+    Parameter<Long> previousTimepoint = null;
+    V previousValue = null;
+    boolean isEqOrNeq = i == Inequality.EQ || i == Inequality.NEQ;
+    boolean isStrict  = i == Inequality.GT || i == Inequality.LT;
+    // handle time zero
+    if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
+      V mapVal = map.getValue( 0L );
+      Boolean value = null;
+      if ( (mapVal != null && n != null) || isEqOrNeq ) {
+        value = reverse ? doesInequalityHold( n, mapVal, i )
+                        : doesInequalityHold( mapVal, n, i );
+      }
+      result.setValue( SimpleTimepoint.zero, value );
+      previousTimepoint = SimpleTimepoint.zero;
+      previousValue  = mapVal;
+    }
+    for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
+      V mapVal = map.getValue( e.getKey() );
+      if ( (mapVal == null || n == null) && !isEqOrNeq ) {
+        result.setValue( e.getKey(), null );
+      } if (previousTimepoint == null || previousValue == null ||
+            ((mapVal == null || n == null) && isEqOrNeq) ) {
+        Boolean value = reverse ? doesInequalityHold( n, mapVal, i )
+                                : doesInequalityHold( mapVal, n, i );
+        result.setValue( e.getKey(), value );
+      } else {
+        if (CompareUtils.compare( previousValue, n ) != CompareUtils.compare( mapVal, n )) {
+          // crossed n
+          Double changeTimeExact = map.interpolatedTime( previousTimepoint, e.getKey(), previousValue, n, mapVal );
+          if (changeTimeExact == null) {
+            System.err.println( "AHHHH!" );
+          }
+          Parameter<Long> changeTimeDiscrete = new SimpleTimepoint(
+                new Double(isStrict ? Math.floor( changeTimeExact + 1 ) : Math.ceil( changeTimeExact )).longValue());
+          if (isEqOrNeq) {
+            result.setValue( changeTimeDiscrete, i == Inequality.EQ ); // true at map = n when using equality to compare
+            result.setValue( new SimpleTimepoint(changeTimeDiscrete.getValue() + 1), i != Inequality.EQ ); // opposite of what it is at map = n
+          } else {
+            // this is an inequality, use endpoint value to make comparison stable, but set at transition point
+            result.setValue( changeTimeDiscrete, reverse ? doesInequalityHold( n, mapVal, i )
+                                                         : doesInequalityHold( mapVal, n, i ) );
+          }
+        } else {
+          // REVIEW - do we even need to set a point here?
+          Boolean value = reverse ? doesInequalityHold( n, mapVal, i )
+                                  : doesInequalityHold( mapVal, n, i );
+          result.setValue( e.getKey(), value );
+        }
+      }
+      previousTimepoint = e.getKey();
+      previousValue = mapVal;
     }
     result.removeDuplicates();
     return result;
