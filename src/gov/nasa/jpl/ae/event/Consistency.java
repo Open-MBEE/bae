@@ -158,7 +158,12 @@ public class Consistency {
   }
 
   public boolean arcConsistency( boolean quiet ) {
-    saveDomains();
+    return arcConsistency( quiet, true );
+  }
+  public boolean arcConsistency( boolean quiet, boolean save ) {
+    if (save) {
+      saveDomains();
+    }
     if ( lastConstraintSet != null && lastArcConsistencySolution != null
          && constraints instanceof Set
          && setsEqual( lastConstraintSet, (Set< Constraint >)constraints ) ) {// lastConstraintSet.equals( allConstraints ) ) {

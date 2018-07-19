@@ -1041,11 +1041,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     Map<Variable<?>, Domain<?>> original = ac.getDomainState();
     Set<Variable<?>> vars = ac.getVariables();
     for (Variable v : vars) {
-      if ( v instanceof Parameter && !( (Parameter)v ).isGrounded( false, null ) ) {
+      if ( v instanceof Parameter /*&& !( (Parameter)v ).isGrounded( false, null )*/ ) {
         boolean s = v.pickValue();
         if ( s ) {
           v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ), true, null );
-          ac.arcConsistency( arcConsistencyQuiet );
+          Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
+          ac.lastConstraintSet = null;
+          ac.arcConsistency( arcConsistencyQuiet, false );
+          ac.lastConstraintSet = lastConstraintSet;
         }
       }
     }
