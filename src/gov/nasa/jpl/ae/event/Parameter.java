@@ -3,15 +3,12 @@ package gov.nasa.jpl.ae.event;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.Vector;
 
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.CollectionTree;
@@ -21,6 +18,8 @@ import gov.nasa.jpl.ae.solver.HasConstraints;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.ObjectDomain;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.solver.RangeDomain;
 import gov.nasa.jpl.ae.solver.Satisfiable;
@@ -30,9 +29,10 @@ import gov.nasa.jpl.ae.solver.Variable;
  *
  */
 public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
-                            Comparable< Parameter< ? > >, Satisfiable, Node,
-                            Variable< T >, LazyUpdate, HasConstraints, HasOwner,
-                            MoreToString, Deconstructable {
+                                                         Comparable< Parameter< ? > >, Satisfiable, Node,
+                                                         Variable< T >, LazyUpdate, HasConstraints, HasOwner,
+                                                         MoreToString, Deconstructable,
+                                                         UsesClock {
   public static final Set< Parameter< ? > > emptySet =
       new TreeSet< Parameter< ? > >();
 
@@ -53,6 +53,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   protected boolean stale;
   protected List< Constraint > constraintList = new ArrayList< Constraint >();
   protected boolean deconstructed = false;
+  protected long lastUpdated = LamportClock.tick();
 
   public Parameter() {}
 
@@ -416,7 +417,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + this.toString( true, false, null ) + ")" );
         setValueOwner(val);
         // lazy/passive updating
-        owner.setStaleAnyReferencesTo( this, null );
+        if ( LamportClock.usingLamportClock ) {
+          owner.setStaleAnyReferencesTo( this, null );
+        }
 
         // set isGrounded constraint stale
         Collection<Constraint> constraints = getConstraints(true, null);
@@ -448,6 +451,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
       T oldValue = this.value;
       this.value = val;
+      lastUpdated = LamportClock.tick();
 
       // add reference
       if ( this.value instanceof Deconstructable ) {
@@ -466,6 +470,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                          + "): handleValueChangeEvent("
                                          + this.toString( true, false, null ) + ")" );
+        // REVIEW -- should we call this when usingLamportClock?
         owner.handleValueChangeEvent( this, null );
       }
     }
@@ -907,6 +912,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   @Override
   public void setStale( boolean staleness ) {
+    if ( staleness ) {
+      //System.err.println( "WARNING!  Why are we setting parameter " + getName() + " stale?!!!" );
+    }
     if ( Debug.isOn() ) {
       if ( stale != staleness ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
@@ -1099,5 +1107,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     //}
   }
 
-
+  @Override public long getLastUpdated() {
+    if ( value != null && value instanceof UsesClock ) {
+      long tt = ( (UsesClock)value ).getLastUpdated();
+      if ( tt > lastUpdated ) {
+        lastUpdated = tt;
+      }
+    }
+    return lastUpdated;
+  }
 }

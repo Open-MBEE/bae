@@ -10,6 +10,8 @@ import java.util.Map.Entry;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import junit.framework.Assert;
 import gov.nasa.jpl.ae.solver.CollectionTree;
 import gov.nasa.jpl.ae.solver.Constraint;
@@ -40,7 +42,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    Groundable, Satisfiable, ParameterListener,
                                    HasConstraints, HasTimeVaryingObjects,
                                    HasOwner, HasEvents,
-                                   Comparable< ParameterListenerImpl > {
+                                   Comparable< ParameterListenerImpl >,
+                                                                UsesClock {
 
   public static boolean usingArcConsistency = true;
   public static boolean arcConsistencyQuiet = true;
@@ -85,6 +88,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean usingCollectionTree = false;
   protected Object owner = null;
   protected Object enclosingInstance = null;
+  protected long lastUpdated = LamportClock.tick();
+
   // TODO -- Need to keep a collection of ParameterListeners (just as
   // DurativeEvent has getEvents())
 
@@ -1658,6 +1663,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public void setStaleAnyReferencesTo( Parameter< ? > changedParameter,
                                        Set< HasParameters > seen ) {
+    if ( LamportClock.usingLamportClock ) {
+      return;
+    }
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if ( p.first ) return;
     seen = p.second;
@@ -2166,4 +2174,15 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return set;
   }
 
+  @Override public long getLastUpdated() {
+    long t = lastUpdated;
+    for ( Parameter p : parameters ) {
+      long pt = p.getLastUpdated();
+      if (pt > t) {
+        t = pt;
+      }
+    }
+    lastUpdated = t;
+    return lastUpdated;
+  }
 }

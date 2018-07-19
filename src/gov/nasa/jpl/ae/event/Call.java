@@ -5,16 +5,15 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,6 +24,9 @@ import java.util.Vector;
 
 import junit.framework.Assert;
 
+import static gov.nasa.jpl.ae.util.LamportClock.tick;
+import static gov.nasa.jpl.ae.util.LamportClock.usingLamportClock;
+
 public abstract class Call extends HasIdImpl implements HasParameters,
                                                         ParameterListener,
                                                         HasDomain,
@@ -32,7 +34,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
                                                         Comparable< Call >,
                                                         MoreToString,
                                                         Cloneable,
-                                                        Wraps<Object> {
+                                                        Wraps<Object>,
+                                                        UsesClock {
 
   /**
    * A function call on the result of this function call.
@@ -51,7 +54,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public boolean alwaysNotStale = false;
 
   public Object returnValue = null;  // a cached value
-  
+
+  public long lastUpdated = tick();
+
   protected boolean proactiveEvaluation = false;
   
   abstract public Class<?>[] getParameterTypes();
@@ -94,7 +99,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( isStatic() ) return null;
     return getMember().getDeclaringClass();
   }
-  
+
+  @Override public long getLastUpdated() {
+    return lastUpdated;
+  }
+
   static boolean simpleDeconstruct = true;
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.Deconstructable#deconstruct()
@@ -516,6 +525,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
       if ( evaluationSucceeded ) {
         setReturnValue( newValue );
+        lastUpdated = tick();
 
         // No longer stale after invoked with updated arguments and result is cached.
         setStale( false );
@@ -1254,6 +1264,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
             return true;
           }
         }
+        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+          setStale( true );
+          return true;
+        }
       }
     }
 
@@ -1263,7 +1277,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
 
     for ( Parameter< ? > p : getParameters( false, null ) ) {
-      if ( p.isStale() && ( !( p.getValueNoPropagate() instanceof ParameterListenerImpl ) || !isGetMember() ) ) {
+      if ( usingLamportClock && p.getLastUpdated() > getLastUpdated() ) {
+        setStale( true );
+        return true;
+      }
+      if ( !usingLamportClock && p.isStale() && ( !( p.getValueNoPropagate() instanceof ParameterListenerImpl ) || !isGetMember() ) ) {
         setStale( true );
         return true;
       }
