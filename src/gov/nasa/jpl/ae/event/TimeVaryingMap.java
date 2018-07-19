@@ -15,6 +15,8 @@ import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.StringDomain;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
@@ -49,7 +51,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                             ParameterListener,
                                             HasOwner,
                                             AspenTimelineWritable,
-                                            HasDomain {
+                                            HasDomain,
+                                            UsesClock {
 
   protected static boolean checkConsistency = false;
 
@@ -80,6 +83,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public static final TimeVaryingMap<Double> timeDouble = one.integrate();
   public static final TimeVaryingMap<Long> time = longOne.integrate();
   protected static boolean notDeconstructing = true;
+
+  protected static long lastUpdated = LamportClock.tick();
+  @Override public long getLastUpdated() {
+    return lastUpdated;
+  }
 
   public static class Interpolation  {
     public static final byte STEP = 0; // value for key = get(floorKey( key ))
@@ -1104,6 +1112,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      * this, so it is not needed when an EffectFunction is changing this map.
      */
     public void setStaleAnyReferencesToTimeVarying() {
+        if ( LamportClock.usingLamportClock ) {
+          lastUpdated = LamportClock.tick();
+          return;
+        }
         //System.out.println("setStaleAnyReferencesToTimeVarying(): " + toShortString() );
         Pair<Parameter<?>, ParameterListener> pair = getTimeVaryingMapOwners();
         if ( pair != null && pair.first != null && pair.second != null ) {
@@ -1117,6 +1129,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      * is changing this map.
      */
     public void handleChangeToTimeVaryingMap() {
+        // REVIEW -- should we do this is not usingLamportClock?
         Pair<Parameter<?>, ParameterListener> pair = getTimeVaryingMapOwners();
         if ( pair != null && pair.second != null ) {
             pair.second.handleValueChangeEvent( pair.first, null );
@@ -1556,6 +1569,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if (p.first) return;
     seen = p.second;
+
+    if ( LamportClock.usingLamportClock ) {
+      Debug.error( "ERROR!  Should not be calling setStaleAnyReferencesTo() when using Lamport clock!!" );
+    }
 
     if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + ")" );
     if ( changedParameter == null ) return;
