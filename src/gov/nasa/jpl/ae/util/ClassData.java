@@ -1435,9 +1435,9 @@ ClassData {
     if ( Utils.isNullOrEmpty( type ) ) {
       //type = "null";
     } else if ( type.toLowerCase().equals( "time" ) ) {
-      type = "Long";
+      type = "Time";
     } else if ( type.toLowerCase().equals( "duration" ) ) {
-      type = "Long";
+      type = "Time"; // REVIEW - should this be a Duration instead?
     } else {
       String classType = JavaToConstraintExpression.typeToClass( type );
       final String[] primClassesSame =
