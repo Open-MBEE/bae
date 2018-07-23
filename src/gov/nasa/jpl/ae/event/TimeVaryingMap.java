@@ -4753,13 +4753,13 @@ String n = owner instanceof HasName
     }
     for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
       V mapVal = map.getValue( e.getKey() );
+      Boolean compValue = reverse ? doesInequalityHold( n, mapVal, i )
+                              : doesInequalityHold( mapVal, n, i );
       if ( (mapVal == null || n == null) && !isEqOrNeq ) {
         result.setValue( e.getKey(), null );
-      } if (previousTimepoint == null || previousValue == null ||
+      } else if (previousTimepoint == null || previousValue == null ||
             ((mapVal == null || n == null) && isEqOrNeq) ) {
-        Boolean value = reverse ? doesInequalityHold( n, mapVal, i )
-                                : doesInequalityHold( mapVal, n, i );
-        result.setValue( e.getKey(), value );
+        result.setValue( e.getKey(), compValue );
       } else {
         if (CompareUtils.compare( previousValue, n ) != CompareUtils.compare( mapVal, n )) {
           // crossed n
@@ -4774,15 +4774,10 @@ String n = owner instanceof HasName
             result.setValue( new SimpleTimepoint(changeTimeDiscrete.getValue() + 1), i != Inequality.EQ ); // opposite of what it is at map = n
           } else {
             // this is an inequality, use endpoint value to make comparison stable, but set at transition point
-            result.setValue( changeTimeDiscrete, reverse ? doesInequalityHold( n, mapVal, i )
-                                                         : doesInequalityHold( mapVal, n, i ) );
+            result.setValue( changeTimeDiscrete, compValue );
           }
-        } else {
-          // REVIEW - do we even need to set a point here?
-          Boolean value = reverse ? doesInequalityHold( n, mapVal, i )
-                                  : doesInequalityHold( mapVal, n, i );
-          result.setValue( e.getKey(), value );
         }
+        result.setValue( e.getKey(), compValue );
       }
       previousTimepoint = e.getKey();
       previousValue = mapVal;

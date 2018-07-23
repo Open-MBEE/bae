@@ -441,8 +441,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-//            System.out.println(
-//                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
+            System.out.println(
+                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
