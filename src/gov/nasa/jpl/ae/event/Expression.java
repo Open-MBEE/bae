@@ -886,10 +886,14 @@ public class Expression< ResultType > extends HasIdImpl
       }
       return new SingleValueDomain<ResultType>( (ResultType)expression ); // since expression is not null
     case Parameter:
-      return ((Parameter<ResultType>)expression).getDomain( propagate, seen );
+      Domain<ResultType> paramDomain = ((Parameter<ResultType>)expression).getDomain( propagate, seen );
+      if (paramDomain != null) paramDomain = paramDomain.clone();
+      return paramDomain;
     case Function:
     case Constructor:
-      return (Domain< ResultType >)((Call)expression).getDomain( propagate, seen );
+      Domain<ResultType> functionDomain = (Domain< ResultType >)((Call)expression).getDomain( propagate, seen );
+      if (functionDomain != null) functionDomain = functionDomain.clone();
+      return functionDomain;
     case None:
     default:
       Debug.error(true, false, "Error! getDomain(): Expression has invalid type: " + form );

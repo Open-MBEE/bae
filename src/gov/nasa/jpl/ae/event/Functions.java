@@ -3417,6 +3417,77 @@ public class Functions {
       ( (AbstractFiniteRangeDomain)r ).fixToIncludeBounds();
     }
   }
+  
+  /**
+   * Restricts left and right to be consistent with left <= right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @return true iff either domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLTE( Domain<T> left, Domain<T> right ) {
+    return restrictDomainsByLT(left, right, false);
+  }
+  /**
+   * Restricts left and right to be consistent with left < right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @return true iff either domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLT( Domain<T> left, Domain<T> right ) {
+    return restrictDomainsByLT(left, right, true);
+  }
+  /**
+   * Restricts left and right to be consistent with left < right or left <= right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @param strict Set to true to use strict inequality (left < right), or to false to use non-strict (left <= right)
+   * @return A pair of booleans, (changedLeft, changedRight), true iff corresponding domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLT( Domain<T> left, Domain<T> right, boolean strict ) {
+    boolean changedLeft  = false;
+    boolean changedRight = false;
+    
+    if (left instanceof RangeDomain< ? > &&
+        right instanceof RangeDomain< ? >) {
+      RangeDomain< T > l  = (RangeDomain< T >)left;
+      RangeDomain< T > r = (RangeDomain< T >)right;
+      
+      T llo = l.getLowerBound();
+      T lhi = l.getUpperBound();
+      T rlo = r.getLowerBound();
+      T rhi = r.getUpperBound();
+      
+      if (l.less( rhi, lhi )) {
+        l.setUpperBound( rhi );
+        if (!strict && r.includeUpperBound()) {
+          l.includeUpperBound();
+        }
+        changedLeft = true;
+      }
+      if (l.includeUpperBound() &&
+          l.lessEquals( rhi, lhi ) &&
+          (strict || !r.includeUpperBound())) {
+        excludeUpperBound( l );
+        changedLeft = true;
+      }
+      
+      if (l.less( rlo, llo )) {
+        r.setLowerBound( llo );
+        if (!strict && l.includeLowerBound()) {
+          r.includeLowerBound();
+        }
+        changedRight = true;
+      }
+      if (r.includeLowerBound() &&
+          l.lessEquals( rlo, llo ) &&
+          (strict || !l.includeLowerBound())) {
+        excludeLowerBound( r );
+        changedRight = true;
+      }
+    }
+    
+    return new Pair<>(changedLeft, changedRight);
+  }
 
   public static class LT< T > extends BooleanBinary< T > {
     public LT( Expression< T > o1, Expression< T > o2 ) {
@@ -3562,76 +3633,24 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLT( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      } else {
+        changes = restrictDomainsByLTE( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        ard1 = ard1.clone();
-        ard2 = ard2.clone();
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), ard2.isLowerBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), ard1.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( !ard2.isLowerBoundIncluded() && ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( !ard1.isUpperBoundIncluded() && ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        }
+      if (c1) {
+        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+      }
+      if (c2) { 
+        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
       }
       return changed;
     }
@@ -3784,74 +3803,24 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLTE( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      } else {
+        changes = restrictDomainsByLT( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), ard2.isUpperBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), ard2.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( !ard2.isUpperBoundIncluded() && ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( !ard1.isLowerBoundIncluded() && ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || p.second;
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || p.second;
-            }
-          }
-        }
+      if (c1) {
+        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+      }
+      if (c2) { 
+        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
       }
       return changed;
     }
@@ -4007,74 +3976,24 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLT( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      } else {
+        changes = restrictDomainsByLTE( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || (p!= null && p.second);
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), ard2.isUpperBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), ard2.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( !ard2.isUpperBoundIncluded() && ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || (p != null && p.second);
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( !ard1.isLowerBoundIncluded() && ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || (p != null && p.second);
-            }
-          }
-        }
+      if (c1) {
+        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+      }
+      if (c2) { 
+        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
       }
       return changed;
     }
@@ -4228,74 +4147,24 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLTE( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      } else {
+        changes = restrictDomainsByLT( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), ard2.isLowerBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), ard1.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( !ard2.isLowerBoundIncluded() && ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second ) );
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( !ard1.isUpperBoundIncluded() && ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        }
+      if (c1) {
+        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+      }
+      if (c2) { 
+        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
       }
       return changed;
     }
