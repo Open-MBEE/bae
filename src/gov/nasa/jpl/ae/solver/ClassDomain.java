@@ -183,18 +183,17 @@ public class ClassDomain< T > implements Domain< T > {
       if (o instanceof Groundable) {
         ( (Groundable)o ).ground( false, null );
       }
-      return (T)o;
+      if (o != null) {
+        return (T)o;
+      } else {
+        return (T)getType().newInstance();
+      }
     } catch ( InstantiationException e ) {
       e.printStackTrace();
     } catch ( IllegalAccessException e ) {
       e.printStackTrace();
     } catch ( InvocationTargetException e ) {
       e.printStackTrace();
-    }
-    try {
-      return (T)getType().newInstance();
-    } catch ( InstantiationException e ) {
-    } catch ( IllegalAccessException e ) {
     }
     return null;
   }

@@ -2351,9 +2351,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
           }
         }
       }
-      if ( !Utils.isNullOrEmpty(enclosingObject) ) {
-        return "new ClassDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
-      }
+      String qTypeNoGenerics = qType.replaceAll( "<.*>", "" );
+      return "new ClassDomain<" + qType + ">( ((Class<" + qType + ">)((Object)" + qTypeNoGenerics + ".class))" +
+        (!Utils.isNullOrEmpty( enclosingObject ) ? ", " + enclosingObject : "") + " )";
     }
     return "null";
   }
@@ -2402,25 +2402,14 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // parameterTypes = getFullyQualifiedName( parameterTypes, true );
     parameterTypes = getClassData().getClassNameWithScope( parameterTypes, true );
     String castType = parameterTypes;
-    if ( Utils.isNullOrEmpty( p.value ) ) {
-      p.value = "null";
-    }
-    // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
-    // do not include p.value?
-    String valueArg = javaToAeExpr( p.value, p.type, true, true, true );
     String typePlaceholder = "!TYPE!";
-    String domain = getDomainString(p.type, enclosingObject);
-//    // if ( valueArg.equals( "null" )
-//    // || ( valueArg.startsWith( "new Expression" ) &&
-//    // valueArg.endsWith( "(null)" ) ) ) {
-    if ( evaluateForType ) {
-      valueArg = "Expression.evaluate(" + valueArg + ", " + typePlaceholder +
-                 ".class, true)"; // replacing !TYPE! later
-    } else {
-      valueArg = "(" + typePlaceholder + ")" + valueArg; // replacing !TYPE! later
+    String valuePlaceholder = "!VALUE!";
+    if ( Utils.isNullOrEmpty( p.value ) ) {
+//      p.value = "null";
+      p.value = "new " + typePlaceholder + "()";
     }
-//    // }
-    String args = "\"" + p.name + "\"," + domain + ", " + valueArg + ", this";
+    String domain = getDomainString(p.type, enclosingObject);
+    String args = "\"" + p.name + "\"," + domain + ", " + valuePlaceholder + ", this";
     String parameterClass =
         ClassData.typeToParameterType( p.type );
     if ( Utils.isNullOrEmpty( p.type ) ) {
@@ -2432,7 +2421,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null; // "Integer";
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
         
         if ( p.value != null && !Utils.isNullOrEmpty( p.value.trim() )
              && Character.isDigit( p.value.trim().charAt( 0 ) ) && !castType.contains( "." )) {
@@ -2444,7 +2433,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       if ( !type.equals( "Parameter" ) ) {
         parameterTypes = null;
         if ( !Utils.isNullOrEmpty( castType ) ) {
-          args = "\"" + p.name + "\", " + valueArg + ", this";
+          args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
         }
       }
     } else if ( p.type.toLowerCase().equals( "time" ) ) {
@@ -2452,7 +2441,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
         castType = "Long";
       }
     } else if ( p.type.toLowerCase().startsWith( "int" )
@@ -2462,7 +2451,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null; // "Integer";
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.toLowerCase().equals( "double" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2471,7 +2460,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.toLowerCase().equals( "boolean" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2480,7 +2469,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.equals( "String" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2502,26 +2491,47 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         parameterTypes = ttype.substring( bpos, epos );
       }
     }
+    String valueArg;
+    String castTypeNoParams = "";
+    
     if ( Utils.isNullOrEmpty( castType ) ) {
-      if ( evaluateForType ) {
-        String typePlaceholder2 = typePlaceholder + ".class";
-        args = args.replace(typePlaceholder2, "null");
-        valueArg = valueArg.replace(typePlaceholder2, "null");
-      } else {
-        String typePlaceholder1 = "(" + typePlaceholder + ")";
-        args = args.replace(typePlaceholder1, "");
-        valueArg = valueArg.replace(typePlaceholder1, "");
+      if (p.value.contains( typePlaceholder )) {
+        p.value = "null"; // tried to be smart, but couldn't figure out the type, so give up
       }
     } else {
-      String castTypeNoParams;
       if ( evaluateForType ) {
         castTypeNoParams = castType.replaceFirst("<.*>", "");
       } else {
         castTypeNoParams = castType;
       }
-      args = args.replace( typePlaceholder, castTypeNoParams );
-      valueArg = valueArg.replace( typePlaceholder, castTypeNoParams );
+      p.value = p.value.replace( typePlaceholder, castTypeNoParams );
     }
+    // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
+    // do not include p.value?
+    valueArg = javaToAeExpr( p.value, p.type, true, true, true );
+    if ( evaluateForType ) {
+      valueArg = "Expression.evaluate(" + valueArg + ", " + typePlaceholder +
+                 ".class, true)"; // replacing !TYPE! later
+    } else {
+      valueArg = "(" + typePlaceholder + ")" + valueArg; // replacing !TYPE! later
+    }
+    
+    if ( Utils.isNullOrEmpty( castType ) ) {
+      if ( evaluateForType ) {
+        String typePlaceholder2 = typePlaceholder + ".class";
+        args = args.replace(typePlaceholder2, "null");
+        valueArg = valueArg.replace( typePlaceholder2, "null" );
+      } else {
+        String typePlaceholder1 = "(" + typePlaceholder + ")";
+        args = args.replace(typePlaceholder1, "");
+        valueArg = valueArg.replace( typePlaceholder1, "" );
+      }
+    } else {
+      args = args.replace( typePlaceholder, castTypeNoParams );
+      valueArg = valueArg.replaceAll( typePlaceholder, castTypeNoParams );
+    }
+    
+    args = args.replace( valuePlaceholder, valueArg );
 
     // HACK -- TODO
     if ( args.contains( ", new FunctionCall" ) && "Parameter".equals( type ) ) {
