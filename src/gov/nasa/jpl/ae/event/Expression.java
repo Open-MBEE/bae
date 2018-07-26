@@ -703,7 +703,7 @@ public class Expression< ResultType > extends HasIdImpl
   @Override
   public boolean isGrounded(boolean deep, Set< Groundable > seen) {
     if ( expression == null && form != Form.Value) return false;
-    if (expression instanceof Groundable) {
+    if (deep && expression instanceof Groundable) {
       return ((Groundable)expression).isGrounded(deep, seen);
     }
 //    if ( expression == null ) {
@@ -716,7 +716,9 @@ public class Expression< ResultType > extends HasIdImpl
     case Parameter: // Groundable -- should not get here
     case Function: // Groundable -- should not get here
     case Constructor: // Groundable -- should not get here
+      return true;
     case None:
+      return false;
     default:
       Debug.error(true, false, "Error! isGrounded(): Expression has invalid type: " + form );
       if ( Debug.isOn() ) { 

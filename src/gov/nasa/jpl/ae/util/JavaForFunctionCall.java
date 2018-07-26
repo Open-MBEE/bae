@@ -333,6 +333,14 @@ public class JavaForFunctionCall {
 
       this.expression = expression;
 
+      // detect the case where an expression like foo = Bar(a :: b, c :: d)
+      // turns into a MethodCall of Bar, when it should have been a constructor
+      // WARNING - this will break the case where a class 
+//      boolean isConstructorLikeMethod =
+//          expression instanceof MethodCallExpr &&
+//          exprXlator.getClassData().isClassName( ((MethodCallExpr)expression).getName() );
+//      boolean isMethodCall = !isConstructorLikeMethod && expression instanceof MethodCallExpr;
+//      boolean isConstructorCall = isConstructorLikeMethod || expression instanceof ObjectCreationExpr;
       boolean isMethodCall = expression instanceof MethodCallExpr;
       boolean isConstructorCall = expression instanceof ObjectCreationExpr;
       setMethodOrConstructor( isMethodCall ? true
@@ -929,6 +937,18 @@ public class JavaForFunctionCall {
                                                                                  .getConstructors( getCallName() ) ) );
       constructorDecl = null;
       if ( !Utils.isNullOrEmpty( ctors ) ) {
+//        Class< ? >[] argTypes = getArgTypes();
+//        if (argTypes == null) argTypes = new Class< ? >[0];
+//        if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
+//          Class< ? >[] newArgTypes = new Class< ? >[ argTypes.length + 1 ];
+//          String encName = getExprXlator().getClassData().getEnclosingClassName( callName );
+////          newArgTypes[0] = getExprXlator().getClassData().getAeClass( encName, false ).getClass();
+//          newArgTypes[0] = getExprXlator().getClassData().
+//          for ( int i = 0; i < argTypes.length; ++i ) {
+//            newArgTypes[i + 1] = argTypes[i];
+//          }
+//          argTypes = newArgTypes;
+//        }
         constructorDecl =
             getBestArgTypes( ctors, getArgTypes(), getPreferredPackageName() );
         if ( constructorDecl == null ) {
@@ -1305,9 +1325,9 @@ public class JavaForFunctionCall {
         if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
           methodJavaSb.append( ", " + getExprXlator().getClassData().getEnclosingClassName( callName ) + ".class" );
         }
-        if ( getConstructorDecl() != null ) {
-          if ( getConstructorDecl() != null
-               && getConstructorDecl().getParameters() != null ) {
+        ConstructorDeclaration cDecl = getConstructorDecl();
+        if ( cDecl != null ) {
+          if ( cDecl.getParameters() != null ) {
             for ( japa.parser.ast.body.Parameter parameter : getConstructorDecl().getParameters() ) {
               methodJavaSb.append( ", " );
               methodJavaSb.append( ClassUtils.noParameterName( parameter.getType()
