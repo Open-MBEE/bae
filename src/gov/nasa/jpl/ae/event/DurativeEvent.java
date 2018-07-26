@@ -1511,6 +1511,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
    */
   @Override
   public void execute() {
+    if(mode != SolvingMode.SATISFY) {
+        optimize();
+        return;
+    }
+
     // REVIEW -- differentiate between execute for simulation and execute in
     // external environment?
     if ( Debug.isOn() ) Debug.outln( getName() + ".execute()" );
@@ -1572,6 +1577,153 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       e1.printStackTrace();
     }
 
+  }
+
+  public void optimize() {
+      if(mode == SolvingMode.SATISFY) {
+          System.err.println("in optimize(): mode is set to SATISFY!");
+          return;
+      }
+
+      if(objectiveParamName == null || targetParamName == null) {
+          System.err.println("objective and target parameters unknown");
+          return;
+      }
+
+      Timer timer = new Timer();
+      System.out.println( getName() + ".optimize(): starting stop watch" );
+
+      Parameter objective = this.getParameter(objectiveParamName);
+      Parameter target = this.getParameter(targetParamName);
+
+      if(objective == null) {
+          System.err.println("could not find objective parameter " + objectiveParamName);
+          return;
+      }
+
+      if(target == null) {
+          System.err.println("could not find target parameter " + targetParamName);
+          return;
+      }
+
+      if(objective.getType() != Double.class || target.getType() != Double.class) {
+          System.err.println("objective has type " + objective.getType() + " and target has type " + target.getType());
+          System.err.println("both types should be Double/Real");
+          return;
+      }
+
+      System.out.println("Initial solve:");
+      // solve first to get an initial constraint
+      boolean satisfied = satisfy( true, null );
+
+      // bail if failed to solve initially
+      if(!satisfied) {
+          Collection< Constraint > constraints = getConstraints( true, null );
+          Collection< Constraint > unsatisfiedConstraints =
+                  ConstraintLoopSolver.getUnsatisfiedConstraints( constraints );
+          if ( unsatisfiedConstraints.isEmpty() ) {
+              System.out.println( ( constraints.size()
+                      - unsatisfiedConstraints.size() )
+                      + " out of " + constraints.size()
+                      + " constraints were satisfied!" );
+              System.err.println( getName() + "'s constraints were not satisfied!" );
+          } else {
+              System.err.println( "Could not resolve the following "
+                      + unsatisfiedConstraints.size()
+                      + " constraints for " + getName() + ":" );
+              for ( Constraint c : unsatisfiedConstraints ) {
+                  System.err.println( c.toString() );
+                  c.isSatisfied( true, null ); // REVIEW -- can look shallow since
+                  // constraints
+                  // were gathered deep?!
+              }
+          }
+
+          return;
+      }
+
+      Double bestSoFar = (Double) objective.getValue();
+      Double bound = null;
+
+      // set the initial next value to try
+      Double nextToTry;
+      // if we are maximizing and the initial value given is negative, try the positive version since doubling doesn't work
+      // vice versa for minimizing
+      if(mode == SolvingMode.MAXIMIZE && bestSoFar < 0 || mode == SolvingMode.MINIMIZE && bestSoFar > 0) {
+          nextToTry = -bestSoFar;
+      } else if(bestSoFar == 0) { // if the initial solution is 0, (arbitrarily) try 64 (for max) or -64 (for min)
+          nextToTry = mode == SolvingMode.MAXIMIZE ? 64.0 : -64.0;
+      } else { // otherwise just double the best so far
+          nextToTry = bestSoFar*2.0;
+      }
+
+      // construct the ConstraintExpression to be added to the list
+      Expression<Boolean> constraintFunction;
+      if(mode == SolvingMode.MAXIMIZE) {
+          constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+      } else {
+          constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+      }
+
+      ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+      constraintExpressions.add(optimizingConstraint);
+
+      // keep going until we are confident in our value to a certain threshold
+      while(bound == null || Math.abs(bestSoFar - bound) > objectiveThreshold) {
+          System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
+          satisfied = satisfy(true, null);
+
+          if(satisfied) {
+              System.out.println("succesfully satisfied with " + objectiveParamName + " = " + nextToTry);
+
+              bestSoFar = nextToTry;
+          } else {
+              System.out.println("unsuccessful with " + objectiveParamName + " = " + nextToTry);
+
+              bound = nextToTry;
+          }
+
+          // pick next value
+          if(bound == null) { // keep looking for the bound
+              //bound is capped by Double
+              if(Math.abs(bestSoFar) > Double.MAX_VALUE*0.5) {
+                  bound = mode == SolvingMode.MAXIMIZE ? Double.MAX_VALUE : -Double.MAX_VALUE;
+              }
+              nextToTry = bestSoFar*2.0;
+          } else { // binary search
+              nextToTry = bestSoFar*0.5 + bound*0.5;
+          }
+
+          Object underlyingExpression = optimizingConstraint.expression;
+          if(underlyingExpression instanceof Call) {
+              Object rhsValue = ((Call) underlyingExpression).arguments.get(1);
+              if(rhsValue instanceof Expression) {
+                  ((Expression) rhsValue).expression = new Expression<Double>(nextToTry);
+              } else {
+                  System.err.println("rhsValue is not an Expression - aborting");
+                  return;
+              }
+          } else {
+              System.err.println("underlyingExpression is not a Call - aborting");
+              return;
+          }
+
+          this.setAllParametersToStale();
+      }
+
+      System.out.println("finished optimizing with " + objectiveParamName + " = " + nextToTry);
+      target.value = bestSoFar; // no setValue to avoid messiness with staleness
+
+      timer.stop();
+      System.out.println( "\n" + getName()
+              + ".optimize(): Time taken to optimize:" );
+      System.out.println( timer );
+
+      Collection< Constraint > constraints = getConstraints( true, null );
+      System.out.println( "All " + constraints.size() + " constraints: " );
+      for ( Constraint c : constraints ) {
+          System.out.println( "Constraint: " + c );
+      }
   }
 
   public EventSimulation createEventSimulation() {

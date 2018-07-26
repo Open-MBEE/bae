@@ -26,6 +26,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+
 /**
  * A class that manages Parameters, Dependencies, and Constraints.
  *
@@ -82,6 +83,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected Object owner = null;
   protected Object enclosingInstance = null;
   protected long lastUpdated = LamportClock.tick();
+
+  public enum SolvingMode {
+    MINIMIZE, MAXIMIZE, SATISFY
+  };
+
+  // for optimization
+  public static SolvingMode mode = SolvingMode.SATISFY;
+  //protected static DoubleParameter objectiveParam = null;
+  public static String objectiveParamName = null;
+  //protected static DoubleParameter target = null;
+  public static String targetParamName = null;
+  public static final Double objectiveThreshold = 0.0001;
 
   // TODO -- Need to keep a collection of ParameterListeners (just as
   // DurativeEvent has getEvents())
@@ -151,6 +164,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public void setAllConstraintsToStale() {
     for(ConstraintExpression c : constraintExpressions) {
       c.setStale(true, true, null);
+    }
+  }
+
+  public void setAllParametersToStale() {
+    for(Parameter p : parameters) {
+      p.setStale(true);
     }
   }
 
