@@ -688,7 +688,15 @@ public class JavaForFunctionCall {
           if ( enclosingClass.equals( getClassName() ) ) {
             setObject( "this" );
           } else {
-            setObject( enclosingClass + ".this" );
+            // trim this down to most specific enclosing class:
+            while ( !getClassName().startsWith(enclosingClass) ) {
+              enclosingClass = enclosingClass.replaceAll( "\\.[^.]*$", "" ); // trim last class
+            }
+            if ( Utils.isNullOrEmpty( enclosingClass ) ) {
+              setObject("null");
+            } else {
+              setObject( enclosingClass + ".this" );
+            }
           }
         } else {
           setObject( "null" );
@@ -1122,8 +1130,24 @@ public class JavaForFunctionCall {
 
     List< Expression > argExprs = getArgExpressions();
     if ( argExprs != null ) {
-      argTypes = new Class< ? >[ argExprs.size() ];
-      for ( int i = 0; i < argExprs.size(); ++i ) {
+      int numArgs = argExprs.size();
+      // REVIEW - this is an attempt to make the init args fn smarter at injecting the enclosing object
+      // TODO - Actually implement this, or fix all of the places where the enclosing object should have been given to this, rather than injecting it
+//      if ( !methodOrConstructor &&
+//           exprXlator.getClassData().isInnerClass( callName ) &&
+//           exprXlator.getClassData().getAllEnclosingClassNames( callName ).contains( exprXlator.getClassData().getCurrentClass() )) {
+//        // Inject enclosing class arg
+//        numArgs++;
+//        String encName = exprXlator.getClassData().getEnclosingClassName( callName );
+//        if (encName.equals( exprXlator.getClassData().getCurrentClass() )) {
+//          encName = "this";
+//        } else {
+//          encName += ".this";
+//        }
+//        argExprs.add( 0, JavaToConstraintExpression.parseExpression( encName ) );
+//      }
+      argTypes = new Class< ? >[ numArgs ];
+      for ( int i = 0; i < numArgs; ++i ) {
         String argClassName = exprXlator.astToAeExprType( argExprs.get( i ), null, true, complainIfNotFound);
         List< Class<?>> classList = ClassUtils.getClassesForName( argClassName, false);
         if (classList != null && classList.size() > 1) {
@@ -1139,13 +1163,17 @@ public class JavaForFunctionCall {
             }
           }
           if (containsJavaPrimitive && restScala) {
-            argTypes[i] = javaPrimitiveClass;
+            argTypes[ i ] = javaPrimitiveClass;
           }
         } else {
           argTypes[ i ] =
               ClassUtils.getClassForName( argClassName,
                                           null, getPreferredPackageName(),
                                           false );
+        }
+        if (argTypes[ i ] == null) {
+          argTypes[ i ] =
+              exprXlator.getClassData().getAeClass( argClassName, false ).getClass();
         }
         Object arg =
             exprXlator.astToAeExpression( argExprs.get( i ),
@@ -1274,6 +1302,9 @@ public class JavaForFunctionCall {
         methodJavaSb.append( "ClassUtils.getConstructorForArgTypes("
                              + ClassUtils.noParameterName( callName )
                              + ".class" );
+        if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
+          methodJavaSb.append( ", " + getExprXlator().getClassData().getEnclosingClassName( callName ) + ".class" );
+        }
         if ( getConstructorDecl() != null ) {
           if ( getConstructorDecl() != null
                && getConstructorDecl().getParameters() != null ) {
