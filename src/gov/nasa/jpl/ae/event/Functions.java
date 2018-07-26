@@ -1560,6 +1560,37 @@ public class Functions {
       return new GetMember< T, R >( this );
     }
 
+    @Override
+    public Set<Parameter<?>> getParameters(boolean deep, Set<HasParameters> seen) {
+      // don't need seen since we won't be recursing anyways?
+//      Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+//      if ( pair.first ) return Utils.getEmptySet();
+//      seen = pair.second;
+
+      Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? >>();
+      Object retVal = this.returnValue;
+
+      if(retVal instanceof Parameter) {
+        set.add((Parameter) retVal);
+      } else if(retVal instanceof Expression) {
+        Parameter p = null;
+        try {
+          p = Expression.evaluate(retVal, Parameter.class, true);
+        } catch (IllegalAccessException e) {
+          e.printStackTrace();
+        } catch (InvocationTargetException e) {
+          e.printStackTrace();
+        } catch (InstantiationException e) {
+          e.printStackTrace();
+        }
+        if(p != null) {
+          set.add(p);
+        }
+      }
+
+      return set;
+    }
+
 
     @Override
     public <T1> T1 pickValue(Variable<T1> variable) {
