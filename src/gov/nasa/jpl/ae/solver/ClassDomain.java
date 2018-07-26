@@ -300,5 +300,8 @@ public class ClassDomain< T > implements Domain< T > {
     return null;
   }
 
-
+  @Override
+  public String toString() {
+    return "class " + type.getSimpleName() + (enclosingObject != null ? " in " + enclosingObject.toString() : "");
+  }
 }

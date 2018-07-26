@@ -1538,6 +1538,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         }
       }
       
+      if ( result != null && result.equals("Time") ) {
+        result = "Long";
+      }
+      
       if ( complainIfNotFound && (result == null || result.length() <= 0) )
         Debug.errorOnNull( "Error! null type for expression " + expr + "!", result );
       if ( Debug.isOn() ) Debug.outln( "astToAeExprType(" + expr + ") = " + result );
@@ -2405,8 +2409,13 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     String typePlaceholder = "!TYPE!";
     String valuePlaceholder = "!VALUE!";
     if ( Utils.isNullOrEmpty( p.value ) ) {
-//      p.value = "null";
-      p.value = "new " + typePlaceholder + "()";
+      if ( Utils.isNullOrEmpty( p.type ) ||
+           p.type.toLowerCase().equals( "time" ) ||
+           ClassUtils.getPrimitives().containsKey( p.type.toLowerCase() ) ) {
+        p.value = "null";
+      } else {
+        p.value = "new " + typePlaceholder + "()";
+      }
     }
     String domain = getDomainString(p.type, enclosingObject);
     String args = "\"" + p.name + "\"," + domain + ", " + valuePlaceholder + ", this";
@@ -2504,7 +2513,17 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       } else {
         castTypeNoParams = castType;
       }
-      p.value = p.value.replace( typePlaceholder, castTypeNoParams );
+      if ( getClassData().isInnerClass( castTypeNoParams ) ) {
+        String ctnpEnclosing = getClassData().getEnclosingClassName( castTypeNoParams );
+        if ( !getClassData().getCurrentClass().equals( ctnpEnclosing ) &&
+             !getClassData().getAllEnclosingClassNames( getClassData().getCurrentClass() ).contains( ctnpEnclosing ) ) {
+          // since this is inner to a sibling class, can't decide on the instance right now
+          // so set to null and hope someone later sets it to an object
+          p.value = "null"; // REVIEW
+        } else {
+          p.value = p.value.replace( typePlaceholder, castTypeNoParams );
+        }
+      }
     }
     // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
     // do not include p.value?
