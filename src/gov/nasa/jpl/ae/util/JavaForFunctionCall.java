@@ -1746,7 +1746,7 @@ public class JavaForFunctionCall {
         // 5.
         if ( method == null ) {
           // checking the ae.util and mbee.util packages
-          String[] packages = new String[]{"gov.nasa.jpl.ae.util", "gov.nasa.jpl.mbee.util"};
+          String[] packages = new String[]{"gov.nasa.jpl.ae.util", "gov.nasa.jpl.mbee.util", "gov.nasa.jpl.k2mms"};
 
           // Check to see if they exist.
           if ( !checkedUtilPackages ) {
