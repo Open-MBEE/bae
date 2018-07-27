@@ -1191,10 +1191,6 @@ public class JavaForFunctionCall {
                                           null, getPreferredPackageName(),
                                           false );
         }
-        if (argTypes[ i ] == null) {
-          argTypes[ i ] =
-              exprXlator.getClassData().getAeClass( argClassName, false ).getClass();
-        }
         Object arg =
             exprXlator.astToAeExpression( argExprs.get( i ),
                                           ClassUtils.toString( argTypes[ i ] ),
