@@ -223,8 +223,12 @@ public class Consistency {
   }
 
   public boolean arcConsistencySolve(boolean quiet) {
+    boolean oldPrintOnRD = Parameter.printOnRestrictDomain;
+    boolean oldPrintOnSV = Parameter.printOnSetValue;
     if ( !quiet ) {
       System.out.println( "Arc consistency problem:\n" + toString() );
+      Parameter.printOnRestrictDomain = true;
+      Parameter.printOnSetValue = true;
     }
 
     long ct = 0;
@@ -253,6 +257,8 @@ public class Consistency {
       System.out.println();
     }
 
+    Parameter.printOnRestrictDomain = oldPrintOnRD;
+    Parameter.printOnSetValue = oldPrintOnSV;
     return succeeded;
   }
   

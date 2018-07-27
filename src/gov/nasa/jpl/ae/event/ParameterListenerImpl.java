@@ -1058,11 +1058,18 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       Set<Variable<?>> vars = ac.getVariables();
       for ( Variable v : vars ) {
         Parameter p = v instanceof Parameter ? (Parameter)v : null;
-        if ( p != null && ( firstTryToSatisfy ||
-                            !p.isGrounded( false, null ) ||
-                            !p.inDomain() ) ) {
-          boolean s = v.pickValue();
-          if ( s ) {
+        boolean hasGoodValue = false;
+        if (p != null) {
+          if (firstTryToSatisfy || !p.isGrounded( false, null ) || !p.inDomain()) {
+            hasGoodValue = v.pickValue();
+            if (!hasGoodValue && !arcConsistencyQuiet) {
+              System.out.println( "Warning! Arc Consistency couldn't pick good value for " + v );
+            }
+          } else {
+            hasGoodValue = true; // no need to pick a new one, v is grounded and in domain
+          }
+          if (hasGoodValue) {
+            // regardless of how v got a good value, propagate the effects of choosing that value
             v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
                               true, null );
             Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
