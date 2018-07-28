@@ -45,6 +45,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   // These are for debug validation.
   public static boolean mayPropagate = true;
   public static boolean mayChange = true;
+  public static boolean printOnSetValue = false;
+  public static boolean printOnRestrictDomain = false;
 
   protected String name = null;
   public Domain< T > domain = null;
@@ -441,8 +443,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-            System.out.println(
-                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
+//            System.out.println(
+//                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -461,7 +463,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         ((Deconstructable)oldValue).subtractReference();
       }
 
-
+      if (printOnSetValue) {
+        System.out.println( "Set value of Parameter " + toShortString() + 
+                            " from " + MoreToString.Helper.toShortString( oldValue ) + 
+                            " to " + MoreToString.Helper.toShortString( val ) );
+      }
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                        + "): value set!" );
       //constraintList.clear();
@@ -1053,6 +1059,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       this.constraintList.clear();
       if ( owner != null ) {
         owner.handleDomainChangeEvent( this, null );
+      }
+      if (printOnRestrictDomain) {
+        System.out.println( "Restricted domain of Parameter " + toShortString() + " from " + d + " to " + this.domain );
       }
       if ( Debug.isOn() ) {
         if ( Debug.isOn() ) Debug.outln( "Changed domain of "
