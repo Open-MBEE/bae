@@ -696,13 +696,16 @@ public class JavaForFunctionCall {
           if ( enclosingClass.equals( getClassName() ) ) {
             setObject( "this" );
           } else {
-            // trim this down to most specific enclosing class:
-            while ( !getClassName().startsWith(enclosingClass) ) {
-              enclosingClass = enclosingClass.replaceAll( "\\.[^.]*$", "" ); // trim last class
-            }
+//            setObject("null");
+//            // trim this down to most specific enclosing class:
+//            while ( enclosingClass != null && !getClassName().startsWith(enclosingClass) ) {
+//              enclosingClass = getExprXlator().getClassData().getEnclosingClassName( enclosingClass );
+//            }
             if ( Utils.isNullOrEmpty( enclosingClass ) ) {
               setObject("null");
             } else {
+              // REVIEW -- This wouldn't work if the enclosing class was part of "this"
+              // so we should make sure it's not possible to reach this case.
               setObject( enclosingClass + ".this" );
             }
           }
@@ -1191,10 +1194,6 @@ public class JavaForFunctionCall {
                                           null, getPreferredPackageName(),
                                           false );
         }
-        if (argTypes[ i ] == null) {
-          argTypes[ i ] =
-              exprXlator.getClassData().getAeClass( argClassName, false ).getClass();
-        }
         Object arg =
             exprXlator.astToAeExpression( argExprs.get( i ),
                                           ClassUtils.toString( argTypes[ i ] ),
@@ -1322,8 +1321,10 @@ public class JavaForFunctionCall {
         methodJavaSb.append( "ClassUtils.getConstructorForArgTypes("
                              + ClassUtils.noParameterName( callName )
                              + ".class" );
+        if ( false ) {
         if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
           methodJavaSb.append( ", " + getExprXlator().getClassData().getEnclosingClassName( callName ) + ".class" );
+        }
         }
         ConstructorDeclaration cDecl = getConstructorDecl();
         if ( cDecl != null ) {

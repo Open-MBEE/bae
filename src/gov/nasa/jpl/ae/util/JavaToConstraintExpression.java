@@ -2355,6 +2355,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
           }
         }
       }
+// This commented out code was replaced by the code below.  Not sure about this.  -- BJC
+//      if ( !Utils.isNullOrEmpty(enclosingObject) ) {
+//        return "new ClassDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
+//      }
       String qTypeNoGenerics = qType.replaceAll( "<.*>", "" );
       return "new ClassDomain<" + qType + ">( ((Class<" + qType + ">)((Object)" + qTypeNoGenerics + ".class))" +
         (!Utils.isNullOrEmpty( enclosingObject ) ? ", " + enclosingObject : "") + " )";
@@ -2513,17 +2517,17 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       } else {
         castTypeNoParams = castType;
       }
-      if ( getClassData().isInnerClass( castTypeNoParams ) ) {
-        String ctnpEnclosing = getClassData().getEnclosingClassName( castTypeNoParams );
-        if ( !getClassData().getCurrentClass().equals( ctnpEnclosing ) &&
-             !getClassData().getAllEnclosingClassNames( getClassData().getCurrentClass() ).contains( ctnpEnclosing ) ) {
-          // since this is inner to a sibling class, can't decide on the instance right now
-          // so set to null and hope someone later sets it to an object
-          p.value = "null"; // REVIEW
-        } else {
-          p.value = p.value.replace( typePlaceholder, castTypeNoParams );
-        }
-      }
+//      if ( getClassData().isInnerClass( castTypeNoParams ) ) {
+//        String ctnpEnclosing = getClassData().getEnclosingClassName( castTypeNoParams );
+//        if ( !getClassData().getCurrentClass().equals( ctnpEnclosing ) &&
+//             !getClassData().getAllEnclosingClassNames( getClassData().getCurrentClass() ).contains( ctnpEnclosing ) ) {
+//          // since this is inner to a sibling class, can't decide on the instance right now
+//          // so set to null and hope someone later sets it to an object
+//          p.value = "null"; // REVIEW
+//        }
+//      } else {
+        p.value = p.value.replace( typePlaceholder, castTypeNoParams );
+//      }
     }
     // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
     // do not include p.value?

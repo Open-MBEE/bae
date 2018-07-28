@@ -3678,10 +3678,14 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
-      if (c2) { 
-        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
+      if (c2) {
+        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
       return changed;
     }
@@ -3848,10 +3852,14 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
-      if (c2) { 
-        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
+      if (c2) {
+        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
       return changed;
     }
@@ -4021,10 +4029,14 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
-      if (c2) { 
-        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
+      if (c2) {
+        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
       return changed;
     }
@@ -4192,10 +4204,14 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        changed |= Boolean.TRUE.equals( e1.restrictDomain( d1, true, null ).second );
+        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
-      if (c2) { 
-        changed |= Boolean.TRUE.equals( e2.restrictDomain( d2, true, null ).second );
+      if (c2) {
+        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
+        Boolean didChange = p == null ? false : p.second;
+        changed |= Boolean.TRUE.equals( didChange );
       }
       return changed;
     }
