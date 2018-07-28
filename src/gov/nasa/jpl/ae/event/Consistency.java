@@ -243,9 +243,9 @@ public class Consistency {
     
     System.out.println();
     if ( succeeded ) {
-      System.out.println( "Arc consistency completed after " + (ct+1) + " passes at the constraints. Variables:" );
+      System.out.println( "Arc consistency completed after " + (ct+1) + " passes at the constraints." + (quiet ? "" : " Variables:") );
     } else {
-      System.out.println( "Arc consistency failed to complete after " + (ct+1) + " passes at the constraints. Variables:" );
+      System.out.println( "Arc consistency failed to complete after " + (ct+1) + " passes at the constraints."+ (quiet ? "" : " Variables:") );
     }
     System.out.println();
     if ( !quiet ) {
