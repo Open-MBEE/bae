@@ -1063,6 +1063,10 @@ public class Expression< ResultType > extends HasIdImpl
       Object result2 = Evaluatable.Helper.evaluate( result, cls, propagate, true );
       if ( result2 != null ) return (TT)result2;
     }
+    // TODO -- uncomment the code below to ensure objects of the specified type.
+    //if ( result != null && cls != null && !cls.isAssignableFrom( result.getClass() ) ) {
+    //  result = null;
+    //}
     return (TT)result;
   }
   

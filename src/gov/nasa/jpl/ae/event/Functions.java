@@ -3206,6 +3206,7 @@ public class Functions {
               //argEval = evaluatedArgs[isArgFirst ? 0 : 1];
               if (eqReturnValue) {
                 otherArgEval = evaluatedArgs[isArgFirst ? 1 : 0];
+                evaluationSucceeded = true;
                 return otherArgEval;
 //              } else {
 //                if (Expression.valuesEqual(argEval, otherArgEval)) {
@@ -3230,6 +3231,7 @@ public class Functions {
 //            if ( x instanceof Evaluatable ) {
 //              return ((Evaluatable) x).evaluate(null, false);
             }
+            evaluationSucceeded = true;
             return x;
           }
 
@@ -5235,7 +5237,7 @@ public class Functions {
     return b;
   }
 
-  protected static <T> Boolean eq( T r1, T r2 ) {
+  public static <T> Boolean eq( T r1, T r2 ) {
     if ( Expression.valuesEqual( r1, r2, null, true, true )) return true;
     if ( Utils.valuesLooselyEqual( r1, r2, true ) ) return true;
     if ( r1 == null || r2 == null ) return false;
@@ -6158,6 +6160,12 @@ public class Functions {
     if ( variable instanceof Parameter ) {
       for ( Object arg : arguments ) {
         if ( arg == null ) continue;
+        Object o = null;
+        try {
+          o = Expression.evaluate(arg, Variable.class, false, false);
+        } catch ( Throwable e ) {
+        }
+        boolean eq = o != null && variable.equals( o );
         if ( Expression.valuesEqual( variable, arg, Parameter.class )
              || ( arg instanceof HasParameters
                   && ( (HasParameters)arg ).hasParameter( (Parameter< ? >)variable,
