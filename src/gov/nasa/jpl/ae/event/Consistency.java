@@ -180,7 +180,9 @@ public class Consistency {
   public boolean restrictDomainsForConstraintExpression(ConstraintExpression cx, boolean quiet) {
     Pair<Domain<Boolean>,Boolean> p = cx.restrictDomain( BooleanDomain.trueDomain, true, null );
     if ( p!= null && !quiet && Boolean.TRUE.equals(p.second) ) {
-      System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
+      if ( !quiet ) {
+        System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
+      }
     }
     boolean restrictedSomething = (p!=null && Boolean.TRUE.equals(p.second));
     return restrictedSomething;
@@ -218,7 +220,9 @@ public class Consistency {
           cct += num;
         }
       }
-      System.out.println("At least " + cct + " domain changes.");
+      if ( !quiet ) {
+        System.out.println( "At least " + cct + " domain changes." );
+      }
       return cct > 0;
   }
 
@@ -234,9 +238,13 @@ public class Consistency {
     long ct = 0;
     boolean succeeded = false;
     long maxCount = constraints.size() * constraints.size() + 1;
-    System.out.println("arc consistency max rounds = " + maxCount);
+    if ( !quiet ) {
+      System.out.println( "arc consistency max rounds = " + maxCount );
+    }
     while ( ct < maxCount && ct < 100 ) {
-      System.out.println("arc consistency round " + (ct+1));
+      if ( !quiet ) {
+        System.out.println( "arc consistency round " + ( ct + 1 ) );
+      }
       boolean restrictedSomething = restrictDomainsForConstraints(constraints, quiet);
       if ( !restrictedSomething ) {
         succeeded = true;
@@ -244,15 +252,17 @@ public class Consistency {
       }
       ++ct;
     }
-    
-    System.out.println();
+
+    if ( !quiet ) {
+      System.out.println();
+    }
     if ( succeeded ) {
       System.out.println( "Arc consistency completed after " + (ct+1) + " passes at the constraints." + (quiet ? "" : " Variables:") );
     } else {
       System.out.println( "Arc consistency failed to complete after " + (ct+1) + " passes at the constraints."+ (quiet ? "" : " Variables:") );
     }
-    System.out.println();
     if ( !quiet ) {
+      System.out.println();
       System.out.println( variablesToString() );
       System.out.println();
     }
