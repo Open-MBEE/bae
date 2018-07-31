@@ -1700,11 +1700,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
               Expression<Boolean> boundConstraintFunction;
               if ( mode == SolvingMode.MAXIMIZE ) {
-                  boundConstraintFunction = new Expression<>( new Functions.GreaterEquals<>(
+                  boundConstraintFunction = new Expression<>( new Functions.LessEquals<>(
                           new Expression<Double>( objective ),
                           new Expression<>( bound ) ) );
               } else {
-                  boundConstraintFunction = new Expression<>( new Functions.LessEquals<>(
+                  boundConstraintFunction = new Expression<>( new Functions.GreaterEquals<>(
                           new Expression<Double>( objective ),
                           new Expression<>( bound ) ) );
               }
