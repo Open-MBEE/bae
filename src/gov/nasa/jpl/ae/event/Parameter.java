@@ -390,7 +390,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     T castVal = null;
     try {
       try {
-        castVal = (T)Expression.evaluate( val, getType(), propagateChange, false);
+        // REVIEW - why did we disallow wrapping here, before?
+        castVal = (T)Expression.evaluate( val, getType(), propagateChange, true);
       } catch ( Throwable t ) {
       }
       val = castVal;
