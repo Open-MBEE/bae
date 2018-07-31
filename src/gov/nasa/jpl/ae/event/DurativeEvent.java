@@ -1662,6 +1662,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 //      ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
 //      constraintExpressions.add(optimizingConstraint);
       ConstraintExpression oldConstraint = null;
+      ConstraintExpression oldConstraint1 = null;
+      ConstraintExpression oldConstraint2 = null;
 
       //DoubleParameter nextToTryP = new DoubleParameter("", nextToTry, (ParameterListener)null);
 
@@ -1669,20 +1671,52 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       while(bound == null || Math.abs(bestSoFar - bound) > objectiveThreshold) {
           System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
 
-          // construct the ConstraintExpression to be added to the list
-          Expression<Boolean> constraintFunction;
+
+          // construct the ConstraintExpression for bestSoFar
+          if ( oldConstraint1 != null ) {
+              constraintExpressions.remove(oldConstraint1);
+          }
+          Expression<Boolean> constraintFunction1;
           if(mode == SolvingMode.MAXIMIZE) {
-              constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+              constraintFunction1 =
+                      new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective),
+                                                                     new Expression<>(bestSoFar)));
           } else {
-              constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+              constraintFunction1 =
+                      new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective),
+                                                                  new Expression<>(bestSoFar)));
+          }
+          ConstraintExpression optimizingConstraint1 = new ConstraintExpression(constraintFunction1);
+          constraintExpressions.add(optimizingConstraint1);
+          oldConstraint1 = optimizingConstraint1;
+
+
+          // construct the ConstraintExpression for bound
+          if ( bound != null ) {
+              if ( oldConstraint2 != null ) {
+                  constraintExpressions.remove( oldConstraint2 );
+              }
+              Expression<Boolean> constraintFunction2;
+              if ( mode == SolvingMode.MAXIMIZE ) {
+                  constraintFunction2 = new Expression<>( new Functions.GreaterEquals<>(
+                          new Expression<Double>( objective ),
+                          new Expression<>( bound ) ) );
+              } else {
+                  constraintFunction2 = new Expression<>( new Functions.LessEquals<>(
+                          new Expression<Double>( objective ),
+                          new Expression<>( bound ) ) );
+              }
+              ConstraintExpression optimizingConstraint2 =
+                      new ConstraintExpression( constraintFunction2 );
+              constraintExpressions.add( optimizingConstraint2 );
+              oldConstraint2 = optimizingConstraint2;
           }
 
-          ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+
+
           if ( oldConstraint != null ) {
               constraintExpressions.remove(oldConstraint);
           }
-          constraintExpressions.add(optimizingConstraint);
-          oldConstraint = optimizingConstraint;
 
           Collection< Constraint > allConstraints = getConstraints( true, null );
           //allConstraints.add( optimizingConstraint );
@@ -1739,6 +1773,16 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
           }
 
+          // construct the ConstraintExpression to be added to the list
+          Expression<Boolean> constraintFunction;
+          if(mode == SolvingMode.MAXIMIZE) {
+              constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+          } else {
+              constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+          }
+          ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+          constraintExpressions.add(optimizingConstraint);
+          oldConstraint = optimizingConstraint;
 
           satisfied = satisfy(true, null);
 
