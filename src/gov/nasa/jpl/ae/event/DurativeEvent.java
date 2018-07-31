@@ -1718,7 +1718,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                               Object domainVal = objectiveDomain.getValue( false );
                               if ( domainVal instanceof Double ) {
                                   bestSoFar = (Double)domainVal;
-                                  objective.setValue( bestSoFar );
+                                  objective.value = bestSoFar;
                                   System.out.println(
                                           "optimize(): only one value possible: "
                                           + objective );
@@ -1757,12 +1757,14 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               //bound is capped by Double
               if(Math.abs(bestSoFar) > Double.MAX_VALUE*0.5) {
                   bound = mode == SolvingMode.MAXIMIZE ? Double.MAX_VALUE : -Double.MAX_VALUE;
+                  nextToTry = bestSoFar*0.5 + bound*0.5;
+              } else {
+                  nextToTry = gov.nasa.jpl.ae.util.Math.times( bestSoFar, 2.0 );
               }
-              nextToTry = bestSoFar*2.0;
           } else { // binary search
               nextToTry = bestSoFar*0.5 + bound*0.5;
           }
-          if ( objectiveDomain != null && objectiveDomain.contains( nextToTry ) ) {
+          if ( objectiveDomain != null && !objectiveDomain.contains( nextToTry ) ) {
               if ( nextToTry < objectiveDomain.getLowerBound() ) {
                   nextToTry = objectiveDomain.getLowerBound();
               } else {
