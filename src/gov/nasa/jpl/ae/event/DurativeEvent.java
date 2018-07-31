@@ -1,12 +1,6 @@
 package gov.nasa.jpl.ae.event;
 
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.ConstraintLoopSolver;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
@@ -1657,20 +1651,95 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           nextToTry = bestSoFar*2.0;
       }
 
-      // construct the ConstraintExpression to be added to the list
-      Expression<Boolean> constraintFunction;
-      if(mode == SolvingMode.MAXIMIZE) {
-          constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
-      } else {
-          constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
-      }
+//      // construct the ConstraintExpression to be added to the list
+//      Expression<Boolean> constraintFunction;
+//      if(mode == SolvingMode.MAXIMIZE) {
+//          constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+//      } else {
+//          constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+//      }
+//
+//      ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+//      constraintExpressions.add(optimizingConstraint);
+      ConstraintExpression oldConstraint = null;
 
-      ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
-      constraintExpressions.add(optimizingConstraint);
+      //DoubleParameter nextToTryP = new DoubleParameter("", nextToTry, (ParameterListener)null);
 
       // keep going until we are confident in our value to a certain threshold
       while(bound == null || Math.abs(bestSoFar - bound) > objectiveThreshold) {
           System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
+
+          // construct the ConstraintExpression to be added to the list
+          Expression<Boolean> constraintFunction;
+          if(mode == SolvingMode.MAXIMIZE) {
+              constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+          } else {
+              constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+          }
+
+          ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+          if ( oldConstraint != null ) {
+              constraintExpressions.remove(oldConstraint);
+          }
+          constraintExpressions.add(optimizingConstraint);
+          oldConstraint = optimizingConstraint;
+
+          Collection< Constraint > allConstraints = getConstraints( true, null );
+          //allConstraints.add( optimizingConstraint );
+
+          // See if arc consistency gives the solution.
+          Consistency ac = null;
+          Map<Variable<?>, Domain<?>> original = null;
+          RangeDomain<Double> objectiveDomain = null;
+          if ( usingArcConsistency ) {
+              try {
+                  ac = new Consistency();
+                  original = ac.getDomainState();
+                  ac.constraints = allConstraints;
+                  ac.arcConsistency(arcConsistencyQuiet);
+                  Domain d = objective.getDomain();
+                  System.out.println( "domain of optimization param: " + d );
+                  Double dblBound = null;
+                  if ( d != null && d instanceof RangeDomain ) {
+                      objectiveDomain = (RangeDomain<Double>)d;
+                      Object b = null;
+                      if ( mode == SolvingMode.MAXIMIZE ) {
+                          b = objectiveDomain.getUpperBound();
+                      } else {
+                          b = objectiveDomain.getLowerBound();
+                      }
+                      try {
+                          dblBound = Expression.evaluate( b, Double.class, false, false );
+                          if ( Functions.eq( bestSoFar, dblBound ) ) {
+                              System.out.println("optimize(): reached bound!");
+                              break;
+                          }
+                          if ( objectiveDomain.size() == 1 ) {
+                              Object domainVal = objectiveDomain.getValue( false );
+                              if ( domainVal instanceof Double ) {
+                                  bestSoFar = (Double)domainVal;
+                                  objective.setValue( bestSoFar );
+                                  System.out.println(
+                                          "optimize(): only one value possible: "
+                                          + objective );
+                                  break;
+                              }
+                          }
+                      } catch ( Throwable e ) {
+                      }
+                  }
+
+              } catch (Throwable t) {
+                  Debug.error(true, false, "Error! Arc consistency failed.");
+                  t.printStackTrace();
+              } finally {
+                  if ( original != null ) {
+                      ac.restoreDomains( original );
+                  }
+              }
+          }
+
+
           satisfied = satisfy(true, null);
 
           if(satisfied) {
@@ -1693,6 +1762,17 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           } else { // binary search
               nextToTry = bestSoFar*0.5 + bound*0.5;
           }
+          if ( objectiveDomain != null && objectiveDomain.contains( nextToTry ) ) {
+              if ( nextToTry < objectiveDomain.getLowerBound() ) {
+                  nextToTry = objectiveDomain.getLowerBound();
+              } else {
+                  nextToTry = objectiveDomain.getUpperBound();
+              }
+              if ( Functions.eq( nextToTry, bestSoFar ) ) {
+                  System.out.println("optimize(): no room to wiggle in domain, " + objectiveDomain + ". objective = " + objective);
+                  break;
+              }
+          }
 
           Object underlyingExpression = optimizingConstraint.expression;
           if(underlyingExpression instanceof Call) {
@@ -1711,7 +1791,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           this.setAllParametersToStale();
       }
 
-      System.out.println("finished optimizing with " + objectiveParamName + " = " + nextToTry);
+      System.out.println("finished optimizing with " + objectiveParamName + " = " + bestSoFar);
       target.value = bestSoFar; // no setValue to avoid messiness with staleness
 
       timer.stop();
