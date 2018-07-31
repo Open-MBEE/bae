@@ -1667,10 +1667,20 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
       //DoubleParameter nextToTryP = new DoubleParameter("", nextToTry, (ParameterListener)null);
 
-      // keep going until we are confident in our value to a certain threshold
-      while(bound == null || Math.abs(bestSoFar - bound) > objectiveThreshold) {
-          System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
+      //bound = mode == SolvingMode.MAXIMIZE ? Double.MAX_VALUE : -Double.MAX_VALUE;
 
+      // keep going until we are confident in our value to a certain threshold
+      while(bound == null || Math.abs(gov.nasa.jpl.ae.util.Math.minus(bestSoFar, bound)) > objectiveThreshold) {
+          if (mode == SolvingMode.MAXIMIZE) {
+              System.out.println( objectiveParamName + " in [" + bestSoFar +
+                                  ", " + bound + "]" );
+          } else {
+              System.out.println( objectiveParamName + " in [" + bound +
+                                  ", " + bestSoFar + "]" );
+          }
+          System.out.println("trying to solve with " + objectiveParamName +
+                             (mode == SolvingMode.MAXIMIZE ? ">=" : "<=")  +
+                             nextToTry);
 
           // construct the ConstraintExpression for bestSoFar
           if ( oldConstraint1 != null ) {
@@ -1728,8 +1738,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           if ( usingArcConsistency ) {
               try {
                   ac = new Consistency();
-                  original = ac.getDomainState();
                   ac.constraints = allConstraints;
+                  original = ac.getDomainState();
                   ac.arcConsistency(arcConsistencyQuiet);
                   Domain d = objective.getDomain();
                   System.out.println( "domain of optimization param: " + d );
@@ -1785,22 +1795,30 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           oldConstraint = optimizingConstraint;
 
           satisfied = satisfy(true, null);
+          if ( satisfied ) {
+              satisfied = isSatisfied( true, null );
+          }
 
           if(satisfied) {
               System.out.println("succesfully satisfied with " + objectiveParamName + " = " + nextToTry);
-
               bestSoFar = nextToTry;
           } else {
               System.out.println("unsuccessful with " + objectiveParamName + " = " + nextToTry);
-
-              bound = nextToTry;
+              if ( bound == null ) {
+                  bound = nextToTry;
+              } else {
+                  if ( mode == SolvingMode.MAXIMIZE ) {
+                      bound = Math.min( bound, nextToTry );
+                  } else {
+                      bound = Math.max( bound, nextToTry );
+                  }
+              }
           }
 
           // pick next value
           if(bound == null) { // keep looking for the bound
               //bound is capped by Double
               if(Math.abs(bestSoFar) > Double.MAX_VALUE*0.5) {
-                  bound = mode == SolvingMode.MAXIMIZE ? Double.MAX_VALUE : -Double.MAX_VALUE;
                   nextToTry = bestSoFar*0.5 + bound*0.5;
               } else {
                   nextToTry = gov.nasa.jpl.ae.util.Math.times( bestSoFar, 2.0 );
