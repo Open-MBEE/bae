@@ -1670,7 +1670,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       //DoubleParameter nextToTryP = new DoubleParameter("", nextToTry, (ParameterListener)null);
 
       // keep going until we are confident in our value to a certain threshold
-      while(bound == null || Math.abs(bestSoFar - bound) > objectiveThreshold) {
+      while(bound == null || !Functions.eq(bestSoFar, nextToTry)) {
           System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
 
 
@@ -1755,7 +1755,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                               System.out.println("optimize(): reached bound!");
                               break;
                           }
-                          if ( objectiveDomain.size() == 1 ) {
+                          if ( Functions.eq(objectiveDomain.getLowerBound(), objectiveDomain.getUpperBound())) {
                               Object domainVal = objectiveDomain.getValue( false );
                               if ( domainVal instanceof Double ) {
                                   bestSoFar = (Double)domainVal;
