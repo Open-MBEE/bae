@@ -168,7 +168,13 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
    */
   @Override
   public T getValue( boolean propagate ) {
-    return getLowerBound();
+    if ( size() == 1 ) {
+      if ( lowerIncluded ) return getLowerBound();
+      if ( upperIncluded ) return getUpperBound();
+    }
+    T t = getNthValue( 0 );
+    return t;
+
 //    if ( this.size() == 1 ) {
 //      if ( getLowerBound() != null && lowerIncluded ) return getLowerBound();
 //      if ( getUpperBound() != null && upperIncluded ) return getUpperBound();
@@ -480,6 +486,8 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
 	public abstract boolean greater( T t1, T t2 );
   public abstract boolean less( T t1, T t2 );
   public boolean equals( T t1, T t2 ) {
+    if ( t1 == t2 ) return true;
+    if ( t1 == null || t2 == null ) return false;
     return t1.equals( t2 );
   }
   //public abstract boolean equals( T t1, T t2 ); 
