@@ -2257,4 +2257,28 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     lastUpdated = t;
     return lastUpdated;
   }
+
+  public void loadAssignments(Map<Parameter, Object> assignment) {
+    if ( assignment == null ) return;
+    for ( Map.Entry<Parameter, Object> e : assignment.entrySet() ) {
+      Parameter p = e.getKey();
+      p.value = e.getValue();
+    }
+  }
+
+  public Map<Parameter, Object> saveAssignments() {
+    return saveAssignments( true, null );
+  }
+  public Map<Parameter, Object> saveAssignments(boolean deep, Set<HasParameters> seen) {
+    Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return Utils.getEmptyMap();
+    seen = pair.second;
+    LinkedHashMap<Parameter, Object> assignment = new LinkedHashMap<>();
+
+    Set<Parameter<?>> params = getParameters( deep, seen );
+    for ( Parameter p : params ) {
+      assignment.put( p, p.getValue( false ) );
+    }
+    return assignment;
+  }
 }

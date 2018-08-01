@@ -1637,6 +1637,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       }
 
       Double bestSoFar = (Double) objective.getValue();
+      Map<Parameter, Object> bestSolution = null;
       Double bound = null;
 
       // set the initial next value to try
@@ -1661,16 +1662,19 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 //
 //      ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
 //      constraintExpressions.add(optimizingConstraint);
-      ConstraintExpression oldConstraint = null;
-      ConstraintExpression oldConstraint1 = null;
-      ConstraintExpression oldConstraint2 = null;
+
+      // keep track of the old version of each constraint so we can remove
+      ConstraintExpression oldOptimizingConstraint = null;
+      ConstraintExpression oldBestSoFarConstraint = null;
+      ConstraintExpression oldBoundConstraint = null;
 
       //DoubleParameter nextToTryP = new DoubleParameter("", nextToTry, (ParameterListener)null);
 
       //bound = mode == SolvingMode.MAXIMIZE ? Double.MAX_VALUE : -Double.MAX_VALUE;
-
       // keep going until we are confident in our value to a certain threshold
-      while(bound == null || Math.abs(gov.nasa.jpl.ae.util.Math.minus(bestSoFar, bound)) > objectiveThreshold) {
+      while(bound == null || !Functions.eq(bestSoFar, nextToTry)) {
+          System.out.println("trying to solve with " + objectiveParamName + " = " + nextToTry);
+
           if (mode == SolvingMode.MAXIMIZE) {
               System.out.println( objectiveParamName + " in [" + bestSoFar +
                                   ", " + bound + "]" );
@@ -1682,52 +1686,52 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                              (mode == SolvingMode.MAXIMIZE ? ">=" : "<=")  +
                              nextToTry);
 
-          // construct the ConstraintExpression for bestSoFar
-          if ( oldConstraint1 != null ) {
-              constraintExpressions.remove(oldConstraint1);
+          // replace the constraint for bestSoFar -- helps arc consistency
+          if ( oldBestSoFarConstraint != null ) {
+              constraintExpressions.remove(oldBestSoFarConstraint);
           }
-          Expression<Boolean> constraintFunction1;
+          Expression<Boolean> bestSoFarConstraintFunction;
           if(mode == SolvingMode.MAXIMIZE) {
-              constraintFunction1 =
+              bestSoFarConstraintFunction =
                       new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective),
                                                                      new Expression<>(bestSoFar)));
           } else {
-              constraintFunction1 =
+              bestSoFarConstraintFunction =
                       new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective),
                                                                   new Expression<>(bestSoFar)));
           }
-          ConstraintExpression optimizingConstraint1 = new ConstraintExpression(constraintFunction1);
-          constraintExpressions.add(optimizingConstraint1);
-          oldConstraint1 = optimizingConstraint1;
+          ConstraintExpression bestSoFarConstraint = new ConstraintExpression(bestSoFarConstraintFunction);
+          constraintExpressions.add(bestSoFarConstraint);
+          oldBestSoFarConstraint = bestSoFarConstraint;
 
 
-          // construct the ConstraintExpression for bound
+          // replace the constraint for bound -- helps arc consistency
           if ( bound != null ) {
-              if ( oldConstraint2 != null ) {
-                  constraintExpressions.remove( oldConstraint2 );
+              if ( oldBoundConstraint != null ) {
+                  constraintExpressions.remove( oldBoundConstraint );
               }
-              Expression<Boolean> constraintFunction2;
+              Expression<Boolean> boundConstraintFunction;
               if ( mode == SolvingMode.MAXIMIZE ) {
-                  constraintFunction2 = new Expression<>( new Functions.GreaterEquals<>(
+                  boundConstraintFunction = new Expression<>( new Functions.LessEquals<>(
                           new Expression<Double>( objective ),
                           new Expression<>( bound ) ) );
               } else {
-                  constraintFunction2 = new Expression<>( new Functions.LessEquals<>(
+                  boundConstraintFunction = new Expression<>( new Functions.GreaterEquals<>(
                           new Expression<Double>( objective ),
                           new Expression<>( bound ) ) );
               }
-              ConstraintExpression optimizingConstraint2 =
-                      new ConstraintExpression( constraintFunction2 );
-              constraintExpressions.add( optimizingConstraint2 );
-              oldConstraint2 = optimizingConstraint2;
+              ConstraintExpression boundConstraint =
+                      new ConstraintExpression( boundConstraintFunction );
+              constraintExpressions.add( boundConstraint );
+              oldBoundConstraint = boundConstraint;
           }
 
-
-
-          if ( oldConstraint != null ) {
-              constraintExpressions.remove(oldConstraint);
+          // remove the old version of the optimizing constraint
+          if ( oldOptimizingConstraint != null ) {
+              constraintExpressions.remove(oldOptimizingConstraint);
           }
 
+          // run arc consistency without the optimizing constraint
           Collection< Constraint > allConstraints = getConstraints( true, null );
           //allConstraints.add( optimizingConstraint );
 
@@ -1744,7 +1748,9 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                   Domain d = objective.getDomain();
                   System.out.println( "domain of optimization param: " + d );
                   Double dblBound = null;
-                  if ( d != null && d instanceof RangeDomain ) {
+                  //
+                  if ( d instanceof RangeDomain ) {
+                      // get the upper or lower bound of the objective found by arc consistency
                       objectiveDomain = (RangeDomain<Double>)d;
                       Object b = null;
                       if ( mode == SolvingMode.MAXIMIZE ) {
@@ -1752,13 +1758,16 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                       } else {
                           b = objectiveDomain.getLowerBound();
                       }
+
+                      // if bestSoFar is equal to the extreme found by arc consistency or if arc consistency has already
+                      // fixated on a single value, we are done
                       try {
                           dblBound = Expression.evaluate( b, Double.class, false, false );
                           if ( Functions.eq( bestSoFar, dblBound ) ) {
                               System.out.println("optimize(): reached bound!");
                               break;
                           }
-                          if ( objectiveDomain.size() == 1 ) {
+                          if ( Functions.eq(objectiveDomain.getLowerBound(), objectiveDomain.getUpperBound())) {
                               Object domainVal = objectiveDomain.getValue( false );
                               if ( domainVal instanceof Double ) {
                                   bestSoFar = (Double)domainVal;
@@ -1783,16 +1792,20 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
           }
 
-          // construct the ConstraintExpression to be added to the list
-          Expression<Boolean> constraintFunction;
+          // construct the optimizing ConstraintExpression to be added to the list
+          Expression<Boolean> optimizingConstraintFunction;
           if(mode == SolvingMode.MAXIMIZE) {
-              constraintFunction = new Expression<>(new Functions.GreaterEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+              optimizingConstraintFunction =
+                      new Expression<>(new Functions.GreaterEquals<>(
+                              new Expression<Double>(objective), new Expression<>(nextToTry)));
           } else {
-              constraintFunction = new Expression<>(new Functions.LessEquals<>(new Expression<Double>(objective), new Expression<>(nextToTry)));
+              optimizingConstraintFunction
+                      = new Expression<>(new Functions.LessEquals<>(
+                              new Expression<Double>(objective), new Expression<>(nextToTry)));
           }
-          ConstraintExpression optimizingConstraint = new ConstraintExpression(constraintFunction);
+          ConstraintExpression optimizingConstraint = new ConstraintExpression(optimizingConstraintFunction);
           constraintExpressions.add(optimizingConstraint);
-          oldConstraint = optimizingConstraint;
+          oldOptimizingConstraint = optimizingConstraint;
 
           satisfied = satisfy(true, null);
           if ( satisfied ) {
@@ -1800,10 +1813,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           }
 
           if(satisfied) {
-              System.out.println("succesfully satisfied with " + objectiveParamName + " = " + nextToTry);
+              System.out.println("succesfully satisfied with " + objectiveParamName + " = " + objective.getValueNoPropagate());
               bestSoFar = nextToTry;
+              bestSolution = saveAssignments();
           } else {
-              System.out.println("unsuccessful with " + objectiveParamName + " = " + nextToTry);
+              System.out.println("unsuccessful with " + objectiveParamName + " = " + objective.getValueNoPropagate());
               if ( bound == null ) {
                   bound = nextToTry;
               } else {
@@ -1862,6 +1876,14 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       System.out.println( "\n" + getName()
               + ".optimize(): Time taken to optimize:" );
       System.out.println( timer );
+
+      if ( bestSolution != null ) {
+          loadAssignments( bestSolution );
+          satisfied = satisfy( true, null );
+          if ( satisfied ) {
+              satisfied = isSatisfied( true, null );
+          }
+      }
 
       Collection< Constraint > constraints = getConstraints( true, null );
       System.out.println( "All " + constraints.size() + " constraints: " );
