@@ -6362,6 +6362,12 @@ public class Functions {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
+
+      if(!Expression.valuesEqual(variableParam, subExprArg, Parameter.class)) {
+        Equals<T1> subExprFunction = new Equals<>(subExprArg, new Expression(result));
+        return subExprFunction.pickValue(variable);
+      }
+
       if ( result instanceof Collection ) {
         Collection< T1 > coll = (Collection< T1 >)result;
         T1 t11 = get( coll, Random.global.nextInt( coll.size() ) );
