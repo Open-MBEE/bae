@@ -2520,11 +2520,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
           // since this is inner to a sibling class, can't decide on the instance right now
           // so set to null and hope someone later sets it to an object
           p.value = "null"; // REVIEW
-        } else {
-          p.value = p.value.replace( typePlaceholder, castTypeNoParams );
         }
       }
     }
+    p.value = p.value.replace( typePlaceholder, castTypeNoParams );
     // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
     // do not include p.value?
     valueArg = javaToAeExpr( p.value, p.type, true, true, true );
