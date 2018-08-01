@@ -5184,6 +5184,8 @@ public class Functions {
       }
     }
     if (tvm && tvmResult != null) {
+      // REVIEW - pulling a value out of a constant TVM is now handled in Expression,
+      // which has the context to better decide whether to do so. Should it be left here too?
       boolean allSame = tvmResult.allValuesSame();
       if (allSame) {
         if (!tvmResult.isEmpty()) {
@@ -5650,6 +5652,14 @@ public class Functions {
       n = toNumber( o, false );// Expression.evaluate( o, Number.class, false );
     } catch ( Throwable t ) {}
     if ( n != null ) return TimeVaryingMap.compare( tv, n, false, i );
+    
+    Object typeMatch = null;
+    try {
+      typeMatch = Expression.evaluate( o, tv.getType(), false );
+      // TODO - should we try to just evaluate o regardless of type, to strip away any Wrapping classes?
+      // Or, does this already handle enough cases?
+    } catch ( Throwable t ) {}
+    if (typeMatch != null) return TimeVaryingMap.compare( tv, typeMatch, false, i );
 
     return TimeVaryingMap.compare( tv, o, false, i );
   }

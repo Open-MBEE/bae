@@ -1,4 +1,5 @@
 package gov.nasa.jpl.ae.event;
+import gov.nasa.jpl.ae.event.TimeVaryingMap.Interpolation;
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
@@ -1120,6 +1121,11 @@ public class Expression< ResultType > extends HasIdImpl
         return (TT)( new Parameter( null, null, object, null ) );
       } else if ( cls.isAssignableFrom( Expression.class ) ) {
         return (TT)( new Expression( object ) );
+      } else if ( cls.isAssignableFrom( TimeVaryingMap.class ) ) {
+        TimeVaryingMap<Object> tvm = new TimeVaryingMap<Object>();
+        tvm.interpolation = TimeVaryingMap.STEP;
+        tvm.put( SimpleTimepoint.zero, object );
+        return (TT)(tvm);
       }
     }
     // Try pulling the only item out of an array or collection.
@@ -1130,6 +1136,15 @@ public class Expression< ResultType > extends HasIdImpl
       } else if ( object instanceof Collection && ((Collection<?>)object).size() == 1 ) {
         object = ((Collection<?>)object).iterator().next();
         return evaluate( object, cls, propagate, allowWrapping );
+      }
+    }
+    
+    if (object != null && cls != null &&
+        !TimeVaryingMap.class.isAssignableFrom( cls ) &&
+        object instanceof TimeVaryingMap) {
+      TimeVaryingMap<?> tvm = (TimeVaryingMap<?>)object;
+      if ( tvm.allValuesSame() ) {
+        return evaluate( tvm.getValue( propagate ), cls, propagate, allowWrapping );
       }
     }
     

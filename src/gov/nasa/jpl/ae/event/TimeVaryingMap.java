@@ -7758,6 +7758,46 @@ String n = owner instanceof HasName
     return deltaMap;
   }
  
+ public TimeVaryingMap< Double > differentiate() {
+   TimeVaryingPlottableMap< Double > diffMap = 
+       new TimeVaryingPlottableMap< Double >( "diff_" + name );
+   Parameter<Long> lastTime = null;
+   Double lastValue = 0.0;
+   diffMap.put( SimpleTimepoint.zero, 0.0 ); // all maps start with a constant extrapolation from the first datum
+   for ( Entry<Parameter<Long>, V> e : entrySet() ) {
+     Double thisValue = 0.0;
+     if ( e.getValue() instanceof Number ) {
+       thisValue = ((Number) e.getValue()).doubleValue();
+     } else if ( e.getValue() instanceof Boolean ) {
+       thisValue = ( Boolean.TRUE.equals( e.getValue() ) ? 1.0 : 0.0 );
+     }
+     if (lastTime != null) {
+       if (interpolation == null || 
+           interpolation.type == Interpolation.NONE || 
+           interpolation.type == Interpolation.STEP) {
+         // all change happens instantaneously
+         diffMap.put( e.getKey(), thisValue - lastValue );
+         diffMap.put( new SimpleTimepoint( 1 + e.getKey().getValue(false) ), 0.0 );
+       } else if ( interpolation != null &&
+                   (interpolation.type == Interpolation.LINEAR || 
+                    interpolation.type == Interpolation.RAMP) ) {
+         // calculate the slope of the segment from lastTime to now
+         diffMap.put( lastTime, (thisValue - lastValue) / (e.getKey().getValue() - lastTime.getValue()) );
+       }
+     }
+     lastTime = e.getKey();
+     lastValue = thisValue;
+   }
+   if ( lastTime != null &&
+        interpolation != null &&
+        (interpolation.type == Interpolation.LINEAR || 
+         interpolation.type == Interpolation.RAMP) ) {
+     diffMap.put( lastTime, 0.0 ); // finish a linear diffMap with a constant segment
+   }
+   diffMap.interpolation = STEP;
+   return diffMap;
+ }
+ 
  
  public TimeVaryingMap< Boolean > validTime(Call call, int argIndexOfValue, Object[] otherArgs) {
    // TODO? -- HERE!!!  -- Who's supposed to call this?
