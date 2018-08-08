@@ -918,7 +918,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                                                 Expression< ? >[] arguments,
                                                 Parameter< Long > start,
                                                 Parameter< Long > end ) {
-    Long duration = new Long( end.getValue( true ) - start.getValue( true ) );
+//    Long duration = new Long( end.getValue( true ) - start.getValue( true ) );
     String childName = String.format( "%s%06d", name, counter++ );
     Expression< ? >[] augmentedArgs =
         new Expression< ? >[ arguments.length + 2 ];
@@ -928,7 +928,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     }
     augmentedArgs[ arguments.length ] = new Expression< Long >( start );
     augmentedArgs[ arguments.length + 1 ] =
-        new Expression< Long >( duration.longValue() );
+//        new Expression< Long >( duration.longValue() );
+        new Expression< Long >( end );
     ElaborationRule r =
         addElaborationRule( condition, enclosingInstance, eventClass, childName,
                             augmentedArgs );
@@ -2169,10 +2170,22 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
         Expression<?>[] arguments = Utils.toArrayOfType(argumentMap.values(), Expression.class);
 
-        addElaborationRule(condition, enclosingInstance, eventClass,
+        Class<?> eventEnclosingClass = eventClass.getEnclosingClass();
+        Object enclosingThis = eventEnclosingClass == null ? null : this;
+        
+        while (enclosingThis != null && !eventEnclosingClass.isInstance( enclosingThis )) {
+          if (enclosingThis instanceof ParameterListenerImpl) {
+            enclosingThis = ((ParameterListenerImpl)enclosingThis).enclosingInstance;
+          } else {
+            enclosingThis = null;
+          }
+        }
+        
+        addElaborationRule(condition, enclosingThis, eventClass,
                            eventClass == null ? "event" :
                            eventClass.getSimpleName(), arguments,
                            fromTimeVarying);
+        
         return true;
     }
 

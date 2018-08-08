@@ -84,7 +84,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public static final TimeVaryingMap<Long> time = longOne.integrate();
   protected static boolean notDeconstructing = true;
 
-  protected static long lastUpdated = LamportClock.tick();
+  protected long lastUpdated = LamportClock.tick();
   @Override public long getLastUpdated() {
     return lastUpdated;
   }
@@ -3604,7 +3604,7 @@ String n = owner instanceof HasName
     if ( insertedToKey != null ) {
       remove(insertedToKey);
     }
-    System.out.println( "%%%%  " + n + ".integrate(): " + MoreToString.Helper.toLongString( this ) + ".integrate() = " + MoreToString.Helper.toLongString( tvm ) );
+//    System.out.println( "%%%%  " + n + ".integrate(): " + MoreToString.Helper.toLongString( this ) + ".integrate() = " + MoreToString.Helper.toLongString( tvm ) );
     //if (succeededSomewhere) appliedSet.add(  )
     return tvm;
   }
@@ -6657,8 +6657,19 @@ String n = owner instanceof HasName
 //    if ( v instanceof Double && ((Double)v) >= -Float.MAX_VALUE && ((Double)v) <= Float.MAX_VALUE && Math.abs( ((Double)v).doubleValue() ) > Float.MIN_VALUE ) {
 //      vString = String.format( "%f", ((Double)v).floatValue() );
 //    } else {
-      vString = MoreToString.Helper.toShortString( v );
+//      vString = MoreToString.Helper.toShortString( v );
 //    }
+
+    if ( v instanceof ParameterListenerImpl &&
+        ( (ParameterListenerImpl)v ).getOwner() instanceof Parameter ) {
+      // handles singleton classes like this:
+      // class SwitchPosition
+      // val Open
+      // val Closed
+      vString = ( (Parameter)( ( (ParameterListenerImpl)v ).getOwner() ) ).getName();
+    } else {
+      vString = MoreToString.Helper.toShortString( v );
+    }
     String line = timeString + "," + vString + "\n";
     return line;
   }
