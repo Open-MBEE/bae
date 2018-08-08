@@ -1796,11 +1796,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           Expression<Boolean> optimizingConstraintFunction;
           if(mode == SolvingMode.MAXIMIZE) {
               optimizingConstraintFunction =
-                      new Expression<>(new Functions.GreaterEquals<>(
+                      new Expression<>(new Functions.Equals<>(
                               new Expression<Double>(objective), new Expression<>(nextToTry)));
           } else {
               optimizingConstraintFunction
-                      = new Expression<>(new Functions.LessEquals<>(
+                      = new Expression<>(new Functions.Equals<>(
                               new Expression<Double>(objective), new Expression<>(nextToTry)));
           }
           ConstraintExpression optimizingConstraint = new ConstraintExpression(optimizingConstraintFunction);
