@@ -24,14 +24,17 @@ import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -266,18 +269,18 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
 
     
     // Find a unique file name for each plottable timeline and write out to file.
-    int ct = 0;
-//    for ( java.util.Map.Entry< Object, Object > e : currentPlottableValues.entrySet() ) {
-    //Map.Entry<String, TimeVarying<?>> obj;
-    for ( Map.Entry<String, Object> entry : paramsAndTvms.entrySet() ) {
-      List<Object> result = getCsvFileName( entry, areCategoriesUnique, fileNames, ct );
-      if ( result == null || result.size() != 3 ) continue;
-      String fileName = (String)result.get( 0 );
-      TimeVaryingMap<?> tv = (TimeVaryingMap<?>)result.get(1);
-      tv = tv.clone().removeDuplicates();
-      ct = (Integer)result.get( 2 );
-
+    Map<String, Object> uniqueFileNames = getShortCsvFileNames( paramsAndTvms );
+    for ( Map.Entry< String, Object > entry : uniqueFileNames.entrySet() ) {
+      String fileName = entry.getKey();
       if ( Utils.isNullOrEmpty( fileName ) ) continue;
+
+      Object o = entry.getValue();
+      if ( o instanceof Parameter ) {
+        o = ( (Parameter< ? >)o ).getValueNoPropagate();
+      }
+      TimeVaryingMap<?> tv = o instanceof TimeVaryingMap ? (TimeVaryingMap< ? >)o : null;
+      if (tv == null) continue;
+      tv = tv.clone().removeDuplicates();
 
       // get the path where the output will be stored
       String path = Utils.isNullOrEmpty( csvDir ) ? "." : csvDir;
@@ -293,6 +296,92 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
       Calendar cal = Calendar.getInstance( TimeZone.getTimeZone( "GMT" ) );
       tv.toCsvFile( pathAndFile, "Data Timestamp,Data Value", dateFormat, cal );
     }
+    
+//    int ct = 0;
+////    for ( java.util.Map.Entry< Object, Object > e : currentPlottableValues.entrySet() ) {
+//    //Map.Entry<String, TimeVarying<?>> obj;
+//    for ( Map.Entry<String, Object> entry : paramsAndTvms.entrySet() ) {
+//      List<Object> result = getCsvFileName( entry, areCategoriesUnique, fileNames, ct );
+//      if ( result == null || result.size() != 3 ) continue;
+//      String fileName = (String)result.get( 0 );
+//      TimeVaryingMap<?> tv = (TimeVaryingMap<?>)result.get(1);
+//      tv = tv.clone().removeDuplicates();
+//      ct = (Integer)result.get( 2 );
+//
+//      if ( Utils.isNullOrEmpty( fileName ) ) continue;
+//
+//      // get the path where the output will be stored
+//      String path = Utils.isNullOrEmpty( csvDir ) ? "." : csvDir;
+//      File p = new File( path );
+//      if ( !p.exists() ) {
+//        boolean succ = p.mkdirs();
+//        if ( !succ ) path = ".";
+//      }
+//      String pathAndFile = path + File.separator + fileName;
+//
+//      // write to file
+//      String dateFormat = "yyyy-DDD'T'HH:mm:ss.SSSZ";// TimeUtils.aspenTeeFormat;
+//      Calendar cal = Calendar.getInstance( TimeZone.getTimeZone( "GMT" ) );
+//      tv.toCsvFile( pathAndFile, "Data Timestamp,Data Value", dateFormat, cal );
+//    }
+  }
+  
+  protected Map<String, Object> getShortCsvFileNames( Map<String, Object> paramsAndTvms ) {
+    Map<String, List<List<String>>> tentativeFileNames = new LinkedHashMap<>();
+    int globalCtr = 1;
+    
+    for (String fullName : paramsAndTvms.keySet()) {
+      if ( Utils.isNullOrEmpty( fullName ) ) {
+        fullName = String.format( "%4d", globalCtr++ );
+      }
+      List<String> qualifiers = Arrays.asList( fullName.split( "\\." ) );
+      Collections.reverse( qualifiers ); // put most specific first, just for convenience
+      tentativeFileNames.putIfAbsent( qualifiers.get( 0 ), new LinkedList<>() );
+      tentativeFileNames.get( qualifiers.get( 0 ) ).add( qualifiers );
+    }
+    
+    boolean hadConflicts = true;
+    while (hadConflicts) {
+      Map<String, List<List<String>>> newFileNames = new LinkedHashMap<>();
+      hadConflicts = false;
+      for (Map.Entry< String, List<List<String>> > tentativeName : tentativeFileNames.entrySet()) {
+        if (tentativeName.getValue().size() > 1) {
+          hadConflicts = true;
+          String oldName = tentativeName.getKey();
+          int numQualifiersUsed = oldName.split( "\\." ).length;
+          for (List<String> qualifiers : tentativeName.getValue()) {
+            String newName = "";
+            if ( numQualifiersUsed < qualifiers.size() ) {
+              newName = qualifiers.get( numQualifiersUsed ) + "." + oldName;
+            } else if (newFileNames.containsKey( oldName )) {
+              // We have a duplicate, and we've added one copy already
+              Debug.error( true, false, "Duplicate timeline detected. Ignoring " + oldName );
+              continue;
+            }
+            newFileNames.putIfAbsent( newName, new LinkedList<>() );
+            newFileNames.get( newName ).add( qualifiers );
+          }
+        } else if (tentativeName.getValue().size() == 1) {
+          // name is unique, copy over
+          newFileNames.put( tentativeName.getKey(), tentativeName.getValue() );
+        } // else size <= 0, not sure how that happened, ignore empty list
+      }
+      tentativeFileNames = newFileNames;
+    }
+    
+    Map<String, Object> finalFileNames = new LinkedHashMap<>();
+    for (Map.Entry< String, List<List<String>> > tentativeName : tentativeFileNames.entrySet()) {
+      if (tentativeName.getValue().size() > 1) {
+        Debug.errln( "Failed to find unique file names. Collision on " + tentativeName.getKey() );
+        continue;
+      }
+      List<String> qualifiers = tentativeName.getValue().get( 0 );
+      Collections.reverse( qualifiers ); // un-reverse the qualifiers
+      String fullName = String.join( ".", qualifiers );
+      finalFileNames.put( tentativeName.getKey() + ".csv", paramsAndTvms.get( fullName ) );
+    }
+    
+    return finalFileNames;
   }
   
   protected List< Object >

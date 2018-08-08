@@ -1851,10 +1851,22 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
         Expression<?>[] arguments = Utils.toArrayOfType(argumentMap.values(), Expression.class);
 
-        addElaborationRule(condition, enclosingInstance, eventClass,
+        Class<?> eventEnclosingClass = eventClass.getEnclosingClass();
+        Object enclosingThis = eventEnclosingClass == null ? null : this;
+        
+        while (enclosingThis != null && !eventEnclosingClass.isInstance( enclosingThis )) {
+          if (enclosingThis instanceof ParameterListenerImpl) {
+            enclosingThis = ((ParameterListenerImpl)enclosingThis).enclosingInstance;
+          } else {
+            enclosingThis = null;
+          }
+        }
+        
+        addElaborationRule(condition, enclosingThis, eventClass,
                            eventClass == null ? "event" :
                            eventClass.getSimpleName(), arguments,
                            fromTimeVarying);
+        
         return true;
     }
 

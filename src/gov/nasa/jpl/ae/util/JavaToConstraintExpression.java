@@ -2349,8 +2349,11 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         String qEnc = getClassData().getClassNameWithScope(enclosing);
         if ( qEnc != null ) enclosing = qEnc;
         if (enclosing != null) {
-          String cc = getCurrentClass();
-          if (cc != null && enclosing.contains(cc)) {
+          String cc = getClassData().getClassNameWithScope( getCurrentClass() );
+          // test if the class we want (enclosing) is one of the enclosing classes of this
+          if (cc != null &&
+              (cc.equals( enclosing ) ||
+               getClassData().getAllEnclosingClassNames( cc ).contains( enclosing ))) {
             enclosingObject = enclosing + ".this";
           }
         }
