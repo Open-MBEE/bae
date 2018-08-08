@@ -84,7 +84,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public static final TimeVaryingMap<Long> time = longOne.integrate();
   protected static boolean notDeconstructing = true;
 
-  protected static long lastUpdated = LamportClock.tick();
+  protected long lastUpdated = LamportClock.tick();
   @Override public long getLastUpdated() {
     return lastUpdated;
   }
