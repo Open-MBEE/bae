@@ -696,9 +696,10 @@ public class JavaForFunctionCall {
           if ( enclosingClass.equals( getClassName() ) ) {
             setObject( "this" );
           } else {
-            // trim this down to most specific enclosing class:
-            while ( !getClassName().startsWith(enclosingClass) ) {
-              enclosingClass = enclosingClass.replaceAll( "\\.[^.]*$", "" ); // trim last class
+            // walk up this' enclosing chain, looking for the correct enclosing class
+            String enclosingThis = exprXlator.getClassData().getEnclosingClassName( getClassName() );
+            while (!Utils.isNullOrEmpty( enclosingThis ) && !enclosingThis.equals( enclosingClass )) {
+              enclosingThis = exprXlator.getClassData().getEnclosingClassName( enclosingThis );
             }
             if ( Utils.isNullOrEmpty( enclosingClass ) ) {
               setObject("null");

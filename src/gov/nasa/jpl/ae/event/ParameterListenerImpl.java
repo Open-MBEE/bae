@@ -142,6 +142,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static void reset() {
     counter = 0;
+    TimeVaryingMap.reset();
   }
 
   /**
@@ -1716,6 +1717,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public void setStaleAnyReferencesTo( Parameter< ? > changedParameter,
                                        Set< HasParameters > seen ) {
+    // do this even if using LamportClock
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
+    
     if ( LamportClock.usingLamportClock ) {
       return;
     }

@@ -60,6 +60,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   public static Set<String> resourcePaths = Collections.synchronizedSet( new LinkedHashSet<String>());
   
+  public static Map<Parameter<Long>, Set<TimeVaryingMap<?>>> parameterUsers = Collections.synchronizedMap( new LinkedHashMap<>() );
+  
   public static Interpolation STEP = new TimeVaryingMap.Interpolation(TimeVaryingMap.Interpolation.STEP);
   public static Interpolation LINEAR = new TimeVaryingMap.Interpolation(TimeVaryingMap.Interpolation.LINEAR);
   public static Interpolation RAMP = new TimeVaryingMap.Interpolation(TimeVaryingMap.Interpolation.RAMP);
@@ -366,6 +368,27 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   public static int compareTo( Parameter< Long > o1, Parameter< Long > o2 ) {
     return TimeComparator.instance.compare( o1, o2 );
+  }
+  
+  // acts as a guard value to avoid infinite recursion when using the static setStale methods
+  protected static final HasParameters staticSeenGuard = new TimeVaryingMap<Object>();
+  
+  public static void setStaleAnyReferencesToForTimeVarying( Parameter<?> param, Set< HasParameters > seen ) {
+    Pair< Boolean, Set< HasParameters > > p = Utils.seen( staticSeenGuard, true, seen );
+    if (p.first) return;
+    seen = p.second;
+    
+    Set<TimeVaryingMap<?>> pUsers = parameterUsers.get( param );
+    if (pUsers != null) {
+      // copy the pUsers set into a list, iterate over the list (since we *might* change the pUsers set
+      for (TimeVaryingMap<?> tvm : new LinkedList<>( pUsers )) {
+        tvm.setStaleAnyReferencesTo( tryCastTimepoint( param ), seen );
+      }
+    }
+  }
+  
+  public static void reset() {
+    parameterUsers.clear();
   }
   
   public static class TimeComparator implements Comparator< Parameter< Long > > {
@@ -1353,7 +1376,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     public Parameter< Long> makeTempTimepoint( Long t, boolean maxName ) {
     //if ( t == null ) return null;
     String n = ( maxName ? StringDomain.typeMaxValue : null );
-    Parameter< Long> tp = new Parameter< Long>( n, null, t, this );
+//    Parameter< Long> tp = new Parameter< Long>( n, null, t, this );
+    Parameter< Long> tp = new SimpleTimepoint(n, t, this); // marking this as simpleTP helps with parameter caching
     return tp;
   }
 
@@ -1414,6 +1438,62 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( Debug.isOn() || checkConsistency ) isConsistent();
   }
 
+  /**
+   * Tests whether the given parameter counts as a "real parameter".
+   * Currently, a "real parameter" is any Parameter which is not an instanceof SimpleTimepoint
+   * @param t The Parameter to test
+   * @return !(t instanceof SimpleTimepoint)
+   */
+  protected boolean isRealParameter( Parameter<Long> t ) {
+    return !(t instanceof SimpleTimepoint);
+  }
+  
+  /**
+   * Tests whether this TimeVaryingMap should add its real Parameters to the parameterUsers map
+   * @return True if this TimeVaryingMap, in its current state, should do so
+   */
+  protected boolean shouldAddToParamUsers() {
+    return owner instanceof Parameter;
+  }
+  
+  /**
+   * Adds all of the keys, including those currently floating, to the parameterUsers map
+   */
+  protected void addAllKeysToParamUsers() {
+    for ( Parameter<Long> key : keySet() ) {
+      if (isRealParameter( key )) {
+        Utils.add( parameterUsers, key, this );
+      }
+    }
+    for ( TimeValue tv : floatingEffects ) {
+      if (isRealParameter( tv.first )) {
+        Utils.add( parameterUsers, tv.first, this );
+      }
+    }
+  }
+  
+  /**
+   * Removes all of the keys, including those currently floating, from the parameterusers map
+   */
+  protected void removeAllKeysFromParamUsers() {
+    for ( Parameter<Long> key : keySet() ) {
+      if (isRealParameter( key )) {
+        Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( key );
+        if (keyUsers != null) {
+          keyUsers.remove( this );
+        }
+      }
+    }
+    for ( TimeValue tv : floatingEffects ) {
+      if (isRealParameter( tv.first )) {
+        Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( tv.first );
+        if (keyUsers != null) {
+          keyUsers.remove( this );
+        }
+      }
+    }
+  }
+  
   @Override
   public void handleDomainChangeEvent( Parameter< ? > param, Set< HasParameters > seen ) {
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
@@ -1442,7 +1522,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   @Override
   public void setOwner( Object owner ) {
+    boolean wasAddingToParamUsers = shouldAddToParamUsers();
     this.owner = owner;
+    boolean isAddingToParamUsers = shouldAddToParamUsers();
+    if (!wasAddingToParamUsers && isAddingToParamUsers) {
+      addAllKeysToParamUsers();
+    } else if (wasAddingToParamUsers && !isAddingToParamUsers) {
+      removeAllKeysFromParamUsers();
+    }
   }
   public List< TimeValue > getFloatingEffects() {
     return floatingEffects;
@@ -1569,10 +1656,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if (p.first) return;
     seen = p.second;
-
-    if ( LamportClock.usingLamportClock ) {
-      Debug.error( "ERROR!  Should not be calling setStaleAnyReferencesTo() when using Lamport clock!!" );
-    }
+    
+    // back to using this method to handle floating effects of a changedParameter
+//    if ( LamportClock.usingLamportClock ) {
+//      Debug.error( "ERROR!  Should not be calling setStaleAnyReferencesTo() when using Lamport clock!!" );
+//    }
 
     if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + ")" );
     if ( changedParameter == null ) return;
@@ -1601,7 +1689,34 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   @Override
   public V put(Parameter<Long> key, V value) {
+    if (shouldAddToParamUsers() && isRealParameter( key )) {
+      Utils.add( parameterUsers, key, this );
+    }
     return super.put(key, value);
+  }
+
+  @Override
+  public void putAll( Map< ? extends Parameter<Long>, ? extends V > map ) {
+    super.putAll( map );
+    if (shouldAddToParamUsers()) {
+      addAllKeysToParamUsers();
+    }
+  }
+  
+  @Override
+  public V remove( Object key ) {
+    // being extra-vigorous in removing keys this doesn't use, to avoid clutter
+    Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( key );
+    if (keyUsers != null) {
+      keyUsers.remove( this );
+    }
+    return super.remove( key );
+  }
+  
+  @Override
+  public void clear() {
+    removeAllKeysFromParamUsers();
+    super.clear();
   }
 
   /* (non-Javadoc)
@@ -7654,7 +7769,6 @@ String n = owner instanceof HasName
   public TimeVaryingMap<V> translate( Long timeDelta ) {
     if ( timeDelta == null ) return null;
     TimeVaryingMap<V> tvm = emptyClone();
-    Iterator< Entry<Parameter<Long>, V > > i = timeDelta < 0 ? entrySet().iterator() : descendingMap().entrySet().iterator();
     
     // Determine value at time zero
     if ( timeDelta > 0 && interpolation != TimeVaryingMap.NONE && !isEmpty() ) {
@@ -7667,6 +7781,10 @@ String n = owner instanceof HasName
         put( zero, v );
       }
     }
+    
+    // Need to copy entries before iterating, to avoid concurrent modification
+    List<Entry<Parameter<Long>, V>> entryList = new LinkedList<>( timeDelta < 0 ? entrySet() : descendingMap().entrySet() );
+    Iterator< Entry<Parameter<Long>, V > > i = entryList.iterator();
     
     while ( i.hasNext() ) {
       Entry<Parameter<Long>, V > e = i.next();
