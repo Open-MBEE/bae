@@ -3173,7 +3173,7 @@ public class Functions {
       LinkedHashSet< Object > otherArgs = getOtherArgs( arg );
       // should only be one
       final Object otherArg = otherArgs.iterator().next();
-      boolean isArgFirst = arguments.firstElement() == arg;
+      final boolean isArgFirst = arguments.firstElement() == arg;
 
       try {
         return new FunctionCall( (Method)Functions.class.getMethod( "not",

@@ -1814,11 +1814,11 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           }
 
           if(satisfied) {
-              System.out.println("succesfully satisfied with " + objectiveParamName + " = " + objective.getValueNoPropagate());
+              System.out.println("successfully satisfied with " + objectiveParamName + " = " + objective.getValueNoPropagate());
               bestSoFar = nextToTry;
               bestSolution = saveAssignments();
           } else {
-              System.out.println("unsuccessful with " + objectiveParamName + " = " + objective.getValueNoPropagate());
+              System.out.println("unsuccessful with " + objectiveParamName + " = " + nextToTry);
               if ( bound == null ) {
                   bound = nextToTry;
               } else {
@@ -1884,12 +1884,15 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           if ( satisfied ) {
               satisfied = isSatisfied( true, null );
           }
+          satisfied = true; // It was satisfied before, so . . . .
       }
 
-      Collection< Constraint > constraints = getConstraints( true, null );
-      System.out.println( "All " + constraints.size() + " constraints: " );
-      for ( Constraint c : constraints ) {
-          System.out.println( "Constraint: " + c );
+      if ( writeConstraintsOut ) {
+          Collection< Constraint > constraints = getConstraints( true, null );
+          System.out.println( "All " + constraints.size() + " constraints: " );
+          for ( Constraint c : constraints ) {
+              System.out.println( "Constraint: " + c );
+          }
       }
   }
 

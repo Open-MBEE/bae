@@ -839,8 +839,13 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     if ( domain instanceof MultiDomain ) {
       return restrictTo((MultiDomain< TT >)domain);
     }
+    // REVIEW -- Do we really want this?  Is this polluting the imports?  Is there something better to do here?
+    if ( domain instanceof ClassDomain ) {
+      return false;
+    }
+
     // TODO - other cases???
-    Debug.error( "Cannot restrict " + this + " to domain " + domain
+    Debug.error( false, true, "Cannot restrict " + this + " to domain " + domain
                  + " of type " + domain.getClass().getCanonicalName() );
     return changed;
   }

@@ -2262,7 +2262,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( assignment == null ) return;
     for ( Map.Entry<Parameter, Object> e : assignment.entrySet() ) {
       Parameter p = e.getKey();
-      p.value = e.getValue();
+      p.setValue( e.getValue() );
+//      if ( p.getDomain() != null ) {
+//        p.getDomain().restrictToValue( e.getValue() );
+//      }
     }
   }
 
