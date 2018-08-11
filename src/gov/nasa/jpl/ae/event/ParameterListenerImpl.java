@@ -40,6 +40,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public static boolean usingArcConsistency = true;
   public static boolean assigningVarsWithAC = usingArcConsistency;
   public static boolean arcConsistencyQuiet = true;
+  public static boolean quitEarlyWhenInconsistent = true;
   public static boolean usingConstraintLoopSolver = true;
   public static boolean usingDependencyGraphSolver = false;
 
@@ -81,6 +82,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean usingCollectionTree = false;
   protected Object owner = null;
   protected Object enclosingInstance = null;
+  protected boolean foundInconsistency = false;
   protected long lastUpdated = LamportClock.tick();
 
   // TODO -- Need to keep a collection of ParameterListeners (just as
@@ -853,6 +855,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         DurativeEvent.newMode = false; // numLoops % 2 == 0;
       }
       satisfied = tryToSatisfy( deep, null );
+      
+      if ( quitEarlyWhenInconsistent && foundInconsistency ) {
+        return false;
+      }
 
       // numberOfConstraints = this.getNumberOfConstraints( true, null );
       long numResolvedConstraints =
@@ -1026,6 +1032,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean firstTryToSatisfy = true;
 
   protected boolean tryToSatisfy( boolean deep, Set< Satisfiable > seen ) {
+    foundInconsistency = false;
     ground( deep, null );
     if ( Debug.isOn() ) Debug.outln( this.getClass().getName()
                                      + " satisfy loop called ground() " );
@@ -1046,6 +1053,17 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         ac = new Consistency();
         ac.constraints = allConstraints;
         ac.arcConsistency(arcConsistencyQuiet);
+        if ( quitEarlyWhenInconsistent ) {
+          Map<Variable<?>, Domain<?>> domainState = ac.getDomainState();
+          for ( Domain<?> d : domainState.values() ) {
+            if ( d.isEmpty() ) {
+              System.out.println( "Arc consistency detected inconsistency. Quitting immediately." );
+              ac.restoreDomains();
+              foundInconsistency = true;
+              return false;
+            }
+          }
+        }
       } catch (Throwable t) {
         Debug.error(true, false, "Error! Arc consistency failed.");
         t.printStackTrace();
@@ -2005,6 +2023,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static void setArcConsistencyQuiet( boolean arcConsistencyQuiet ) {
     ParameterListenerImpl.arcConsistencyQuiet = arcConsistencyQuiet;
+  }
+  
+  public static void setQuitEarlyWhenInconsistent( boolean quitEarlyWhenInconsistent ) {
+    ParameterListenerImpl.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
   }
 
   public boolean isUsingCollectionTree() {
