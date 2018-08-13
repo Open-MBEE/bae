@@ -1634,6 +1634,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
           }
 
+          System.out.println("Initial solve failed!!");
+
           return;
       }
 
