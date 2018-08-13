@@ -119,7 +119,7 @@ public class Functions {
      * number of arguments, g = f.inverse(r, ai) is a FunctionCall where ai must
      * be an argument to f. g.evaluate() returns a Domain representing the set
      * of values that ai may be assigned such that f.evaluate() == r.
-     * 
+     *
      * @param returnValue
      * @param arg
      *          the single argument with respect to which the inverse is
@@ -130,13 +130,14 @@ public class Functions {
      *         a bijection</b> (one-to-one and the domain and range are the
      *         same), in which case the inverse may not be a single value. For
      *         example, if f(x)=x^2, then the inverse is {sqrt(x), -sqrt(x)}.
-     * 
+     *
      */
     public FunctionCall inverse( Object returnValue, Object arg ) { // Variable<?>
                                                                     // variable
                                                                     // ) {
       FunctionCall singleValueFcn = inverseSingleValue( returnValue, arg );
       if ( singleValueFcn == null ) return null;
+//      return singleValueFcn;
       return new FunctionCall( null,
                                ClassUtils.getMethodsForName( Utils.class,
                                                              "newList" )[ 0 ],
@@ -1233,6 +1234,35 @@ public class Functions {
       return new Divide< T, T >( returnValue, otherArg );
     }
 
+    @Override
+    public Domain< ? > inverseDomain( Domain< ? > returnValue,
+                                      Object argument ) {
+      if ( returnValue == null || argument == null ) return null;
+      // If the return value and the other arg can be zero,
+      // then the inverse can be anything.
+      if ( arguments == null || arguments.size() != 2 ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      Object otherArg = ( argument == arguments.get( 1 ) ? arguments.get( 0 )
+                                                         : arguments.get( 1 ) );
+      if ( otherArg == null ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      boolean returnHasZero = DomainHelper.contains( returnValue, 0.0 ) ||
+                              DomainHelper.contains( returnValue, 0 );
+      if ( returnHasZero ) {
+        Domain<Object> otherDomain = DomainHelper.getDomain( otherArg );
+        boolean otherHasZero =
+                otherDomain != null &&
+                ( DomainHelper.contains( otherDomain, 0.0 ) ||
+                  DomainHelper.contains( otherDomain, 0 ) );
+        if ( otherHasZero ) {
+          return otherDomain.getDefaultDomain();
+        }
+      }
+      return super.inverseDomain( returnValue, argument );
+    }
+
   }
 
   public static class Mul< T, R > extends Times< T, R > {
@@ -1283,7 +1313,35 @@ public class Functions {
       return new Divide< T, T >( otherArg, returnValue );
     }
 
+    @Override
+    public Domain< ? > inverseDomain( Domain< ? > returnValue,
+                                      Object argument ) {
+      if ( returnValue == null || argument == null ) return null;
+      // If the return value and the numerator can be zero,
+      // then the denominator can be anything.
+      if ( arguments == null || arguments.size() != 2 ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      boolean isDenominator = argument == arguments.get( 1 ); // this arg is the first
+      // If the denominator
+      if ( isDenominator ) {
+        boolean returnHasZero = DomainHelper.contains( returnValue, 0.0 ) ||
+                                DomainHelper.contains( returnValue, 0 );
+        if ( returnHasZero ) {
+          Domain<Object> numeratorDomain = DomainHelper.getDomain( arguments.get( 0 ) );
+          boolean numeratorHasZero =
+                  numeratorDomain != null &&
+                  ( DomainHelper.contains( numeratorDomain, 0.0 ) ||
+                    DomainHelper.contains( numeratorDomain, 0 ) );
+          if ( numeratorHasZero ) {
+            return numeratorDomain.getDefaultDomain();
+          }
+        }
+      }
+      return super.inverseDomain( returnValue, argument );
+    }
   }
+
 
   public static class Div< T, R > extends Divide< T, R > {
     public Div( Expression< T > o1, Expression< T > o2 ) {
