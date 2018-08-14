@@ -3538,47 +3538,60 @@ public class Functions {
     boolean changedLeft  = false;
     boolean changedRight = false;
     
-    if (left instanceof RangeDomain< ? > &&
-        right instanceof RangeDomain< ? >) {
-      RangeDomain< T > l  = (RangeDomain< T >)left;
-      RangeDomain< T > r = (RangeDomain< T >)right;
+    if (left instanceof AbstractRangeDomain< ? > &&
+        right instanceof AbstractRangeDomain< ? >) {
+      AbstractRangeDomain< T > l  = (AbstractRangeDomain< T >)left;
+      AbstractRangeDomain< T > r = (AbstractRangeDomain< T >)right;
       
       T llo = l.getLowerBound();
       T lhi = l.getUpperBound();
       T rlo = r.getLowerBound();
       T rhi = r.getUpperBound();
       
-      if (l.less( rhi, lhi )) {
-        l.setUpperBound( rhi );
-        if (!strict && r.includeUpperBound()) {
-          l.includeUpperBound();
+      if (l.less( rhi, llo ) ||
+          (l.lessEquals( rhi, llo ) && 
+           (!r.isUpperBoundIncluded() ||
+            !l.isLowerBoundIncluded()))) {
+        // there is no overlap at all, don't try to adjust bounds
+        changedLeft = !l.isEmpty();
+        changedRight = !r.isEmpty();
+        l.makeEmpty();
+        r.makeEmpty();
+      } else {
+        if (l.less( rhi, lhi )) {
+          l.setUpperBound( rhi );
+          if (!strict && r.includeUpperBound()) {
+            l.includeUpperBound();
+          }
+          changedLeft = true;
         }
-        changedLeft = true;
-      }
-      if (l.includeUpperBound() &&
-          l.lessEquals( rhi, lhi ) &&
-          (strict || !r.includeUpperBound())) {
-        excludeUpperBound( l );
-        changedLeft = true;
-      }
-      
-      if (l.less( rlo, llo )) {
-        r.setLowerBound( llo );
-        if (!strict && l.includeLowerBound()) {
-          r.includeLowerBound();
+        if (l.includeUpperBound() &&
+            l.lessEquals( rhi, lhi ) &&
+            (strict || !r.includeUpperBound())) {
+          excludeUpperBound( l );
+          changedLeft = true;
         }
-        changedRight = true;
-      }
-      if (r.includeLowerBound() &&
-          l.lessEquals( rlo, llo ) &&
-          (strict || !l.includeLowerBound())) {
-        excludeLowerBound( r );
-        changedRight = true;
+        
+        if (l.less( rlo, llo )) {
+          r.setLowerBound( llo );
+          if (!strict && l.includeLowerBound()) {
+            r.includeLowerBound();
+          }
+          changedRight = true;
+        }
+        if (r.includeLowerBound() &&
+            l.lessEquals( rlo, llo ) &&
+            (strict || !l.includeLowerBound())) {
+          excludeLowerBound( r );
+          changedRight = true;
+        }
       }
     }
     
     return new Pair<>(changedLeft, changedRight);
   }
+  
+  
 
   public static class LT< T > extends BooleanBinary< T > {
     public LT( Expression< T > o1, Expression< T > o2 ) {
@@ -3738,14 +3751,12 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
       }
-      if (c2) {
-        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -3912,14 +3923,12 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
       }
-      if (c2) {
-        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -4089,14 +4098,12 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
       }
-      if (c2) {
-        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -4264,14 +4271,12 @@ public class Functions {
       }
       boolean changed = false;
       if (c1) {
-        Pair<Domain<T>, Boolean> p = e1.restrictDomain( d1, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
       }
-      if (c2) {
-        Pair<Domain<T>, Boolean> p = e2.restrictDomain( d2, true, null );
-        Boolean didChange = p == null ? false : p.second;
-        changed |= Boolean.TRUE.equals( didChange );
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }

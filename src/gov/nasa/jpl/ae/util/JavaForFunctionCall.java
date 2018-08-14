@@ -696,11 +696,23 @@ public class JavaForFunctionCall {
           if ( enclosingClass.equals( getClassName() ) ) {
             setObject( "this" );
           } else {
+
 //            setObject("null");
 //            // trim this down to most specific enclosing class:
 //            while ( enclosingClass != null && !getClassName().startsWith(enclosingClass) ) {
 //              enclosingClass = getExprXlator().getClassData().getEnclosingClassName( enclosingClass );
 //            }
+
+// This was a merge conflict.  The commented out lines above were probably brad
+// being scared of change, and the ones below are hopefully David fixing the
+// problem that scared Brad.
+
+            // walk up this' enclosing chain, looking for the correct enclosing class
+            String enclosingThis = exprXlator.getClassData().getEnclosingClassName( getClassName() );
+            while (!Utils.isNullOrEmpty( enclosingThis ) && !enclosingThis.equals( enclosingClass )) {
+              enclosingThis = exprXlator.getClassData().getEnclosingClassName( enclosingThis );
+            }
+
             if ( Utils.isNullOrEmpty( enclosingClass ) ) {
               setObject("null");
             } else {

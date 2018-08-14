@@ -1382,6 +1382,8 @@ public class Expression< ResultType > extends HasIdImpl
     if (p.first) return;
     seen = p.second;
     
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
+    
     if ( expression instanceof ParameterListener ) {
       ( (ParameterListener)expression ).setStaleAnyReferencesTo( changedParameter, seen );
     }

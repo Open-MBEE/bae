@@ -1989,6 +1989,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if (p.first) return;
     seen = p.second;
     if ( changedParameter == null ) return;
+    
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
 
     // System.out.println("setStaleAnyReferencesTo(" + changedParameter.name + ") in " + toShortString() );
 
