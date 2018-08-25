@@ -2696,6 +2696,30 @@ public class Functions {
                                                     IllegalAccessException,
                                                     InvocationTargetException,
                                                     InstantiationException {
+    // basic definition works for numbers, but not for strings
+    if (o1 instanceof String || o2 instanceof String) {
+      String s1 = o1.toString();
+      String s2 = o2.toString();
+      
+      try {
+        if (s1.endsWith( s2 )) {
+          String result = s1.substring( 0, s1.length() - s2.length() );
+          
+          Class< ? > cls1 = o1.getClass();
+          Class< ? > cls2 = o2.getClass();
+          Object x =
+              Expression.evaluate( result,
+                                   ClassUtils.dominantTypeClass( cls1, cls2 ),
+                                   false );
+          if ( x == null ) x = result;
+          return (V1)x; // even if x is null; evaluate will try to cast, so there's nothing more to do, and the operation fails.
+        } else {
+          return null; // string subtraction failed, but one arg was a string, so we shouldn't try to do other operations with them.
+        }
+      } catch (Throwable e) {
+        return null;
+      }
+    }
     return plus( o1, times( o2, -1 ) );
   }
 
