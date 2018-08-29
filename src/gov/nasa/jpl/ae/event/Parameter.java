@@ -41,12 +41,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
    * order to satisfy a constraint.
    */
   public static boolean allowPickValue = true;
-
   // These are for debug validation.
   public static boolean mayPropagate = true;
   public static boolean mayChange = true;
+
   public static boolean printOnSetValue = false;
-  public static boolean printOnRestrictDomain = false;
+  public static boolean printOnRestrictDomain = true;
 
   protected String name = null;
   public Domain< T > domain = null;
@@ -540,6 +540,14 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
     }
     return false;
+  }
+
+  public static void setPrintOnSetValue( boolean printOnSetValue ) {
+    Parameter.printOnSetValue = printOnSetValue;
+  }
+
+  public static void setPrintOnRestrictDomain( boolean printOnRestrictDomain ) {
+    Parameter.printOnRestrictDomain = printOnRestrictDomain;
   }
 
   public static boolean setAllowPickValue( boolean allow ) {
