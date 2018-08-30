@@ -1055,9 +1055,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         ac.arcConsistency(arcConsistencyQuiet);
         if ( quitEarlyWhenInconsistent ) {
           Map<Variable<?>, Domain<?>> domainState = ac.getDomainState();
-          for ( Domain<?> d : domainState.values() ) {
+          for ( Map.Entry<Variable<?>, Domain<?>> e : domainState.entrySet() ) {
+            Domain<?> d = e.getValue();
             if ( d.isEmpty() ) {
-              System.out.println( "Arc consistency detected inconsistency. Quitting immediately." );
+              System.out.println( "Arc consistency detected inconsistency: empty domain for variable " + e.getKey() + ". Quitting immediately." );
               ac.restoreDomains();
               foundInconsistency = true;
               return false;

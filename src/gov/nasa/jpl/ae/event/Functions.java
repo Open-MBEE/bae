@@ -1119,10 +1119,38 @@ public class Functions {
     public // < T1 extends Comparable< ? super T1 > >
     FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
       if ( arguments == null || arguments.size() != 2 ) return null;
-      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
-                                                    : arguments.get( 1 ) );
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
       if ( returnValue == null || otherArg == null ) return null; // arg can be
                                                                   // null!
+      Object deepReturnValue = returnValue;
+      Object deepArg = arg;
+      Object deepOtherArg = otherArg;
+      
+      try {
+        deepReturnValue = Expression.evaluateDeep( returnValue, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      try {
+        deepArg = Expression.evaluateDeep( arg, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      try {
+        deepOtherArg = Expression.evaluateDeep( otherArg, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      
+      if (deepReturnValue instanceof String || deepArg instanceof String || deepOtherArg instanceof String) {
+        if (isFirstArg) {
+          return new MinusSuffix( returnValue, otherArg );
+        } else {
+          return new MinusPrefix( returnValue, otherArg );
+        }
+      }
+      
       return new Minus< T, T >( returnValue, otherArg );
     }
     
@@ -1199,6 +1227,80 @@ public class Functions {
       super( o1, c );
       // functionCall.
       setMonotonic( true );
+    }
+  }
+  
+  public static class MinusSuffix extends Binary< String, String > {
+    public MinusSuffix( Expression< String > o1, Expression< String > o2 ) {
+      super( o1, o2, "subtractSuffix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusSuffix( Object o1, Object c ) {
+      super( o1, c, "subtractSuffix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusSuffix( Functions.MinusSuffix m ) {
+      super( m );
+    }
+
+    public MinusSuffix clone() {
+      return new MinusSuffix( this );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
+                                                    : arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+                                                         // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+                                                                  // null!
+      if ( firstArg ) {
+        return new Sum< String, String >( returnValue, otherArg );
+      }
+      return new MinusPrefix( otherArg, returnValue );
+    }
+  }
+  
+  public static class MinusPrefix extends Binary< String, String > {
+    public MinusPrefix( Expression< String > o1, Expression< String > o2 ) {
+      super( o1, o2, "subtractPrefix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusPrefix( Object o1, Object c ) {
+      super( o1, c, "subtractPrefix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusPrefix( Functions.MinusPrefix m ) {
+      super( m );
+    }
+
+    public MinusPrefix clone() {
+      return new MinusPrefix( this );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
+                                                    : arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+                                                         // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+                                                                  // null!
+      if ( firstArg ) {
+        return new Sum< String, String >( returnValue, otherArg );
+      }
+      return new MinusSuffix( otherArg, returnValue );
     }
   }
 
@@ -2698,29 +2800,38 @@ public class Functions {
                                                     InstantiationException {
     // basic definition works for numbers, but not for strings
     if (o1 instanceof String || o2 instanceof String) {
-      String s1 = o1.toString();
-      String s2 = o2.toString();
-      
       try {
-        if (s1.endsWith( s2 )) {
-          String result = s1.substring( 0, s1.length() - s2.length() );
-          
-          Class< ? > cls1 = o1.getClass();
-          Class< ? > cls2 = o2.getClass();
-          Object x =
-              Expression.evaluate( result,
-                                   ClassUtils.dominantTypeClass( cls1, cls2 ),
-                                   false );
-          if ( x == null ) x = result;
-          return (V1)x; // even if x is null; evaluate will try to cast, so there's nothing more to do, and the operation fails.
-        } else {
-          return null; // string subtraction failed, but one arg was a string, so we shouldn't try to do other operations with them.
-        }
-      } catch (Throwable e) {
-        return null;
+        String result = minusSuffix(o1.toString(), o2.toString());
+      
+        Class< ? > cls1 = o1.getClass();
+        Class< ? > cls2 = o2.getClass();
+        Object x =
+            Expression.evaluate( result,
+                                 ClassUtils.dominantTypeClass( cls1, cls2 ),
+                                 false );
+        if ( x == null ) x = result;
+        return (V1)x; // even if x is null; evaluate will try to cast, so there's nothing more to do, and the operation fails.
+      } catch ( ClassCastException e ) {
+        e.printStackTrace();
       }
     }
     return plus( o1, times( o2, -1 ) );
+  }
+  
+  public static String minusSuffix( String s1, String s2 ) {
+    if (s1.endsWith( s2 )) {
+      return s1.substring( 0, s1.length() - s2.length() );
+    } else {
+      return null;
+    }
+  }
+  
+  public static String minusPrefix( String s1, String s2 ) {
+    if (s1.startsWith( s2 )) {
+      return s1.substring( s2.length() );
+    } else {
+      return null;
+    }
   }
 
   public static < T, TT > T add( Expression< T > o1,
@@ -2744,6 +2855,30 @@ public class Functions {
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return minus( r1, r2 );
+  }
+
+  public static < T, TT > String
+         subtractSuffix( Expression< T > o1,
+                   Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    return minusSuffix( r1.toString(), r2.toString() );
+  }
+
+  public static < T, TT > String
+         subtractPrefix( Expression< T > o1,
+                   Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    return minusPrefix( r1.toString(), r2.toString() );
   }
 
   public static < T, TT > T
@@ -3299,13 +3434,14 @@ public class Functions {
           if ( rd1.size() == 1 && rd2.size() == 1 && rd1.equals( rd2 ) ) {
             //System.out.println( "true" );
             return new BooleanDomain( true, true );
-          } else if ( rd1.intersects( rd1 ) ) {// greaterEquals(rd1.getUpperBound(),
+          } else if ( rd1.intersects( rd2 ) ) {// greaterEquals(rd1.getUpperBound(),
                                                // rd2.getLowerBound()) &&
             // rd1.lessEquals(rd1.getLowerBound(), rd2.getUpperBound()) ){
             //System.out.println( "true or false" );
             return new BooleanDomain( false, true );
-          } else System.out.println( "false" );
-          return new BooleanDomain( false, false );
+          } else {
+            return new BooleanDomain( false, false );
+          }
         }
         // TODO else case
       }
@@ -6060,13 +6196,13 @@ public class Functions {
     return TimeVaryingMap.plus( tv1, tv2 );
   }
 
-  public static < T > TimeVaryingMap< T >
-         minus( Object o, TimeVaryingMap< T > tv ) throws ClassCastException,
-                                                   IllegalAccessException,
-                                                   InvocationTargetException,
-                                                   InstantiationException {
-    return minus( tv, o );
-  }
+//  public static < T > TimeVaryingMap< T >
+//         minus( Object o, TimeVaryingMap< T > tv ) throws ClassCastException,
+//                                                   IllegalAccessException,
+//                                                   InvocationTargetException,
+//                                                   InstantiationException {
+//    return minus( tv, o );
+//  }
 
   public static < T > TimeVaryingMap< T >
          minus( TimeVaryingMap< T > tv,

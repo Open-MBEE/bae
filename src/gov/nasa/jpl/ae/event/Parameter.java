@@ -465,7 +465,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
 
       if (printOnSetValue) {
-        System.out.println( "Set value of Parameter " + toShortString() + 
+        System.out.println( "Set value of Parameter " + getQualifiedName( null ) + 
                             " from " + MoreToString.Helper.toShortString( oldValue ) + 
                             " to " + MoreToString.Helper.toShortString( val ) );
       }
