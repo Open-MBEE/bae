@@ -157,7 +157,7 @@ public class FunctionCall extends Call {
   /**
    * @param object
    * @param method
-   * @param arguments
+   * @param argumentsA
    * @param returnType
    */
   public FunctionCall( Object object , Method method , Object argumentsA[] , Class< ? > returnType  ) {
@@ -423,6 +423,9 @@ public class FunctionCall extends Call {
     return returnType;
   }
 
+  public boolean rrrrr = false;
+
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.Call#calculateDomain(boolean, java.util.Set)
    */
@@ -468,8 +471,29 @@ public class FunctionCall extends Call {
           return d;
         }
     }
-    if ( this.isMonotonic() ) {
-      Domain<?> d = DomainHelper.combineDomains( arguments, this, true );
+    boolean monotonic = this.isMonotonic();
+    FunctionCall fc = null;
+    if ( rrrrr ) {
+      if ( !monotonic ) {
+        if ( this.getMethod() != null && this.getMethod().getName()
+                                             .equals( "newList" )
+             && arguments.size() > 0 ) {
+          monotonic = true;
+          for ( Object a : arguments ) {
+            try {
+              fc = Expression.evaluate( a, FunctionCall.class, false );
+            } catch ( Throwable e ) {
+            }
+            if ( fc == null || !fc.isMonotonic() ) {
+              monotonic = false;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if ( monotonic ) {
+      Domain<?> d = DomainHelper.combineDomains( arguments, fc == null ? this : fc, true );
       return d;
     }
     return null;

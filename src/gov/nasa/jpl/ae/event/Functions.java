@@ -3371,7 +3371,7 @@ public class Functions {
             // rd1.lessEquals(rd1.getLowerBound(), rd2.getUpperBound()) ){
             //System.out.println( "true or false" );
             return new BooleanDomain( false, true );
-          } else System.out.println( "false" );
+          } else if ( Debug.isOn()) System.out.println( "false" );
           return new BooleanDomain( false, false );
         }
         // TODO else case
@@ -3717,7 +3717,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -3889,7 +3889,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -4068,7 +4068,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -4241,7 +4241,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
