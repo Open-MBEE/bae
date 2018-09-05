@@ -46,6 +46,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   protected static double timeoutSeconds = 900.0;
   protected static int maxLoopsWithNoProgress =50;
+  protected static int maxLoopsWithSameAssignment=51;
+
   protected static long maxPassesAtConstraints = 10000;
   protected static boolean usingTimeLimit = false;
   protected static boolean usingLoopLimit = true;
@@ -839,12 +841,16 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     long mostResolvedConstraints = 0;
     double highestFractionResolvedConstraint = 0;
     int numLoopsWithNoProgress = 0;
+    int numLoopsWithSameAssignment = 0;
     long numberOfConstraints = getNumberOfConstraints( true, null );
     boolean satisfied = false;
     long millisPassed = (long)( System.currentTimeMillis() - clockStart );
     double curTimeLeft = ( timeoutSeconds * 1000.0 - ( millisPassed ) );
 
+    Map<Parameter, Object> lastAssignments = saveAssignments( true, null );
+
     while ( !satisfied && numLoopsWithNoProgress < maxLoopsWithNoProgress
+            && numLoopsWithSameAssignment < maxLoopsWithSameAssignment
             && ( !usingTimeLimit || curTimeLeft > 0.0 )
             && ( !usingLoopLimit || numLoops < maxPassesAtConstraints ) ) {
       if ( Debug.isOn() || this.amTopEventToSimulate ) {
@@ -877,6 +883,20 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       if ( quitEarlyWhenInconsistent && foundInconsistency ) {
         return false;
       }
+
+      Map<Parameter, Object> assignments = saveAssignments( true, null );
+      if ( assignmentsEqual( assignments, lastAssignments ) ) {
+        ++numLoopsWithSameAssignment;
+        if ( numLoopsWithSameAssignment >= maxLoopsWithSameAssignment
+               && ( Debug.isOn() || amTopEventToSimulate ) ) {
+            System.out.println( "\nPlateaued at " + numLoopsWithSameAssignment
+                                + " loops with same assignment." );
+        }
+      } else {
+        numLoopsWithSameAssignment = 0;
+      }
+      lastAssignments = assignments;
+
 
       // numberOfConstraints = this.getNumberOfConstraints( true, null );
       long numResolvedConstraints =
@@ -1879,6 +1899,13 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   /**
+   * @return the maxLoopsWithSameAssignment
+   */
+  public static int getMaxLoopsWithSameAssignment() {
+    return maxLoopsWithSameAssignment;
+  }
+
+  /**
    * @return the maxLoopsWithNoProgress
    */
   public static int getMaxLoopsWithNoProgress() {
@@ -2309,4 +2336,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     }
     return assignment;
   }
+  public boolean assignmentsEqual(Map<Parameter, Object> params1, Map<Parameter, Object> params2) {
+    if ( params1 == params2 ) return true;
+    if ( params1 == null || params2 == null ) return false;
+    if ( params1.size() != params2.size() ) return false;
+    int comp = CompareUtils.compare(params1, params2);
+    return comp == 0;
+  }
+
 }
