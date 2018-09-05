@@ -163,6 +163,37 @@ public class StringDomain extends AbstractRangeDomain<String> {
   public int compareTo( Domain< String > o ) {
     return super.compare( o );
   }
+  
+  @Override
+  public boolean setLowerBound( String lowerBound ) {
+    // do nothing
+    return false;
+  }
+  
+  @Override
+  public boolean setUpperBound( String upperBound ) {
+    // do nothing
+    return false;
+  }
+  
+  @Override
+  public boolean setBounds( String lowerBound, String upperBound ) {
+    // do nothing
+    return false;
+  }
+  
+  @Override
+  public boolean intersectRestrict( AbstractRangeDomain< String > o ) {
+    // do nothing
+    return false;
+  }
 
-
+  @Override
+  public < TT > boolean restrictTo( AbstractRangeDomain< TT > domain ) {
+    if (domain instanceof StringDomain && !this.equals( domain )) {
+      // REVIEW - do we need to be more careful here?
+      this.copy( (StringDomain)domain );
+    }
+    return false;
+  }
 }
