@@ -20,7 +20,7 @@ public class StringDomain extends AbstractRangeDomain<String> {
     /**
      * The Kind tells us how to interpret the inherited range as a set of strings.
      */
-	enum Kind {PREFIX_RANGE, SUFFIX_RANGE, ALPHABETIC, TWO_VALUED, UNKNOWN}
+    public enum Kind {PREFIX_RANGE, SUFFIX_RANGE, ALPHABETIC, TWO_VALUED, UNKNOWN}
 
 	public Kind kind = Kind.UNKNOWN;
 
@@ -63,8 +63,10 @@ public class StringDomain extends AbstractRangeDomain<String> {
             }
         }
         if ( oldBrokenWay ) return -1;
-        if ( upperBound.startsWith( lowerBound ) || upperBound.endsWith( lowerBound ) ||
-             lowerBound.startsWith( upperBound ) || lowerBound.endsWith( upperBound ) ) {
+        if ( lowerBound.contains( getTypeMaxValue() ) ||upperBound.contains( getTypeMaxValue() ) ) {
+            return -1;
+        }
+        if ( treatAsPrefixOrSuffix() ) {
             return upperBound.length() - lowerBound.length() + 1 -
                    (lowerIncluded ? 0 : 1 ) - ( upperIncluded ? 0 : 1 );
         }
@@ -321,6 +323,22 @@ public class StringDomain extends AbstractRangeDomain<String> {
             }
         }
         return super.contains( s, strictly );
+    }
+
+    @Override public boolean setBounds( String lowerBound, String upperBound ) {
+//	    if ( isMaybePrefix() || isMaybeSuffix() ) {
+//	        if ( less( upperBound, lowerBound ) ) {
+//	            this.lowerBound = upperBound;
+//	            this.upperBound = lowerBound;
+//            } else {
+                this.lowerBound = lowerBound;
+                this.upperBound = upperBound;
+//            }
+            lowerIncluded = true;
+            upperIncluded = true;
+            return true;
+//        }
+//        return super.setBounds( lowerBound, upperBound );
     }
 
     //    @Override

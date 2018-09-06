@@ -1434,6 +1434,32 @@ public class Functions {
       return new StringDomain( s, s );
     }
 
+    ArrayList<Object> domains = new ArrayList<>();
+    if ( sd2 != null && //sd2.treatAsPrefixOrSuffix() &&
+         rd1 != null ) {
+      ArrayList<String> dom1Values = new ArrayList<>();
+      if ( rd1.isInfinite() ) {
+        String dom1Val = "" + rd1.getLowerBound();
+        Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+        if ( dx != null ) domains.add( dx );
+        dom1Val = "" + rd1.getLowerBound();
+        dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+        if ( dx != null ) domains.add( dx );
+      } else {
+        for ( long n = 0; n < rd1.size(); ++n ) {
+          String dom1Val = "" + rd1.getNthValue( n );
+          Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+          if ( dx != null ) domains.add( dx );
+        }
+      }
+      if ( !domains.isEmpty() ) {
+        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
+        Domain<?> d = DomainHelper.combineDomains( domains, null, false );
+        return d;
+      }
+    }
+/*
+
     if ( single1 && multiple2 ) {
       String dom1Val = "" + d1.getValue( false );
       if ( sd2 != null && sd2.treatAsPrefixOrSuffix() ) {
@@ -1471,7 +1497,7 @@ public class Functions {
         return d;
       }
     }
-
+*/
       //      // TODO -- There are many possibilities here. Instead, define less(),
     //      // alwaysLess(), etc. methods for domains that take a variety of
     //      // arguments.
@@ -1490,6 +1516,28 @@ public class Functions {
     // Try not to loop over the whole thing.  Try from both sides.
     // Left side first.
     long n1 = 0;
+
+    if ( sd2.isInfinite() ) {
+      String v2 = null;
+      String v1 = null;
+      if ( isPrefix ) {
+        v2 = minusPrefix( dom1Val, sd2.getLowerBound() );
+      } else {
+        v2 = minusSuffix( dom1Val, sd2.getLowerBound() );
+      }
+      if ( isPrefix ) {
+        v1 = minusPrefix( dom1Val, sd2.getUpperBound() );
+      } else {
+        v1 = minusSuffix( dom1Val, sd2.getUpperBound() );
+      }
+      StringDomain d = new StringDomain( v1, v2 );
+      if ( isPrefix ) {
+        d.kind = StringDomain.Kind.SUFFIX_RANGE;
+      } else {
+        d.kind = StringDomain.Kind.PREFIX_RANGE;
+      }
+      return d;
+    }
     for ( ; n1 < sd2.size(); ++n1 ) {
       String nv = sd2.getNthValue( n1 );
       String v = null;
@@ -1536,6 +1584,9 @@ public class Functions {
               // hit a max or min -- time to quit
               break;
             }
+          } else if ( startedReplacing ) {
+            // hit a max or min -- time to quit
+            break;
           }
         }
       }
@@ -7075,6 +7126,37 @@ public class Functions {
     } catch ( InstantiationException e ) {
       e.printStackTrace();
     }
+
+
+    System.out.println("=== MinusPrefix.calculateDomain() ===\n");
+
+    StringDomain d1 = new StringDomain( "ab", "abcde" );
+    d1.kind = StringDomain.Kind.PREFIX_RANGE;
+    System.out.println( "StringDomain d1 = " + d1 + ", size = " + d1.size() );
+//    for ( int i = 0; i < d1.size(); ++i ) {
+//      System.out.println( "value " + i + " = " + d1.getNthValue( i ) );
+//    }
+
+    StringDomain d2 = new StringDomain( "aba", "aba_what_aba" );
+    d2.kind = StringDomain.Kind.SUFFIX_RANGE;
+    d2.excludeLowerBound();
+    d2.excludeUpperBound();
+    System.out.println( "StringDomain d2 = " + d2 + ", size = " + d2.size() );
+//    for ( int i = 0; i < d2.size(); ++i ) {
+//      System.out.println( "value " + i + " = " + d2.getNthValue( i ) );
+//    }
+
+    StringDomain d3 = new StringDomain( "abc", "abcdefg" );
+    System.out.println( "StringDomain d3 = " + d3 + ", size = " + d3.size() );
+
+
+    MinusPrefix mp = new MinusPrefix( new Expression<String>( d3 ),
+                                      new Expression<String>( d1 ) );
+
+    Domain cdd = mp.calculateDomain( true, null );
+
+    System.out.println("" + mp + ".calculateDomain() = " + cdd);
+
 
     // TODO -- Add tests for overflow!!
   }
