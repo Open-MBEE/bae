@@ -1232,7 +1232,7 @@ public class Functions {
   }
   
   public static class MinusSuffix extends Binary< String, String > {
-    public MinusSuffix( Expression< String > o1, Expression< String > o2 ) {
+    public MinusSuffix( Expression<String> o1, Expression<String> o2 ) {
       super( o1, o2, "subtractSuffix", "pickValueForward", "pickValueReverse" );
       // functionCall.
       setMonotonic( true );
@@ -1255,19 +1255,58 @@ public class Functions {
     @Override
     public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
       if ( arguments == null || arguments.size() != 2 ) return null;
-      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
-                                                    : arguments.get( 1 ) );
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 ) :
+                          arguments.get( 1 ) );
       boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
-                                                         // first
+      // first
       if ( returnValue == null || otherArg == null ) return null; // arg can be
-                                                                  // null!
+      // null!
       if ( firstArg ) {
-        return new Sum< String, String >( returnValue, otherArg );
+        return new Sum<String, String>( returnValue, otherArg );
       }
       return new MinusPrefix( otherArg, returnValue );
     }
+
+    /**
+     * Return the possible results of minusSuffix(x,y) for any x in the domain of
+     * the first argument and any y in the domain of the second.  If there is only
+     * one value in each domain, return minusSuffix(x,y).  For Suffix of x, px,
+     * <p>
+     * If the second argument's domain is multivalued, then we look for the domain min
+     * value ("" for StringDomain), the domain max value ("ÿÿÿÿÿÿÿÿ"), and px,
+     * a Suffix of the first argument.  If it is a range domain ["" px], then the
+     * outputs of minusSuffix(x,"") is x and  is ""; thus return
+     * ["" minusSuffix(x,px)]. If the second argument is the range domain [px "ÿÿÿÿÿÿÿÿ"] then
+     * return [minusSuffix(x,px) x].  if [px1, px2] return [minusSuffix(x,px2) minuSuffix(x,px1)].
+     * Otherwise, return ["" x], representing all possible removed Suffixes.
+     * <p>
+     * domain(minusSuffix([x x], ["" px])) = [minusSuffix(x,px), x]
+     * domain(minusSuffix([x x], [px1 px2])) = [minusSuffix(x,px2) minusSuffix(x,px1)]
+     * domain(minusSuffix([x x], [px y])) = [minusSuffix(x,px) x]
+     * <p>
+     * If the first argument's domain is [x1 x2], then we can repeat the logic
+     * above for each of x1 and x2. and have two domains.  One option is to create
+     * a multidomain.  Otherwise, how do we combine them?  Let's see . . .
+     * <p>
+     * The first domain may range within ["", minusSuffix(x1, px1_1),
+     * minusSuffix(x1,px1_2), x1 a].  If x1 is a substring of x2,
+     * <p>
+     * domain(minusSuffix([x1 x2], y)) = [domain(minusSuffix(x1, y)).
+     * <p>
+     * <p>
+     * <p>
+     * If the first argument's domain is multivaleud and not the second, then
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return Functions.calculateDomain(this, propagate, seen);
+    }
+
   }
-  
+
   public static class MinusPrefix extends Binary< String, String > {
     public MinusPrefix( Expression< String > o1, Expression< String > o2 ) {
       super( o1, o2, "subtractPrefix", "pickValueForward", "pickValueReverse" );
@@ -1295,15 +1334,226 @@ public class Functions {
       Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
                                                     : arguments.get( 1 ) );
       boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
-                                                         // first
+      // first
       if ( returnValue == null || otherArg == null ) return null; // arg can be
-                                                                  // null!
+      // null!
       if ( firstArg ) {
         return new Sum< String, String >( returnValue, otherArg );
       }
       return new MinusSuffix( otherArg, returnValue );
     }
+
+    /**
+     * Return the possible results of minusPrefix(x,y) for any x in the domain of
+     * the first argument and any y in the domain of the second.  If there is only
+     * one value in each domain, return minusPrefix(x,y).  For prefix of x, px,
+     * <p>
+     * If the second argument's domain is multivalued, then we look for the domain min
+     * value ("" for StringDomain), the domain max value ("ÿÿÿÿÿÿÿÿ"), and px,
+     * a prefix of the first argument.  If it is a range domain ["" px], then the
+     * outputs of minusPrefix(x,"") is x and  is ""; thus return
+     * ["" minusPrefix(x,px)]. If the second argument is the range domain [px "ÿÿÿÿÿÿÿÿ"] then
+     * return [minusPrefix(x,px) x].  if [px1, px2] return [minusPrefix(x,px2) minuPrefix(x,px1)].
+     * Otherwise, return ["" x], representing all possible removed prefixes.
+     * <p>
+     * domain(minusPrefix([x x], ["" px])) = [minusPrefix(x,px), x]
+     * domain(minusPrefix([x x], [px1 px2])) = [minusPrefix(x,px2) minusPrefix(x,px1)]
+     * domain(minusPrefix([x x], [px y])) = [minusPrefix(x,px) x]
+     * <p>
+     * If the first argument's domain is [x1 x2], then we can repeat the logic
+     * above for each of x1 and x2. and have two domains.  One option is to create
+     * a multidomain.  Otherwise, how do we combine them?  Let's see . . .
+     * <p>
+     * The first domain may range within ["", minusPrefix(x1, px1_1),
+     * minusPrefix(x1,px1_2), x1 a].  If x1 is a substring of x2,
+     * <p>
+     * domain(minusPrefix([x1 x2], y)) = [domain(minusPrefix(x1, y)).
+     * <p>
+     * <p>
+     * <p>
+     * If the first argument's domain is multivaleud and not the second, then
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return Functions.calculateDomain(this, propagate, seen);
+    }
+
   }
+
+
+  public static Domain calculateDomain( Binary<String, String> minusPrefixOrSuffix,
+                                 boolean propagate, Set<HasDomain> seen ) {
+    if ( minusPrefixOrSuffix.getArguments().size() != 2 ) {
+      return StringDomain.defaultDomain;
+    }
+    Object a1 = minusPrefixOrSuffix.getArgument( 0 );
+    Object a2 = minusPrefixOrSuffix.getArgument( 1 );
+    Domain<?> d1 = DomainHelper.getDomain( a1 );
+    Domain<?> d2 = DomainHelper.getDomain( a2 );
+    if ( d1 == null || d2 == null || d1.magnitude() <= 0
+         || d2.magnitude() <= 0 || gov.nasa.jpl.ae.util.Math
+                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
+                 .isInfinity( d2.magnitude() ) ) {
+      return StringDomain.defaultDomain;
+    }
+    AbstractRangeDomain<Object> rd1 = null;
+    AbstractRangeDomain<Object> rd2 = null;
+    if ( d1 instanceof AbstractRangeDomain ) {
+      rd1 = (AbstractRangeDomain<Object>)d1;
+    }
+    if ( d2 instanceof AbstractRangeDomain ) {
+      rd2 = (AbstractRangeDomain<Object>)d2;
+    }
+    StringDomain sd1 = null;
+    StringDomain sd2 = null;
+    if ( d1 instanceof StringDomain ) {
+      sd1 = (StringDomain)d1;
+    }
+    if ( d2 instanceof StringDomain ) {
+      sd2 = (StringDomain)d2;
+    }
+
+    boolean single1 = d1.magnitude() == 1;
+    boolean single2 = d2.magnitude() == 1;
+    boolean multiple1 = d1.magnitude() > 1 && !d1.isInfinite() && rd1 != null;
+    boolean multiple2 = d2.magnitude() > 1 && !d2.isInfinite();
+
+    boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
+    if ( single1 && single2 ) {
+      String s = null;
+      if  ( isPrefix ) {
+        s = minusPrefix( "" + d1.getValue( false ),
+                         "" + d2.getValue( false ) );
+      } else {
+        s = minusSuffix( "" + d1.getValue( false ),
+                         "" + d2.getValue( false ) );
+      }
+      return new StringDomain( s, s );
+    }
+
+    if ( single1 && multiple2 ) {
+      String dom1Val = "" + d1.getValue( false );
+      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() ) {
+        //boolean isSubstring = dom1Val.contains( sd2.getNthValue( 0 ) );
+        Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
+        if ( dx != null ) return dx;
+      }
+      //return new StringDomain( s, s );
+    }
+
+    if ( multiple1 && single2 ) {
+      ArrayList<Object> domains = new ArrayList<>();
+      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() && rd1 != null ) {
+        for ( long n = 0; n < rd1.size(); ++n ) {
+          String dom1Val = "" + rd1.getNthValue( n );
+          Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
+          if ( dx != null ) domains.add( dx );
+        }
+        Domain<?> d = DomainHelper.combineDomains( domains,
+                                                   null, false );
+        return d;
+      }
+    }
+    if ( multiple1 && multiple2 ) {
+      ArrayList<Object> domains = new ArrayList<>();
+      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() && rd1 != null ) {
+        for ( long n = 0; n < rd1.size(); ++n ) {
+          String dom1Val = "" + rd1.getNthValue( n );
+          Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
+          if ( dx != null ) domains.add( dx );
+        }
+        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
+        Domain<?> d = DomainHelper.combineDomains( domains,
+                                                   null, false );
+        return d;
+      }
+    }
+
+      //      // TODO -- There are many possibilities here. Instead, define less(),
+    //      // alwaysLess(), etc. methods for domains that take a variety of
+    //      // arguments.
+    //      return StringDomain.defaultDomain;
+    SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
+    Domain<?> d = DomainHelper.combineDomains( minusPrefixOrSuffix.arguments,
+                                               fc, false );
+    return d;
+  }
+
+
+  protected static Domain prefixesAndSuffixes( String dom1Val, StringDomain sd2,
+                                               boolean isPrefix ) {
+    String r1 = null;
+    String r2 = null;
+    // Try not to loop over the whole thing.  Try from both sides.
+    // Left side first.
+    long n1 = 0;
+    for ( ; n1 < sd2.size(); ++n1 ) {
+      String nv = sd2.getNthValue( n1 );
+      String v = null;
+      if ( isPrefix ) {
+        v = minusPrefix( dom1Val, nv );
+      } else {
+        v = minusSuffix( dom1Val, nv );
+      }
+
+      if ( v != null ) {
+        if ( r1 == null ) {
+          r1 = v;
+        } else if ( !r1.equals( v ) ) {
+          r2 = v;
+          break;
+        }
+      }
+    }
+    // Now right side.
+    if ( r2 != null ) {
+      boolean startedReplacing = false;
+      for ( long n = sd2.size() - 1; n > n1; --n ) {
+        String nv = sd2.getNthValue( n );
+        String v = null;
+        if ( isPrefix ) {
+          v = minusPrefix( dom1Val, nv );
+        } else {
+          v = minusSuffix( dom1Val, nv );
+        }
+        if ( v != null ) {
+          if ( r2.equals( v ) ) {
+            break;
+          } else if ( !r1.equals( v ) ) {
+            // a third value to maybe set as max or min
+            if ( ( sd2.less( v, r2 ) && sd2.less( r2, r1 ) ) || (
+                    sd2.greater( v, r2 ) && sd2.greater( r2, r1 ) ) ) {
+              r2 = v;
+              startedReplacing = true;
+            } else if ( ( sd2.less( v, r1 ) && sd2.less( r1, r2 ) ) || (
+                    sd2.greater( v, r1 ) && sd2.greater( r1, r2 ) ) ) {
+              r1 = v;
+              startedReplacing = true;
+            } else if ( startedReplacing ) {
+              // hit a max or min -- time to quit
+              break;
+            }
+          }
+        }
+      }
+    }
+    if ( r1 == null ) {
+      return new StringDomain( r2, r2 );
+    }
+    if ( r2 == null ) {
+      return new StringDomain( r1, r1 );
+    }
+    boolean less = sd2.less( r1, r2 );
+    if ( less ) {
+      return new StringDomain( r1, r2 );
+    }
+    return new StringDomain( r2, r1 );
+  }
+
+
 
   public static class Times< T, R > extends Binary< T, R > {
     public Times( Expression< T > o1, Expression< T > o2 ) {
@@ -2909,17 +3159,21 @@ public class Functions {
   
   public static String minusSuffix( String s1, String s2 ) {
     if (s1.endsWith( s2 )) {
-      return s1.substring( 0, s1.length() - s2.length() );
+      String s =  s1.substring( 0, s1.length() - s2.length() );
+      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
+      return s;
     } else {
-      return null;
+      return s1;
     }
   }
   
   public static String minusPrefix( String s1, String s2 ) {
     if (s1.startsWith( s2 )) {
-      return s1.substring( s2.length() );
+      String s = s1.substring( s2.length() );
+      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
+      return s;
     } else {
-      return null;
+      return s1;
     }
   }
 
