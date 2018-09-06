@@ -45,7 +45,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   public static boolean mayPropagate = true;
   public static boolean mayChange = true;
 
-  public static boolean printOnSetValue = false;
+  public static boolean printOnSetValue = true;
   public static boolean printOnRestrictDomain = true;
 
   protected String name = null;
@@ -558,7 +558,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   @Override
   public boolean pickValue() {
     if ( Random.global.nextBoolean() ) {
-      return ownerPickValue();
+      boolean changed = ownerPickValue();
+      if ( changed ) return true;
     }
     T value = pickRandomValue();
     if ( value != null ) {
@@ -659,6 +660,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return compare;
   }
 
+  @Override
   public boolean inDomain() {
     boolean inDom = false;
     try {
