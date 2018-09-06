@@ -39,7 +39,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean usingArcConsistency = true;
   public static boolean assigningVarsWithAC = usingArcConsistency;
-  public static boolean arcConsistencyQuiet = true;
+  public static boolean arcConsistencyQuiet = false;
   public static boolean quitEarlyWhenInconsistent = true;
   public static boolean usingConstraintLoopSolver = true;
   public static boolean usingDependencyGraphSolver = false;
@@ -1067,9 +1067,83 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return satisfied;
   }
 
+  protected Consistency arcConsistency(Collection< Constraint > allConstraints) {
+    if ( !usingArcConsistency ) return null;
+    Consistency ac = null;
+    try {
+      ac = new Consistency();
+      ac.constraints = allConstraints;
+      ac.arcConsistency(arcConsistencyQuiet);
+    } catch (Throwable t) {
+      Debug.error(true, false, "Error! Arc consistency failed.");
+      t.printStackTrace();
+    }
+    return ac;
+  }
+
+  protected boolean isArcInconsistent( Consistency ac ) {
+    //if ( !quitEarlyWhenInconsistent ) return false;
+    if ( ac == null ) return false;
+    Map<Variable<?>, Domain<?>> domainState = ac.getDomainState();
+    for ( Map.Entry<Variable<?>, Domain<?>> e : domainState.entrySet() ) {
+      Domain<?> d = e.getValue();
+      if ( d.isEmpty() ) {
+        System.out.println( "Arc consistency detected inconsistency: empty domain for variable " + e.getKey() + ". Quitting immediately." );
+        ac.restoreDomains();
+        //foundInconsistency = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  protected void assignVarsWithArcConsistency( Consistency ac ) {
+    // assign vars using arc consistency
+    if (!usingArcConsistency || !assigningVarsWithAC || ac == null) {
+      return;
+    }
+    Map<Variable<?>, Domain<?>> original = ac.getDomainState();
+    Set<Variable<?>> vars = ac.getVariables();
+    for ( Variable v : vars ) {
+      if ( v == null ) continue; // deal with this somewhere else?
+      assignVarWithArcConsistency(v, ac);
+    }
+    ac.restoreDomains( original );
+  }
+
+  protected void assignVarWithArcConsistency( Variable v, Consistency ac ) {
+    Parameter p = v instanceof Parameter ? (Parameter)v : null;
+    boolean hasGoodValue = false;
+    boolean changed = false;
+    if ( firstTryToSatisfy ||
+         ( p != null && !p.isGrounded( false, null ) ) ||
+         !v.inDomain() ) {
+      //if (firstTryToSatisfy || !p.isGrounded( false, null ) || !p.inDomain()) {
+      changed = v.pickValue();
+      hasGoodValue = v.inDomain();
+      if (!hasGoodValue && !arcConsistencyQuiet) {
+        System.out.println( "Warning! Arc Consistency couldn't pick good value for " + v );
+      }
+      //          } else {
+      //            hasGoodValue = true; // no need to pick a new one, v is grounded and in domain
+      //          }
+      if (hasGoodValue || changed) {// && changed) {
+        // regardless of how v got a good value, propagate the effects of choosing that value
+        v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
+                          true, null );
+        Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
+        ac.lastConstraintSet = null;
+        ac.arcConsistency( arcConsistencyQuiet, false );
+        ac.lastConstraintSet = lastConstraintSet;
+      }
+    }
+
+  }
+
   protected boolean firstTryToSatisfy = true;
 
   protected boolean tryToSatisfy( boolean deep, Set< Satisfiable > seen ) {
+    boolean satisfied = false;
     foundInconsistency = false;
     ground( deep, null );
     if ( Debug.isOn() ) Debug.outln( this.getClass().getName()
@@ -1081,70 +1155,26 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + ".tryToSatisfy() calling solve() with "
                           + allConstraints.size() + " constraints" );
     }
-    // REVIEW -- why not call satisfy() here and solve elsewhere??
 
-    // Restrict the domains of the variables using arc consistency on the
-    // constraints.
     Consistency ac = null;
     if ( usingArcConsistency ) {
-      try {
-        ac = new Consistency();
-        ac.constraints = allConstraints;
-        ac.arcConsistency(arcConsistencyQuiet);
-        if ( quitEarlyWhenInconsistent ) {
-          Map<Variable<?>, Domain<?>> domainState = ac.getDomainState();
-          for ( Map.Entry<Variable<?>, Domain<?>> e : domainState.entrySet() ) {
-            Domain<?> d = e.getValue();
-            if ( d.isEmpty() ) {
-              System.out.println( "Arc consistency detected inconsistency: empty domain for variable " + e.getKey() + ". Quitting immediately." );
-              ac.restoreDomains();
-              foundInconsistency = true;
-              return false;
-            }
-          }
-        }
-      } catch (Throwable t) {
-        Debug.error(true, false, "Error! Arc consistency failed.");
-        t.printStackTrace();
+      // Restrict the domains of the variables using arc consistency on the
+      // constraints.
+      ac = arcConsistency(allConstraints);
+
+      if ( quitEarlyWhenInconsistent && isArcInconsistent( ac ) ) {
+        foundInconsistency = true;
+        return false;
       }
+
+      // assign vars using arc consistency
+      assignVarsWithArcConsistency( ac );
     }
-
-
-    // assign vars using arc consistency
-    if (usingArcConsistency && assigningVarsWithAC) {
-      Map<Variable<?>, Domain<?>> original = ac.getDomainState();
-      Set<Variable<?>> vars = ac.getVariables();
-      for ( Variable v : vars ) {
-        Parameter p = v instanceof Parameter ? (Parameter)v : null;
-        boolean hasGoodValue = false;
-        if (p != null) {
-          if (firstTryToSatisfy || !p.isGrounded( false, null ) || !p.inDomain()) {
-            hasGoodValue = v.pickValue();
-            if (!hasGoodValue && !arcConsistencyQuiet) {
-              System.out.println( "Warning! Arc Consistency couldn't pick good value for " + v );
-            }
-          } else {
-            hasGoodValue = true; // no need to pick a new one, v is grounded and in domain
-          }
-          if (hasGoodValue) {
-            // regardless of how v got a good value, propagate the effects of choosing that value
-            v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
-                              true, null );
-            Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
-            ac.lastConstraintSet = null;
-            ac.arcConsistency( arcConsistencyQuiet, false );
-            ac.lastConstraintSet = lastConstraintSet;
-          }
-        }
-      }
-      firstTryToSatisfy = false;
-      ac.restoreDomains( original );
-    }
-
 
     allConstraints = getConstraints( deep, null );
+
     // restore domains of things that are not simple variables
-    if ( ac != null ) {
+    if ( usingArcConsistency && ac != null ) {
       for (Entry<Variable<?>, Domain<?>> e : ac.savedDomains.entrySet()) {
         if (Boolean.FALSE.equals(isSimpleVar(e.getKey()))) {
           e.getKey().setDomain((Domain) e.getValue());
@@ -1152,7 +1182,6 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       }
     }
 
-    boolean satisfied = false;
     if ( usingDependencyGraphSolver ) {
       System.out.println( "Dependency solver" );
       solver2 = new DependencyGraphSolver( allConstraints );
@@ -1169,6 +1198,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( usingArcConsistency ) {
       ac.restoreDomains();
     }
+
+    firstTryToSatisfy = false;
+
     if ( Debug.isOn() || amTopEventToSimulate ) {
       Timer t = new Timer();
       t.start();
