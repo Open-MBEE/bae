@@ -601,7 +601,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   @Override
   public boolean equals( Object obj ) {
     if ( obj == null ) {
-      throw new NullPointerException( "Error! Cannot check equality on a null domain.");
+      return false;//throw new NullPointerException( "Error! Cannot check equality on a null domain.");
     }
     if (this == obj) return true;
     int comp = compare(obj);
