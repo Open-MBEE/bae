@@ -1302,7 +1302,7 @@ public class Functions {
      * @return
      */
     @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
-      return Functions.calculateDomain(this, propagate, seen);
+      return Functions.calculateStringDomain(this, propagate, seen);
     }
 
   }
@@ -1378,14 +1378,14 @@ public class Functions {
      * @return
      */
     @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
-      return Functions.calculateDomain(this, propagate, seen);
+      return calculateStringDomain(this, propagate, seen);
     }
 
   }
 
 
-  public static Domain calculateDomain( Binary<String, String> minusPrefixOrSuffix,
-                                 boolean propagate, Set<HasDomain> seen ) {
+  public static Domain calculateStringDomain( Binary<String, String> minusPrefixOrSuffix,
+                                              boolean propagate, Set<HasDomain> seen ) {
     if ( minusPrefixOrSuffix.getArguments().size() != 2 ) {
       return StringDomain.defaultDomain;
     }
@@ -1393,10 +1393,13 @@ public class Functions {
     Object a2 = minusPrefixOrSuffix.getArgument( 1 );
     Domain<?> d1 = DomainHelper.getDomain( a1 );
     Domain<?> d2 = DomainHelper.getDomain( a2 );
-    if ( d1 == null || d2 == null || d1.magnitude() <= 0
-         || d2.magnitude() <= 0 || gov.nasa.jpl.ae.util.Math
-                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
-                 .isInfinity( d2.magnitude() ) ) {
+    if ( d1 == null || d2 == null
+//         || d1.magnitude() <= 0
+//         || d2.magnitude() <= 0
+//         || gov.nasa.jpl.ae.util.Math
+//                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
+//                 .isInfinity( d2.magnitude() )
+            ) {
       return StringDomain.defaultDomain;
     }
     AbstractRangeDomain<Object> rd1 = null;
@@ -1458,56 +1461,177 @@ public class Functions {
         return d;
       }
     }
-/*
-
-    if ( single1 && multiple2 ) {
-      String dom1Val = "" + d1.getValue( false );
-      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() ) {
-        //boolean isSubstring = dom1Val.contains( sd2.getNthValue( 0 ) );
-        Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
-        if ( dx != null ) return dx;
-      }
-      //return new StringDomain( s, s );
-    }
-
-    if ( multiple1 && single2 ) {
-      ArrayList<Object> domains = new ArrayList<>();
-      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() && rd1 != null ) {
-        for ( long n = 0; n < rd1.size(); ++n ) {
-          String dom1Val = "" + rd1.getNthValue( n );
-          Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
-          if ( dx != null ) domains.add( dx );
-        }
-        Domain<?> d = DomainHelper.combineDomains( domains,
-                                                   null, false );
-        return d;
-      }
-    }
-    if ( multiple1 && multiple2 ) {
-      ArrayList<Object> domains = new ArrayList<>();
-      if ( sd2 != null && sd2.treatAsPrefixOrSuffix() && rd1 != null ) {
-        for ( long n = 0; n < rd1.size(); ++n ) {
-          String dom1Val = "" + rd1.getNthValue( n );
-          Domain dx = prefixesAndSuffixes(dom1Val, sd2, isPrefix);
-          if ( dx != null ) domains.add( dx );
-        }
-        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
-        Domain<?> d = DomainHelper.combineDomains( domains,
-                                                   null, false );
-        return d;
-      }
-    }
-*/
-      //      // TODO -- There are many possibilities here. Instead, define less(),
-    //      // alwaysLess(), etc. methods for domains that take a variety of
-    //      // arguments.
-    //      return StringDomain.defaultDomain;
     SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
     Domain<?> d = DomainHelper.combineDomains( minusPrefixOrSuffix.arguments,
                                                fc, false );
     return d;
   }
 
+
+  // Warning! this is matched by regex with no treatment for characters with special meaning, like *.
+  protected static String wild = StringDomain.typeMaxValue;
+
+  /**
+   *
+   * Subtract the prefix/suffix based on the rules below for upper or lower bound, y.
+   *
+   * domain(minusPrefix([x x], ["" px])) = [minusPrefix(x,px), x]
+   * domain(minusPrefix([x x], [px1 px2])) = [minusPrefix(x,px2) minusPrefix(x,px1)]
+   * domain(minusPrefix([x x], [px y])) = [minusPrefix(x,px) x]
+   *
+   * Allowing wildcards makes this painful.  We should just not allow them; else,
+   * go full regex.
+   *
+   * REVIEW -- should this be replaced with regex operations?  The weird part is
+   * that there are wildcards in both the pattern and the string to match.
+   * It's like unification beyond predicates.  One problem is that there are
+   * multiple solutions.  For example,
+   * x = "* a b * c"
+   * y = "* b c"
+   * this is wrong: "* a "->"* ", "b * c"-> "b c" because there are two spaces between b and c.
+   * one correct one: "* a b * "-> "*", "* "->" b ", "c"->"c"
+   *
+   */
+  protected static StringDomain minusPrefixSuffixWild( String x, String y,
+                                                       boolean isPrefix,
+                                                       boolean isLowerBound) {
+    if ( y == null || y.isEmpty() ) {
+      return new StringDomain(x, x);
+    }
+
+    String lb = x;  // The string with the most subtracted.
+    String ub = x;  // The string with the least subtracted.
+
+    // NOTE: The Utils.longestCommon* and longestPrefix* functions may be useful here.
+
+    // check for wildcard symbol at the front of the x string.
+    boolean xHasWildToSubtract = false;
+    if (isPrefix) {
+      while ( lb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        lb = lb.substring( wild.length() );
+        xHasWildToSubtract = true;
+      }
+    } else {
+      while ( lb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        lb = lb.substring( 0, lb.length() - wild.length() );
+        xHasWildToSubtract = true;
+      }
+    }
+
+    // If xLbWildPos >= 0 then there is a wildcard after a prefix/suffix to subtract.
+    int xFirstWild = x.indexOf( wild );
+    int xLastWild = x.lastIndexOf( wild );
+    //boolean xHasWildAfter = false;
+
+    String ylb = y;
+    String yub = y;
+
+    // check for wildcard symbol at the front of the y string.
+    boolean yHasWildToSubtract = false;
+    if (isPrefix) {
+      while ( ylb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        ylb = ylb.substring( wild.length() );
+        yHasWildToSubtract = true;
+      }
+    } else {
+      while ( ylb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        ylb = ylb.substring( 0, ylb.length() - wild.length() );
+        yHasWildToSubtract = true;
+      }
+    }
+    // If yLbWildPos >= 0 then there is a wildcard after a prefix/suffix to subtract.
+    int yFirstWild = y.indexOf( wild );
+    int yLastWild = y.lastIndexOf( wild );
+    //int yLbWildPos = isPrefix ? y.indexOf( wild ) : y.lastIndexOf( wild );
+    //boolean yHasWildAfter = false;
+
+
+    if (xHasWildToSubtract && yHasWildToSubtract) {
+      StringDomain d =  new StringDomain( "", x );
+      d.kind = isPrefix ? StringDomain.Kind.SUFFIX_RANGE : StringDomain.Kind.PREFIX_RANGE;
+      return d;
+    }
+
+    // remove wild on the end since it won't actually match anything
+    String ylb2 = ylb.endsWith( wild ) ? ylb.substring( 0, ylb.length()-wild.length() ) : ylb;
+    // well, remove all wilds then -- maybe we won't use them anyway
+    String ylb3 = ylb2.replace( wild, "" );
+    if ( yHasWildToSubtract ) {
+      // y' wildcard can match anything, but any remaining characters must match something.
+      if ( ylb3.isEmpty() ) {
+        // nothing needed to match beyond the wild card, so all can be subtracted
+        lb = "";
+      } else {
+        int pos = isPrefix ? x.lastIndexOf( ylb3 ) : x.indexOf( ylb3 );
+        if ( pos >= 0 ) {
+          if ( isPrefix ) {
+            int farthest = pos + ylb3.length();
+            if ( xLastWild >= 0 ) farthest = Math.max(xLastWild + wild.length(), farthest );
+            lb = x.substring( farthest );
+          } else {
+            int farthest = pos;
+            if ( xFirstWild >= 0 ) farthest = Math.min(xFirstWild, farthest );
+            lb = x.substring( 0, farthest );
+          }
+        }
+      }
+    } else {
+      int len = Utils.longestCommonPrefixLength( isPrefix ? lb : Functions.reverse( lb ),
+                                                 isPrefix ? ylb3 : Functions.reverse( ylb3 ) );
+      lb = lb.substring( len );
+    }
+    if (isPrefix) {
+      while ( lb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        lb = lb.substring( wild.length() );
+        xHasWildToSubtract = true;
+      }
+    } else {
+      while ( lb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        lb = lb.substring( 0, lb.length() - wild.length() );
+        xHasWildToSubtract = true;
+      }
+    }
+
+    if (!xHasWildToSubtract && !yHasWildToSubtract ) {
+      if ( isPrefix ) {
+        if ( ub.startsWith( yub ) ){
+          ub = ub.substring( yub.length() );
+        } else if ( ub.startsWith( ylb ) ) {
+          ub = ub.substring( ylb.length() );
+          if ( yub.startsWith( ylb ) ) {
+            String newyub = yub.substring( ylb.length() );
+
+            int lenn = Utils.longestCommonPrefixLength( ub, newyub );
+            ub = ub.substring( lenn );
+          }
+        }
+      } else {
+        if ( ub.endsWith( yub ) ){
+          ub = ub.substring( 0, ub.length() - yub.length() );
+        } else if ( ub.endsWith( ylb ) ) {
+          ub = ub.substring( ylb.length() );
+          if ( yub.endsWith( ylb ) ) {
+            String newyub = yub.substring( 0, yub.length() - ylb.length() );
+            int lenn = Utils.longestCommonPrefixLength( reverse(ub), reverse(newyub) );
+            ub = ub.substring( 0, ub.length() - lenn );
+          }
+        }
+      }
+    }
+    StringDomain d = new StringDomain( lb, ub );
+    d.kind = isPrefix ? StringDomain.Kind.SUFFIX_RANGE : StringDomain.Kind.PREFIX_RANGE;
+    return d;
+  }
+
+  public static String reverse( String s ) {
+    return new StringBuilder( s ).reverse().toString();
+  }
 
   protected static Domain prefixesAndSuffixes( String dom1Val, StringDomain sd2,
                                                boolean isPrefix ) {
@@ -1520,23 +1644,11 @@ public class Functions {
     if ( sd2.isInfinite() ) {
       String v2 = null;
       String v1 = null;
-      if ( isPrefix ) {
-        v2 = minusPrefix( dom1Val, sd2.getLowerBound() );
-      } else {
-        v2 = minusSuffix( dom1Val, sd2.getLowerBound() );
-      }
-      if ( isPrefix ) {
-        v1 = minusPrefix( dom1Val, sd2.getUpperBound() );
-      } else {
-        v1 = minusSuffix( dom1Val, sd2.getUpperBound() );
-      }
-      StringDomain d = new StringDomain( v1, v2 );
-      if ( isPrefix ) {
-        d.kind = StringDomain.Kind.SUFFIX_RANGE;
-      } else {
-        d.kind = StringDomain.Kind.PREFIX_RANGE;
-      }
-      return d;
+
+      StringDomain d1 = minusPrefixSuffixWild( dom1Val, sd2.getLowerBound(), isPrefix, false );
+      StringDomain d2 = minusPrefixSuffixWild( dom1Val, sd2.getUpperBound(), isPrefix, false );
+      d1.union( d2 );
+      return d1;
     }
     for ( ; n1 < sd2.size(); ++n1 ) {
       String nv = sd2.getNthValue( n1 );
@@ -1591,17 +1703,24 @@ public class Functions {
         }
       }
     }
+    StringDomain sd = null;
     if ( r1 == null ) {
-      return new StringDomain( r2, r2 );
-    }
+       sd = new StringDomain( r2, r2 );
+    } else
     if ( r2 == null ) {
-      return new StringDomain( r1, r1 );
+      sd = new StringDomain( r1, r1 );
+    } else {
+        boolean less = sd2.less( r1, r2 );
+        if ( less ) {
+            sd = new StringDomain( r1, r2 );
+        } else {
+            sd = new StringDomain( r2, r1 );
+        }
     }
-    boolean less = sd2.less( r1, r2 );
-    if ( less ) {
-      return new StringDomain( r1, r2 );
-    }
-    return new StringDomain( r2, r1 );
+    sd.kind = isPrefix ?
+              StringDomain.Kind.SUFFIX_RANGE :
+              StringDomain.Kind.PREFIX_RANGE;
+    return sd;
   }
 
 
