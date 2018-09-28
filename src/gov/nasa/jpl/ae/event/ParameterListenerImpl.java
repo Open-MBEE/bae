@@ -39,8 +39,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean usingArcConsistency = true;
   public static boolean assigningVarsWithAC = usingArcConsistency;
-  public static boolean arcConsistencyQuiet = false;
+  public static boolean arcConsistencyQuiet = true;
   public static boolean quitEarlyWhenInconsistent = true;
+  public static boolean restoreAfterACAssignVars = false;
+  public static boolean restoreIfACNoSolution = true;
   public static boolean usingConstraintLoopSolver = true;
   public static boolean usingDependencyGraphSolver = false;
 
@@ -1073,6 +1075,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     try {
       ac = new Consistency();
       ac.constraints = allConstraints;
+      ac.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
       ac.arcConsistency(arcConsistencyQuiet);
     } catch (Throwable t) {
       Debug.error(true, false, "Error! Arc consistency failed.");
@@ -1081,6 +1084,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return ac;
   }
 
+  // TODO -- Shouldn't this be in Consistency?
   protected boolean isArcInconsistent( Consistency ac ) {
     //if ( !quitEarlyWhenInconsistent ) return false;
     if ( ac == null ) return false;
@@ -1097,21 +1101,44 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return false;
   }
 
-  protected void assignVarsWithArcConsistency( Consistency ac ) {
+  // REVIEW -- Ideally, the solver would integrate smart picking with AC, and we
+  // wouldn't need this.
+  // TODO -- Actually, shouldn't this be in Consistency anyway?
+  protected void assignVarsWithArcConsistency( Consistency ac,
+                                               boolean restoreDomains,
+                                               boolean restoreIfNoSolution ) {
     // assign vars using arc consistency
     if (!usingArcConsistency || !assigningVarsWithAC || ac == null) {
       return;
     }
     Map<Variable<?>, Domain<?>> original = ac.getDomainState();
     Set<Variable<?>> vars = ac.getVariables();
-    for ( Variable v : vars ) {
-      if ( v == null ) continue; // deal with this somewhere else?
-      assignVarWithArcConsistency(v, ac);
+    boolean gotChange = true;
+    long loopsLeft = vars.size();
+    while ( gotChange &&  loopsLeft > 0 ) {
+      System.out.println("New round of assignVarsWithArcConsistency()." );
+      gotChange = false;
+      for ( Variable v : vars ) {
+        if ( quitEarlyWhenInconsistent && ac.noSolution ) {
+          System.out.println(
+                  "Exiting before assigning all vars in assignVarsWithArcConsistency()." );
+          break;
+        }
+        if ( v == null ) continue; // deal with this somewhere else?
+        boolean ch = assignVarWithArcConsistency( v, ac );
+        if ( ch ) gotChange = true;
+      }
+      vars = ac.getVariables();
+      --loopsLeft;
     }
-    ac.restoreDomains( original );
+    if ( restoreDomains ||
+         (restoreIfNoSolution && quitEarlyWhenInconsistent && ac.noSolution) ) {
+      ac.restoreDomains( original );
+    }
   }
 
-  protected void assignVarWithArcConsistency( Variable v, Consistency ac ) {
+  // TODO -- Shouldn't this be in Consistency?
+  protected boolean assignVarWithArcConsistency( Variable v, Consistency ac ) {
     Parameter p = v instanceof Parameter ? (Parameter)v : null;
     boolean hasGoodValue = false;
     boolean changed = false;
@@ -1121,13 +1148,24 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       //if (firstTryToSatisfy || !p.isGrounded( false, null ) || !p.inDomain()) {
       changed = v.pickValue();
       hasGoodValue = v.inDomain();
+
+      // HACK!  Sometimes collections and maps (in particular, TimeVaryingMaps) are
+      // simplified to the one value they contain, such as 'true' for satisfying
+      // a timeline constraint.  We should prevent that from happening except at the
+      // time the the one value is needed.  That may be difficult.  The code
+      // below is a workaround.
+      if ( !hasGoodValue && v.getDomain() instanceof ClassDomain &&
+           TimeVaryingMap.class.isAssignableFrom(((ClassDomain)v.getDomain()).getType()) ) {
+        hasGoodValue = true;
+      }
+
       if (!hasGoodValue && !arcConsistencyQuiet) {
         System.out.println( "Warning! Arc Consistency couldn't pick good value for " + v );
       }
       //          } else {
       //            hasGoodValue = true; // no need to pick a new one, v is grounded and in domain
       //          }
-      if (hasGoodValue || changed) {// && changed) {
+      if (hasGoodValue && changed) {// && changed) {
         // regardless of how v got a good value, propagate the effects of choosing that value
         v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
                           true, null );
@@ -1137,7 +1175,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         ac.lastConstraintSet = lastConstraintSet;
       }
     }
-
+    return changed;
   }
 
   protected boolean firstTryToSatisfy = true;
@@ -1161,14 +1199,15 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       // Restrict the domains of the variables using arc consistency on the
       // constraints.
       ac = arcConsistency(allConstraints);
+      ac.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
 
-      if ( quitEarlyWhenInconsistent && isArcInconsistent( ac ) ) {
+      if ( quitEarlyWhenInconsistent && ac.noSolution ) {//isArcInconsistent( ac ) ) {
         foundInconsistency = true;
         return false;
       }
 
       // assign vars using arc consistency
-      assignVarsWithArcConsistency( ac );
+      assignVarsWithArcConsistency( ac, restoreAfterACAssignVars, restoreIfACNoSolution );
     }
 
     allConstraints = getConstraints( deep, null );
@@ -1936,6 +1975,14 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    */
   public static int getMaxLoopsWithSameAssignment() {
     return maxLoopsWithSameAssignment;
+  }
+
+  /**
+   * @param maxLoopsWithSameAssignment
+   *          the maxLoopsWithSameAssignment to set
+   */
+  public static void setMaxLoopsWithSameAssignment( int maxLoopsWithSameAssignment ) {
+    ParameterListenerImpl.maxLoopsWithSameAssignment = maxLoopsWithSameAssignment;
   }
 
   /**

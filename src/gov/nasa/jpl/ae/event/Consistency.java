@@ -22,12 +22,32 @@ import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 
+/**
+ * Class for manipulating domains of variables to enforce consistency with
+ * respect to a set of constraints.  It includes methods for restricting domains
+ * for arc consistency.
+ */
 public class Consistency {
-  
+  /**
+   * Whether too print out debug information.
+   */
   boolean debug = true;
-  
+  /**
+   * Quit out of solving early if the constraints are determined to be
+   * inconsistent (i.e. no solution).
+   */
+  public boolean quitEarlyWhenInconsistent = true;
+  /**
+   * flag indicating that there is no solution.  This is only updated if
+   * quitEarlyWhenInconsistent is true;
+   */
+  public boolean noSolution = false;
+
+  /**
+   * The collection of constraints that specify the problem to solve.
+   */
   public Collection<Constraint> constraints = null;
-  
+
   /**
    * A map for saving away the original domains of the variables in case we want to reset.
    */
@@ -47,8 +67,7 @@ public class Consistency {
   protected Map< Variable< ? >, Domain< ? > > lastArcConsistencySolution = null;
   
   protected boolean lastSucceeded = false;
-  
-  
+
   public Set<Variable<?>> getVariables() {
     LinkedHashSet<Variable<?>> vars = new LinkedHashSet< Variable<?> >();
     if ( constraints == null ) {
@@ -185,7 +204,19 @@ public class Consistency {
       }
     }
     boolean restrictedSomething = (p!=null && Boolean.TRUE.equals(p.second));
+    if ( restrictedSomething && quitEarlyWhenInconsistent && anyEmpty(cx.getVariables()) ) {
+      noSolution = true;
+    }
     return restrictedSomething;
+  }
+
+  protected boolean anyEmpty( Set<Variable<?>> variables ) {
+    for ( Variable<?> v : variables ) {
+      if ( v.getDomain() != null && v.getDomain().isEmpty() ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public long restrictDomainsForConstraint(Constraint c, boolean quiet) {
@@ -200,6 +231,10 @@ public class Consistency {
         }
         cct += b ? 1 : 0;
         //restrictedSomething = restrictedSomething || b;
+        if ( b && quitEarlyWhenInconsistent && v.getDomain() != null && v.getDomain().isEmpty() ) {
+          noSolution = true;
+          break;
+        }
       }
     }
     return cct;
@@ -219,6 +254,10 @@ public class Consistency {
           restrictedSomething = restrictedSomething || num > 0;
           cct += num;
         }
+        if ( quitEarlyWhenInconsistent && noSolution ) {
+          System.out.println("Terminating arc consistency for empty domain after restricting " + c);
+          break;
+        }
       }
       if ( !quiet ) {
         System.out.println( "At least " + cct + " domain changes." );
@@ -235,6 +274,8 @@ public class Consistency {
       Parameter.printOnSetValue = true;
     }
 
+    this.noSolution = false; // reset inconsistency flag
+
     long ct = 0;
     boolean succeeded = false;
     long maxCount = constraints.size() * constraints.size() + 1;
@@ -248,6 +289,10 @@ public class Consistency {
       boolean restrictedSomething = restrictDomainsForConstraints(constraints, quiet);
       if ( !restrictedSomething ) {
         succeeded = true;
+        break;
+      }
+      if ( quitEarlyWhenInconsistent && noSolution ) {
+        succeeded = false;
         break;
       }
       ++ct;
