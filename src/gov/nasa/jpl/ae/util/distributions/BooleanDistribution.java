@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import gov.nasa.jpl.mbee.util.Random;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
@@ -13,7 +14,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 public class BooleanDistribution extends BinomialDistribution implements Distribution{
 
     public BooleanDistribution(double p) {
-        super(1, p);
+        super( Distribution.random, 1, p);
     }
 
     // This may be needed at some point.
