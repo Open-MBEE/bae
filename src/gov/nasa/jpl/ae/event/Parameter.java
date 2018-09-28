@@ -765,7 +765,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
           sb.append( "<OBJ>@" + getOwner().hashCode() + ":");
         }
       } else {
-        sb.append( getOwner().getName() + ":");
+        if ( deep ) {
+          if ( getOwner() instanceof HasOwner ) {
+            sb.append( ( (HasOwner)getOwner() ).getQualifiedName( null ) + ":" );
+          }
+        } else {
+          sb.append( getOwner().getName() + ":" );
+        }
       }
     }
     if ( !Utils.isNullOrEmpty( getName() ) || withOwner || deep || withHash ) {
@@ -1072,7 +1078,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         owner.handleDomainChangeEvent( this, null );
       }
       if (printOnRestrictDomain) {
-        System.out.println( "Restricted domain of Parameter " + toShortString() + " from " + d + " to " + this.domain );
+        System.out.println( "Restricted domain of Parameter " + getQualifiedName( null ) + " from " + d + " to " + this.domain );
       }
       if ( Debug.isOn() ) {
         if ( Debug.isOn() ) Debug.outln( "Changed domain of "

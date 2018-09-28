@@ -11,17 +11,9 @@ import gov.nasa.jpl.mbee.util.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.Vector;
+import java.util.*;
 
+import gov.nasa.jpl.mbee.util.Random;
 import junit.framework.Assert;
 
 import static gov.nasa.jpl.ae.util.LamportClock.tick;
@@ -1164,6 +1156,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( pair.first ) deep = false;
     seen = pair.second;
     StringBuffer sb = new StringBuffer();
+    if ( otherOptions == null ) otherOptions = new HashMap<>();
+    if ( !otherOptions.containsKey( "withOwner" ) ) {
+      otherOptions.put("withOwner", true);
+    }
     if ( nestedCall != null ) {
       sb.append( //"nested::" + 
                  nestedCall.toString(withHash, deep, seen,
