@@ -8580,7 +8580,7 @@ String n = owner instanceof HasName
       }
       prevVal = val;
       prevTime = tp.getValue();
-      if ( totalSoFar >= durationTarget ) {
+      if ( totalSoFar >= durationTarget && Utils.valuesEqual( prevVal, value ) ) {
         prevTime -= ( totalSoFar - durationTarget );
         break;
       }

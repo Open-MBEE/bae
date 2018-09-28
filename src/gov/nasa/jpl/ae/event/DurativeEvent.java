@@ -153,6 +153,13 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               Utils.seen( this, deep, seen );
           if ( pair.first ) return true;
           seen = pair.second;
+
+          // Don't elaborate outside the horizon. Need startTime grounded to know.
+          Long value = startTime.getValue( false );
+          if ( value != null && value >= Timepoint.getHorizonDuration() ) {
+              return true;
+          }
+
           if ( isStale() ) return false;
           for ( Entry< ElaborationRule, Vector< Event > > er : elaborations.entrySet() ) {
             if ( !startTime.isGrounded( deep, null ) ) return false;
@@ -3683,9 +3690,50 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     return super.getVariablesOnWhichDepends( variable );
   }
 
+  protected TimeVaryingMap< Boolean > validStartDomainIntervals() {
+      TimeVaryingMap<Boolean> overallValidTimes =
+              new TimeVaryingMap<>( "", Boolean.TRUE, Boolean.class );
+      // Trim the domain by the startTime's domain.
+      if ( startTime != null && startTime.getDomain() != null && startTime.getDomain() instanceof RangeDomain ) {
+          RangeDomain rd = (RangeDomain)startTime.getDomain();
+          Object lb = rd.getLowerBound();
+          Object ub = rd.getUpperBound();
+          Parameter<Long> k = null;
+          if ( lb instanceof Number ) {
+              long llb = ( (Number)lb ).longValue();
+              if ( !rd.isLowerBoundIncluded() ) {
+                  llb += 1;
+              }
+              if ( llb > 0 ) {
+                  // set 0 time to false
+                  k = overallValidTimes.firstKey();
+                  if ( k != null && k.getValueNoPropagate() == 0 ) {
+                      overallValidTimes.setValue( k, Boolean.FALSE );
+                  } else {
+                      k = new SimpleTimepoint( 0L );
+                      overallValidTimes.setValue( k, Boolean.FALSE );
+                  }
+                  // Set value at lower bound to true
+                  k = new SimpleTimepoint( llb );
+                  overallValidTimes.setValue( k, Boolean.TRUE );
+              }
+          }
+          if ( ub instanceof Number ) {
+              long lub = ( (Number)ub ).longValue();
+              if ( rd.isUpperBoundIncluded() ) {
+                  lub += 1;
+              }
+              // Set value at upper bound to FALSE
+              k = new SimpleTimepoint( lub );
+              overallValidTimes.setValue( k, Boolean.FALSE );
+          }
+      }
+      return overallValidTimes;
+  }
+
   public TimeVaryingMap< Boolean > validStartIntervals() {
-    TimeVaryingMap< Boolean > overallValidTimes =
-            new TimeVaryingMap<>("", Boolean.TRUE, Boolean.class);
+    TimeVaryingMap<Boolean> overallValidTimes = validStartDomainIntervals();
+    // Now get valid times based on effects
     boolean hasRelevantEffects = false;
     List< Pair< Parameter< ? >, Set< Effect > > > fects = getEffects();
     for ( Pair< Parameter< ? >, Set< Effect > > p : fects ) {
