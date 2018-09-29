@@ -1,24 +1,35 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.mbee.util.Random;
 import org.apache.commons.math3.distribution.BinomialDistribution;
-import org.apache.commons.math3.distribution.EnumeratedDistribution;
-import org.apache.commons.math3.distribution.IntegerDistribution;
-import org.apache.commons.math3.exception.NumberIsTooLargeException;
-import org.apache.commons.math3.exception.OutOfRangeException;
-import org.apache.commons.math3.random.RandomGenerator;
 
 /**
  * Created by dank on 6/29/17.
  */
-public class BooleanDistribution extends BinomialDistribution implements Distribution{
+public class BooleanDistribution implements Distribution<Boolean> {
+
+    protected BinomialDistribution d;
 
     public BooleanDistribution(double p) {
-        super( Distribution.random, 1, p);
+        d = new BinomialDistribution( Distribution.random, 1, p);
     }
 
-    // This may be needed at some point.
-//    public BooleanDistribution(RandomGenerator rng, double p) {
-//        super(rng, 1, p);
-//    }
+    public double probability() {
+        return probability( true );
+    }
+
+    @Override public double probability( Boolean aBoolean ) {
+        return d.probability( aBoolean ? 1 : 0 );
+    }
+
+    @Override public double cumulativeProbability( Boolean aBoolean ) {
+        return d.cumulativeProbability( aBoolean ? 1 : 0 );
+    }
+
+    @Override public Boolean sample() {
+        return d.sample() == 1;
+    }
+
+    @Override public Class<Boolean> getType() {
+        return Boolean.class;
+    }
 }

@@ -3529,6 +3529,11 @@ public class Functions {
     if ( v instanceof TimeVaryingMap ) {
       return ( (TimeVaryingMap)v ).negative();
     }
+
+    if ( v instanceof Distribution ) {
+        return negative( (Distribution)v );
+    }
+
     Debug.error( true, true, "Unknown type for negative(" + v + ")" );
     return null;
   }
@@ -3730,6 +3735,96 @@ public class Functions {
       return neg( (Number)r );
     }
     return null;
+  }
+
+
+  public class P extends Unary<Boolean, Boolean> {
+
+    public P( Variable<Boolean> o ) {
+      super( o, "p" );
+    }
+
+    public P( Expression<Boolean> o1 ) {
+      super( o1, "p" );
+    }
+
+    public P( Object o1 ) {
+      super( o1, "p" );
+    }
+
+    public P( P m ) {
+      super( m );
+    }
+
+  }
+
+  public static Double p(Expression<Boolean> exp) {
+    if ( exp == null ) return null;
+    return p((Object)exp);
+//    switch (exp.form) {
+//        case Value:
+//            return p((Object)exp.expression);
+//        case Function:
+//            return p( (Call)exp.expression );
+//        case Constructor:
+//            return p( (Call)exp.expression );
+//        case Parameter:
+//            return p( ((Parameter)exp.expression).getValueNoPropagate() );
+//    }
+  }
+
+//  public static Double p(Call fc) {
+//    try {
+//      Object r = fc.evaluate( true );
+//      if ( r instanceof Distribution ) {
+//        Distribution d = (Distribution)r;
+//        if ( Boolean.class.isAssignableFrom( d.getType() ) ) {
+//          Double p = d.probability( true );
+//        }
+//      } else return p(r);
+//    } catch ( Throwable t ) {
+//    }
+//    return null;
+//  }
+
+  public static Double p( Object o ) {
+      if ( o instanceof Distribution ) {
+          Distribution d = (Distribution)o;
+          if ( Boolean.class.isAssignableFrom( d.getType() ) ) {
+              Double p = d.probability( true );
+              if ( p != null && p >= 0.0 ) return p;
+          }
+      };
+      try {
+          Distribution r = Expression.evaluate( o, Distribution.class, false, false );
+          if ( r != null && r != o ) {
+              return p(r);
+          }
+      } catch ( Throwable t ) {
+      }
+      try {
+          Boolean r = Expression.evaluate( o, Boolean.class, false, false );
+          if ( r != null ) {
+              return (Boolean)o ? 1.0 : 0.0;
+          }
+      } catch ( Throwable t ) {
+      }
+//      if ( o instanceof Boolean ) {
+//          return (Boolean)o ? 1.0 : 0.0;
+//      }
+//      if ( o instanceof Call ) {
+//          return p((Call)o);
+//      }
+//      if ( o instanceof Variable ) {
+//          return p(((Variable)o).getValue( false ));  // TODO -- check inf recursion!
+//      }
+//      if ( o instanceof Expression ) {
+//          return p(((Expression)o).getExpression());  // TODO -- check inf recursion!
+//      }
+//      if ( o instanceof TimeV ) {
+//          return p(((Expression)o).getExpression());  // TODO -- check inf recursion!
+//      }
+      return null;
   }
 
 
@@ -5190,6 +5285,25 @@ public class Functions {
     return compare( r1, r2, i );
   }
 
+    /**
+     * Compare two objects, which could be numbers, strings to treat as numbers,
+     * plain strings, TimeVaryingMaps, Distributions, or a mix.
+     *
+     *
+     * @param o1 the first object
+     * @param o2 the second object
+     * @param i the kind of comparison (<, <=, =, ...)
+     * @param <V1> the type of the first object
+     * @param <V2> the type of the second object
+     * @return either a Boolean value indicating whether the inequality holds,
+     *         a Distribution indicating the probability that it holds,
+     *         a TimeVaryingMap<Boolean> indicating at what times it holds,
+     *         a TimeVaryingMap of distributions, indicating the probability that it holds over time, or
+     *         a Distribution of TimeVaryingMaps, 
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     * @throws InstantiationException
+     */
   public static < V1, V2 > Object
          compare( V1 o1, V2 o2, Inequality i ) throws IllegalAccessException,
                                                InvocationTargetException,

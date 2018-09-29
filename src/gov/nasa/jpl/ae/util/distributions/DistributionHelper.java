@@ -67,6 +67,7 @@ public class DistributionHelper {
                 return d;
 
             } else if (o2 instanceof RealDistribution) {
+
             } else if (o2 instanceof MultivariateRealDistribution) {
             } else if (o2 instanceof EnumeratedDistribution) {
             } else {
@@ -144,7 +145,7 @@ public class DistributionHelper {
         BinomialDistribution o1 = new BinomialDistribution(5, .5);
         BinomialDistribution o2 = new BinomialDistribution(8, .3);
         //        System.out.println(equals(o1, o2).getProbabilityOfSuccess());
-        return equals(o1, o2).getProbabilityOfSuccess();
+        return equals(o1, o2).probability();
         //        return 1.2;
     }
 

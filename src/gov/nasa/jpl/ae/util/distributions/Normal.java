@@ -1,11 +1,11 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.mbee.util.Random;
 import org.apache.commons.math3.distribution.NormalDistribution;
 
-public class Normal extends NormalDistribution implements Distribution  {
+public class Normal extends AbstractRealDistribution<NormalDistribution>  {
 
-  public Normal(Double mu, Double sigma){
-    super( Distribution.random,  mu == null ? 0.0 : mu, sigma == null ? 1.0 : sigma);
+  public Normal(Double mu, Double sigma) {
+    d = new NormalDistribution( Distribution.random,  mu == null ? 0.0 : mu, sigma == null ? 1.0 : sigma);
   }
+
 }
