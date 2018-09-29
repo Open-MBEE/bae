@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import gov.nasa.jpl.mbee.util.Pair;
 import org.apache.commons.math3.distribution.RealDistribution;
 
 public class AbstractRealDistribution<D extends RealDistribution> implements Distribution<Double> {
@@ -7,15 +8,21 @@ public class AbstractRealDistribution<D extends RealDistribution> implements Dis
 
 //    public abstract Distribution<Double> plus( Distribution<?> otherDist );
 //    public abstract Distribution<Double> minus( Distribution<?> otherDist );
-//    public abstract Distribution<Double> times( Distribution<?> otherDist );
+//    public abstract Distribution<Double> times( Distribution<?> otherDist );ß
 //    public abstract Distribution<Double> dividedBy( Distribution<?> otherDist );
 
     @Override public double probability( Double t ) {
         return d.probability( t );
     }
 
-    @Override public Double sample() {
-        return d.sample();
+    @Override public double pdf( Double dubl ) {
+        double p = d.density( dubl );
+        return p;
+    }
+
+    @Override public Pair<Double, Double> sample() {
+        Double ds = d.sample();
+        return new Pair(ds, pdf( ds ));
     }
 
     @Override public double cumulativeProbability( Double t ) {

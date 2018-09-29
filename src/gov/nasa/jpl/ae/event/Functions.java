@@ -2893,6 +2893,50 @@ public class Functions {
     return p;
   }
 
+  public static Pair< Object, TimeVaryingMap< ? > >
+        numberOrTimelineOrDistribution( Object o ) {
+    Number n = tryToGetNumberQuick( o );
+    TimeVaryingMap< ? > tvm = tryToGetTimelineQuick( o );
+    Distribution<?> dist = tryToGetDistributionQuick( o );
+    if ( tvm != null || n != null || dist != null ) {
+      if ( dist != null ) {
+        return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+      }
+      return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+    }
+    try {
+      dist = Expression.evaluate( o, Distribution.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    try {
+      tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    if ( dist == null && n == null && o instanceof String ) {
+      n = toNumber( o, true );
+    }
+    if ( dist == null && n == null ) {
+      try {
+        n = Expression.evaluate( o, Number.class, false );
+      } catch ( Throwable e ) {
+        // ignore
+      }
+    }
+    // if ( n != null ) {
+    // new Pair< Number, TimeVaryingMap<?> >( n, tvm );
+    // }
+    //// if ( n == null ) {
+    //// }
+
+    if ( dist != null ) {
+      return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+    }
+    return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+  }
+
+
   protected static TimeVaryingMap< ? > tryToGetTimelineQuick( Object o ) {
     if ( o == null ) return null;
     if ( o instanceof TimeVaryingMap ) return (TimeVaryingMap)o;
@@ -2930,6 +2974,18 @@ public class Functions {
         ( (Parameter< ? >)o ).getValueNoPropagate();
     return o;
   }
+
+  public static Distribution<?> tryToGetDistributionQuick( Object o ) {
+    if ( o == null ) return null;
+    if ( o instanceof Distribution ) return (Distribution)o;
+    if ( o instanceof Expression ) o = ( (Expression< ? >)o ).expression;
+    if ( o instanceof Parameter ) o =
+            ( (Parameter< ? >)o ).getValueNoPropagate();
+    if ( o instanceof Distribution ) return (Distribution)o;
+    return null;
+  }
+
+
 
   // public static <V1, V2> V1 times( V1 o1, V2 o2 ) {
   public static < V1, V2 > V1 times( V1 o1, V2 o2 )
@@ -5299,7 +5355,7 @@ public class Functions {
      *         a Distribution indicating the probability that it holds,
      *         a TimeVaryingMap<Boolean> indicating at what times it holds,
      *         a TimeVaryingMap of distributions, indicating the probability that it holds over time, or
-     *         a Distribution of TimeVaryingMaps, 
+     *         a Distribution of TimeVaryingMaps for whether it holds for alternative courses of time.
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      * @throws InstantiationException
@@ -5313,8 +5369,8 @@ public class Functions {
     else if ( o1 instanceof String || o2 instanceof String ) {
       Number n1 = toNumber( o1, true );
       Number n2 = toNumber( o2, true );
-      if ( !( o1 instanceof String ) || n1 != null && !( o2 instanceof String )
-           || n2 != null ) {
+      if ( (!( o1 instanceof String ) || n1 != null) && (!( o2 instanceof String )
+           || n2 != null) ) {
         if ( o1 instanceof String && n1 != null ) {
           o1 = (V1)n1;
         }
@@ -5332,20 +5388,41 @@ public class Functions {
       Number r2 = null;
       TimeVaryingMap< ? > map1 = null;
       TimeVaryingMap< ? > map2 = null;
+      Distribution<?> d1 = null;
+      Distribution<?> d2 = null;
 
-      Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-      r1 = p1.first;
+      Object arg1 = null;
+      Object arg2 = null;
+
+      Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
       map1 = p1.second;
+      if ( p1.first instanceof Distribution ) {
+        d1 = (Distribution)p1.first;
+        arg1 = d1;
+      } else if ( p1.first instanceof Number ) {
+        r1 = (Number)p1.first;
+        arg1 = map1 == null ? r1 : map1;
+      }
+      if ( arg1 == null ) arg1 = o1;
+      Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      map2 = p2.second;
+      if ( p2.first instanceof Distribution ) {
+        d2 = (Distribution)p2.first;
+        arg2 = d2;
+      } else if ( p2.first instanceof Number ) {
+        r2 = (Number)p2.first;
+        arg2 = map2 == null ? r2 : map2;
+      }
+      if ( arg2 == null) arg2 = o2;
 
-      if ( map1 != null ) {
-        result = (V1)compare( map1, o2, i );
+
+      if ( d1 != null || d2 != null ) {
+        result = DistributionHelper.compare(arg1, arg2, i);
+      } else if ( map1 != null ) {
+        result = (V1)compare( map1, arg2, i );
       } else {
-        Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-        r2 = p2.first;
-        map2 = p2.second;
-
         if ( map2 != null ) {
-          result = (V1)compare( o1, map2, i );
+          result = (V1)compare( arg1, map2, i );
         }
       }
       if ( result == null ) {
@@ -6390,12 +6467,20 @@ public class Functions {
                                  IllegalAccessException,
                                  InvocationTargetException,
                                  InstantiationException {
-    return compare( tv, o, i );
+    return compare( tv, o, i, true );
   }
 
   public static < T > TimeVaryingMap< Boolean >
+  compare( TimeVaryingMap< T > tv, Object o,
+           Inequality i ) throws ClassCastException,
+                                 IllegalAccessException,
+                                 InvocationTargetException,
+                                 InstantiationException {
+    return compare( tv, o, i, false );
+  }
+  public static < T > TimeVaryingMap< Boolean >
          compare( TimeVaryingMap< T > tv, Object o,
-                  Inequality i ) throws ClassCastException,
+                  Inequality i, boolean reverse ) throws ClassCastException,
                                  IllegalAccessException,
                                  InvocationTargetException,
                                  InstantiationException {
@@ -6405,13 +6490,16 @@ public class Functions {
     try {
       tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
     } catch ( Throwable t ) {}
-    if ( tvm != null ) return compare( tv, tvm, i );
+    if ( tvm != null ) {
+      if ( reverse ) return compare( tvm, (TimeVaryingMap<? extends Number>)tv, i );
+      return compare( tv, tvm, i );
+    }
 
     Number n = null;
     try {
       n = toNumber( o, false );// Expression.evaluate( o, Number.class, false );
     } catch ( Throwable t ) {}
-    if ( n != null ) return TimeVaryingMap.compare( tv, n, false, i );
+    if ( n != null ) return TimeVaryingMap.compare( tv, n, reverse, i );
     
     Object typeMatch = null;
     try {
@@ -6419,9 +6507,9 @@ public class Functions {
       // TODO - should we try to just evaluate o regardless of type, to strip away any Wrapping classes?
       // Or, does this already handle enough cases?
     } catch ( Throwable t ) {}
-    if (typeMatch != null) return TimeVaryingMap.compare( tv, typeMatch, false, i );
+    if (typeMatch != null) return TimeVaryingMap.compare( tv, typeMatch, reverse, i );
 
-    return TimeVaryingMap.compare( tv, o, false, i );
+    return TimeVaryingMap.compare( tv, o, reverse, i );
   }
 
   public static < T, TT extends Number > TimeVaryingMap< Boolean >

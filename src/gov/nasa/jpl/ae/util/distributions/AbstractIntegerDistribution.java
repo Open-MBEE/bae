@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import gov.nasa.jpl.mbee.util.Pair;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 
 public class AbstractIntegerDistribution<D extends IntegerDistribution> implements Distribution<Integer> {
@@ -14,8 +15,17 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> implemen
         return d.probability( t );
     }
 
-    @Override public Integer sample() {
-        return d.sample();
+    @Override public double pdf( Integer integer ) {
+        double p = d.probability( integer );
+        if ( p > 0.0 ) return p;
+        // TODO ??
+        return 0;
+    }
+
+    @Override public Pair<Integer,Double> sample() {
+        Integer x = d.sample();
+        Double w = pdf(x);
+        return new Pair(x, w);
     }
 
     @Override public double cumulativeProbability( Integer t ) {

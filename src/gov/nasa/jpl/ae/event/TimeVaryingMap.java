@@ -4733,6 +4733,24 @@ String n = owner instanceof HasName
   public static enum Inequality { EQ, NEQ, LT, LTE, GT, GTE }; 
   public static enum BoolOp { AND, OR, XOR, NOT }; 
 
+  public static Inequality commute(Inequality i) {
+    switch(i) {
+      case EQ:
+      case NEQ:
+        return i;
+      case LT:
+        return Inequality.GT;
+      case GT:
+        return Inequality.LT;
+      case LTE:
+        return Inequality.GTE;
+      case GTE:
+        return Inequality.LTE;
+      default:
+        return null;
+    }
+  }
+
   public static TimeVaryingMap<Boolean> equals(TimeVaryingMap<?> map, Number n) {
     return compare(map, n, false, Inequality.EQ);
   }
