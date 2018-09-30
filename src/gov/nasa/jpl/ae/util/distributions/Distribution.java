@@ -14,7 +14,7 @@ public interface Distribution<T> {
 
     double probability(T t);
     double pdf(T t);
-    Pair<T,Double> sample();
+    Sample<T> sample();
     double cumulativeProbability(T t);
     Class<T> getType();
 }

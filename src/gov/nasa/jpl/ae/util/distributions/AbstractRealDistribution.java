@@ -20,9 +20,11 @@ public class AbstractRealDistribution<D extends RealDistribution> implements Dis
         return p;
     }
 
-    @Override public Pair<Double, Double> sample() {
+    @Override public Sample<Double> sample() {
         Double ds = d.sample();
-        return new Pair(ds, pdf( ds ));
+        double w = pdf( ds );
+        //return new Pair(ds, w);
+        return new SimpleSample<>( ds, w );
     }
 
     @Override public double cumulativeProbability( Double t ) {

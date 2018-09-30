@@ -21,12 +21,18 @@ public class BooleanDistribution implements Distribution<Boolean> {
         return d.probability( aBoolean ? 1 : 0 );
     }
 
+    @Override public double pdf( Boolean aBoolean ) {
+        return probability( aBoolean );
+    }
+
     @Override public double cumulativeProbability( Boolean aBoolean ) {
         return d.cumulativeProbability( aBoolean ? 1 : 0 );
     }
 
-    @Override public Boolean sample() {
-        return d.sample() == 1;
+    @Override public Sample<Boolean> sample() {
+        int s = d.sample();
+        double w = d.probability( s );
+        return new SimpleSample<>( s == 1, w );
     }
 
     @Override public Class<Boolean> getType() {

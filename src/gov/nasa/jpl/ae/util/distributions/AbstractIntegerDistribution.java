@@ -22,10 +22,10 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> implemen
         return 0;
     }
 
-    @Override public Pair<Integer,Double> sample() {
+    @Override public Sample<Integer> sample() {
         Integer x = d.sample();
         Double w = pdf(x);
-        return new Pair(x, w);
+        return new SimpleSample<>( x, w );
     }
 
     @Override public double cumulativeProbability( Integer t ) {
