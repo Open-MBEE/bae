@@ -1,19 +1,21 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.ae.event.Call;
-import gov.nasa.jpl.ae.event.Expression;
+import gov.nasa.jpl.ae.event.*;
+import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.Utils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 public class FunctionOfDistributions<T> implements Distribution<T> {
     /**
      * The function call or constructor that produces this distribution
      */
-    Call call;
+    public Call call;
     /**
      * a true distribution that we may not have.
      */
@@ -44,6 +46,14 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      * The set of samples that approximate the distribution.
      */
     SampleDistribution<T> samples = null;
+
+    /**
+     * The random variables are swapped out with non-random sample values.  Those
+     * values are in variables that are substituted in the call.  Those variables
+     * are the keys, and the values are the corresponding substituted out random
+     * variables.
+     */
+    Map<Variable, Variable> substitutions = null;
 
     /**
      * Whether to store samples, as opposed to just keeping a running average in
@@ -157,12 +167,7 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
             return new SimpleSample<>(t, w);
         }
 
-        Distribution<?> d = null;
-        try {
-            d = Expression.evaluate( r, Distribution.class, true );
-        } catch ( Throwable e ) {
-            // ignore
-        }
+        Distribution<?> d = DistributionHelper.getDistribution( r );
         if ( d instanceof FunctionOfDistributions ) {
             if ( d != this ) {
                 Debug.error(true, false,
@@ -187,109 +192,411 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
         return sampleCall(sampleChain);
     }
 
-    protected boolean updateArgumentForSampling( Object arg,
-                                                 Set<Variable> varsToResample,
-                                                 SampleChain sampleChain ) {
-        if ( arg == null ) return false;
-        Set<Variable> randomVars = getRandomVars(arg);
-        // TODO
-        return false;
-    }
-
-    public boolean isVarRandom(Variable v) {
-        if ( v == null ) return false;
-        if ( v.getType() != null &&
-             Distribution.class.isAssignableFrom( v.getType() ) ) {
-            return true;
-        }
-        if ( v.hasValue() ) {
-            if ( v.getValue( false ) instanceof Distribution ) {
-                return true;
-            }
-        }
-    }
-
-    public Set<Variable> getRandomVars( Collection<?> c ) {
-        if ( c == null ) return null;
-        return getRandomVars( c.toArray() );
-    }
-    public Set<Variable> getRandomVars( Object[] a ) {
-        if ( a == null ) return null;
-        Set<Variable> vars = new LinkedHashSet<>();
-        for ( int i = 0; i < a.length; ++i ) {
-            Set<Variable> s = getRandomVars( a[i] );
-            if ( s != null ) {
-                if ( vars.size() >= s.size() ) {
-                    vars.addAll( s );
-                } else {
-                    s.addAll( vars );
-                    vars = s;
+    protected boolean substitute( Object o, Set<Variable> randomVars ) {
+        if ( o == null || randomVars == null ) return false;
+        boolean didSub = false;
+        if ( o instanceof HasParameters ) {
+            HasParameters hasP =(HasParameters)o;
+            for ( Variable rv : randomVars ) {
+                if ( rv instanceof Parameter ) {
+                    Parameter rp = (Parameter)rv;
+                    Variable v = substitutions.get( rv );
+                    if ( v instanceof Parameter ) {
+                        Parameter p = (Parameter)v;
+                        boolean subbed = hasP.substitute( rp, p, true, null );
+                        if ( subbed ) didSub = true;
+                    }
                 }
             }
         }
-        return vars;
+        return didSub;
     }
-    public Set<Variable> getRandomVars( Map map ) {
-        if ( map == null ) return null;
-        Set<Variable> vars1 = getRandomVars( map.keySet() );
-        Set<Variable> vars2 =  getRandomVars( map.values() );
-        if ( vars1 == null && vars2 == null ) {
-            return new LinkedHashSet<>();
+
+    protected boolean updateArgumentForSampling( Object arg,
+                                                 Set<Variable> varsToSample,
+                                                 SampleChain sampleChain ) {
+        if ( arg == null ) return false;
+        Set<Variable> randomVars = DistributionHelper.getRandomVars(arg, true);
+        boolean gotSome = Utils.intersect( randomVars, varsToSample );
+        boolean didUpdate = false;
+        if ( gotSome ) {
+            sampleAndCreateSubstitutionVars( randomVars, sampleChain );
+            didUpdate = substitute( arg, randomVars );
         }
-        if ( vars1 == null ) return vars2;
-        if ( vars2 == null ) return vars1;
-        if ( vars1.size() >= vars2.size() ) {
-            vars1.addAll( vars2 );
-            return vars1;
-        }
-        vars2.addAll( vars1 );
-        return vars2;
+        return didUpdate;
     }
-    private Set<Variable> getRandomVars( Object o ) {
-        if ( o == null ) return null;
 
-        // Check if an array
-        if ( o.getClass().isArray() ) {
-            return getRandomVars( (Object[])o );
-        }
-
-        // Check if a random variable.
-        if ( o instanceof Variable ) {
-            Variable v = (Variable)o;
-            if ( isVarRandom( v ) ) {
-                Set<Variable> randomVars = new LinkedHashSet<>();
-                randomVars.add( v );
-                return randomVars;
+    protected void sampleAndCreateSubstitutionVars( Set<Variable> randomVars, SampleChain sampleChain ) {
+        if ( substitutions == null ) new LinkedHashMap<>();
+        //else substitutions.clear();
+        for (Variable v : randomVars ) {
+            Variable sub = substitutions.get( v );
+            if ( sub != null ) continue;
+            Sample s = (Sample)sampleChain.samplesByVariable.get( v );
+            if ( s == null ) {
+                Distribution d = DistributionHelper.getDistribution( v );
+                if ( d != null ) {
+                    s = d.sample();
+                }
+                if ( s instanceof SimpleSample ) {
+                    s = new SampleInContext( s.value(), s.weight(), d, v );
+                }
+                if ( s != null ) {
+                    sampleChain.add(s);
+                }
             }
-            return getRandomVars( v.getValue( false ) );
+            if ( s != null ) {
+                ParameterListener pl =
+                        v instanceof Parameter ? ( (Parameter)v ).getOwner() : null;
+                Parameter p = new Parameter( (String)v.getName(),
+                                             new SingleValueDomain( s.value() ),
+                                             s.value(), pl );
+                substitutions.put( p, v );
+                substitutions.put( v, p );
+            }
+        }
+    }
+
+    protected Set<Variable> getRandomVariables() {
+        return DistributionHelper.getRandomVars( call, true );
+    }
+
+    protected static Set<Variable> varsThatNeedToBeSampled( Object o ) {
+        try {
+            Distribution d = Expression.evaluate( o, Distribution.class,
+                                                  true, false );
+            if ( d instanceof FunctionOfDistributions ) {
+                //varsNeedSampleArray[i] = ( (FunctionOfDistributions)d ).varsThatNeedToBeSampled();
+                Set<Variable> needSample = ( (FunctionOfDistributions)d ).varsThatNeedToBeSampled((Set)null);
+                return needSample;
+            }
+        } catch (Throwable t) {
+        }
+        return null;
+    }
+
+    protected Set<Variable> varsThatNeedToBeSampled( SampleChain sampleChain ) {
+        Set<Variable> needSample = sampleChain.getVariables();
+        //needSample = varsThatNeedToBeSampled( (needSample);
+        //if ( Utils.isNullOrEmpty( needSample ) ) return needSample;
+        int before = -1;
+        int after = needSample == null ? 0 : needSample.size();
+        while ( after > before && after > 0 && after < 1e9 ) {
+            before = after;
+            needSample = varsThatNeedToBeSampled( needSample );
+            after = needSample.size();
+        }
+        return needSample;
+    }
+
+    protected Set<Variable> varsThatNeedToBeSampled( Set<Variable> varsNeedSample ) {
+        // TODO -- REVIEW -- It seems like we should pass false in the call below,
+        // TODO -- REVIEW -- but we probably want vars inside values of variables,
+        // TODO -- REVIEW -- so we really only want to hold back on
+        // TODO -- REVIEW -- DistributionFunctionCalls (or maybe Calls, in general).
+        Set<Variable> varsInObj = DistributionHelper.getRandomVars( call.getObject(), true );
+        Set<Variable> varsNeedSampleInObj = DistributionHelper.getRandomVars( call.getObject(), true );
+        //Set<Variable> varsInArgs = null;
+        //Set<Variable>[] varsArray = new Set[ call.getArguments().size() ];
+        //Set<Variable>[] varsNeedSampleArray = new Set[call.getArguments().size()];
+
+        int numBefore = varsNeedSample == null ? 0 : varsNeedSample.size();
+
+        Set<Variable> allVars = new LinkedHashSet<>();
+        //Set<Variable> varsNeedSample = null;
+        if ( varsInObj != null ) {
+            varsNeedSample = varsThatNeedToBeSampled(call.getObject());
+            allVars.addAll( varsInObj );
         }
 
-        // Check if a Collection
-        if ( o instanceof Collection ) {
-            return getRandomVars( (Collection)o );
+        for ( int i = 0; i < call.getArguments().size(); ++i ) {
+            Object arg = call.getArgument( i );
+            //varsArray[ i ] = DistributionHelper.getRandomVars( arg );
+            Set<Variable> vars = DistributionHelper.getRandomVars( arg, true );
+            if ( vars == null || vars.isEmpty() ) {
+                continue;
+            }
+            Set<Variable> intersection = new LinkedHashSet<>( vars );
+            Utils.intersect( intersection, allVars );
+            varsNeedSample = Utils.addAll( varsNeedSample, intersection );
+            Set<Variable> needSample = varsThatNeedToBeSampled( arg );
+            varsNeedSample = Utils.addAll( varsNeedSample, needSample );
+            allVars.addAll( vars );
         }
 
-        // Check if a Map
-        if ( o instanceof Map ) {
-            return getRandomVars( (Map)o );
+        // If any var needs resampling in the call, then any random var that
+        // is an argument (or the object) also needs to be Sampled.
+        Utils.intersect(allVars, varsNeedSample);
+        if ( allVars != null && !allVars.isEmpty() ) {
+            Variable v = DistributionHelper.getRandomVar( call.getObject() );
+            if ( v != null ) {
+                varsNeedSample.add( v );
+            }
+            for ( Object arg : call.getArguments() ) {
+                v = DistributionHelper.getRandomVar( arg );
+                if ( v != null ) {
+                    varsNeedSample.add( v );
+                }
+            }
         }
 
-        return new LinkedHashSet<>();
+        // Below is commented out because it is handled in a outside loop.
+//        // If the number of vars needing sampling increased, we need to do it again.
+//        int numAfter = varsNeedSample == null ? 0 : varsNeedSample.size();
+//        if ( numAfter > numBefore ) {
+//            varsNeedSample = varsThatNeedToBeSampled( varsNeedSample );
+//        }
+
+
+        if ( varsNeedSample == null ) return new LinkedHashSet<>();
+        return varsNeedSample;
+    }
+
+/*
+        Map<Variable, Integer> counts = new LinkedHashMap<>();
+        if ( varsInObj != null ) {
+            for ( Variable v : varsInObj ) {
+                Integer c = counts.get( v );
+                if ( c != null ) c += 1;
+                else c = 1;
+                counts.put( v, c );
+            }
+        }
+
+            if (varsInObj != null) {
+                intersection.addAll( varsInObj );
+                Utils.intersect( intersection, varsArray[i] );
+                varsNeedSample = Utils.addAll(varsNeedSample, intersection);
+            }
+
+
+            if ( varsArray[i] != null ) {
+                for ( Variable v : varsArray[ i ] ) {
+                    Integer c = counts.get( v );
+                    if ( c != null ) c += 1;
+                    else c = 1;
+                    counts.put( v, c );
+                }
+            }
+
+            try {
+                Distribution d = Expression.evaluate( arg, Distribution.class,
+                                                      true, false );
+                if ( d instanceof FunctionOfDistributions ) {
+                    //varsNeedSampleArray[i] = ( (FunctionOfDistributions)d ).varsThatNeedToBeSampled();
+                    Set<Variable> needSample = ( (FunctionOfDistributions)d ).varsThatNeedToBeSampled();
+                    Utils.addAll(varsNeedSample, needSample);
+                }
+            } catch (Throwable t) {
+            }
+        }
+
+        // Put all the random variables for each argument into an array.
+        // Also go ahead and get the variables that the arg says needs resampling.
+        // Random vars that show up in more than one
+        Map<count>
+        for ( int i = 0; i < call.getArguments().size()-1; ++i ) {
+            Set<Variable> intersection = new LinkedHashSet<>();
+            if ( varsArray[i] == null || varsArray[i].isEmpty() ) {
+                continue;
+            }
+            if (varsInObj != null) {
+                intersection.addAll( varsInObj );
+                Utils.intersect( intersection, varsArray[i] );
+                varsNeedSample = Utils.addAll(varsNeedSample, intersection);
+            }
+            //Object arg1 = call.getArgument( i );
+            for ( int j = i; j < call.getArguments().size(); ++j ) {
+                //Object arg2 = call.getArgument( j );
+                intersection = new LinkedHashSet<>();
+                if (varsArray[j] != null) {
+                    intersection.addAll( varsArray[i] );
+                    Utils.intersect( intersection, varsArray[j] );
+                    varsNeedSample = Utils.addAll(varsNeedSample, intersection);
+                }
+            }
+        }
+        if ( varsNeedSample == null ) return new LinkedHashSet<>();
+        return varsNeedSample;
+
+    }
+*/
+    protected static Sample sample(Object o, SampleChain sampleChain) {
+        if ( o == null || sampleChain == null ) {
+            return null;
+        }
+        Variable v = DistributionHelper.getRandomVar( o );
+        if ( v != null ) {
+            // Check to see if we already have a sample.
+            if ( sampleChain.samplesByVariable.get( v ) != null ) {
+                return null;
+            }
+        }
+        Distribution d = DistributionHelper.getDistribution( o );
+        if ( d == null ) {
+            if ( v != null ) {
+                Debug.error( "No distribution in random variable: " + v );
+            }
+            return null;
+        }
+        Sample os = null;
+        if ( d instanceof FunctionOfDistributions ) {
+            os = ( (FunctionOfDistributions)d ).sample( sampleChain );
+        } else {
+            os = d == null ? null : d.sample();
+        }
+        SampleInContext sic = null;
+        if ( v != null ) {
+            if ( os instanceof SampleInContext ) {
+                sic = (SampleInContext)os;
+                if ( sic.getOwner() != v ) {
+                    sic = new SampleInContext( sic.value, sic.weight, d, v);
+                }
+            }
+        }
+        if ( sic == null && os != null ) {
+            sic = new SampleInContext( os.value(), os.weight(), d, v == null ? o : v );
+        }
+        if ( sic != null ) {
+            sampleChain.add( sic );
+            return sic;
+        }
+        if ( os != null ){
+            sampleChain.add( os );
+            return os;
+        }
+        return null;
+    }
+
+    public double weight( SampleChain sampleChain ) {
+        Set<Variable> vars = getRandomVariables();
+        double w = 1.0;
+        for ( Variable v : vars ) {
+            Sample s = (Sample)sampleChain.samplesByVariable.get( v );
+            if ( s != null ) {
+                w *= s.weight();
+            }
+        }
+        return w;
     }
 
     /**
-     * Check the evaluatedArguments of the call.  If they are distributions, sample
-     * them reusing any already sampled variables in the SampleChain.  Temporarily replace the
-     * arguments with the corresponding samples and re-evaluate the call.
+     *
+     * @param sampleChain the SampleChain
+     *
+     * @return a possibly new sampleChain updated with the new sample(s) or some
+     * other Sample if this is the first.
+     */
+    protected Sample<T> sampleCall(SampleChain sampleChain) {
+
+        // Suppose this function is o.f(a, g(a, b)) with random variables, a, b, and o.
+        // Also, suppose the return value is c, another random variable.
+        // How do we sample?
+        // Get a sample from g(a, b) :
+        //    ((a=2, wa=0.2, da, va),
+        //     (b=3, wb = 0.4, dv, vb),
+        //     (g_rv=6, wg = wa * wb = 0.08, null, g_call))
+        // Get sample from o.f(a, g(a, b):
+        //    ((a=2, wa=0.2, da, a),
+        //     (b=3, wb = 0.4, dv, b),
+        //     (g_rv=6, wg = wa * wb = 0.08, null, g_call),
+        //     (o=O(1,1), wo=0.5, do, o),
+        //     (f_rv=N(0,1), wf = wa * wb * wo = 0.04, null, f_call ))
+        // We only sample f()'s return value if the function call to f() is an
+        // argument of some other function call that needs a real number argument
+        // as opposed to a distribution.
+
+        Sample s = sample( call.getObject(), sampleChain );
+        Object eObj = null;
+        if ( s != null ) {
+            eObj = s.value();
+        } else {
+            try {
+                eObj = call.evaluateObject( true );
+            } catch ( Throwable e ) {
+            }
+        }
+        Object[] evalArgs = new Object[ call.getArguments().size() ];
+        Class[] params = call.getParameterTypes();
+        int i = 0;
+        for ( Object arg : call.getArguments() ) {
+            s = sample( arg, sampleChain );
+            if ( s != null ) {
+                evalArgs[i] = s.value();
+            } else {
+                try {
+                    Class p = params[i < params.length ? i : params.length-1];
+                    evalArgs[i] = call.evaluateArg( arg, p, true );
+                } catch ( Throwable e ) {
+                }
+            }
+            ++i;
+        }
+        call.setStale( true );
+        try {
+            call.invoke( eObj, evalArgs );
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+        if ( call.didEvaluationSucceed() ) {
+            Object v = call.returnValue;
+            double w = weight( sampleChain );
+            Distribution d = this;
+            Object owner = this;
+            SampleInContext sic = new SampleInContext( v, w, d, owner );
+            return sic;
+        }
+        return null;
+    }
+
+    /**
+     * Sampling is done globally.  All HasParameters must implement a sample()
+     * function.  A single sample chain will capture all variable samples which
+     * comprise the global sample.  Sampling needs to be part of the solving
+     * process (or vice-versa) since new random variables may be created during
+     * solving.
+     *
+     * For now, sample all random variables -- we'll incorporate smarts later
+     * for avoiding sampling within aggregate distributions once we figure out
+     * how to determine when we can do it efficiently.  The functions that do
+     * this, varsThatNeedToBeSampled(), seem expensive--we would want to save
+     * the results instead of recomputing for each sample, but they would need
+     * to be updated for newly created objects.
+     * <ol>
+     * <li>
+     *     sample all random variables in object/arguments
+     *     (shallow, not ones in nested functions).
+     * </li><li>
+     *     substitute random variables with sampled values in object/arguments.
+     * </li><li>
+     *     if object/arguments are DistributionFunctionCalls, call sample() to
+     *     get evaluated object/arguments; otherwise evaluate as usual.
+     * </li><li>
+     *     sample all random variables in evaluated object/arguments (shallow).
+     * </li><li>
+     *     substitute random variables with sampled values in object/arguments
+     * </li><li>
+     *     re-evaluate function
+     * </li><li>
+     *     put result in SampleChain
+     * </li><li>
+     *
+     * </li>
+     * </ol>
      * <p>
+     * Check the evaluatedArguments of the call.  If they are distributions, sample
+     * them reusing any already sampled variables in the SampleChain.  Temporarily
+     * replace the arguments with the corresponding samples and re-evaluate the call.
+     * </p><p>
      * If the
      * arguments do not share any of the same random variables with the SampleChain,
      * then the arguments may be sampled directly; else, the random variables in the
      * arguments and their expressions must be replaced with their sampled values.
-     * </p>
-     * After sampling the arguments, check them again.  An argument that was sampled directly may
-     * need to be resampled for a random variable that was sampled afterwards.
-     * <p>
+     * </p><p>
+     * After sampling the arguments, check them again.  An argument that was sampled
+     * directly may need to be resampled for a random variable that was sampled
+     * afterwards.
+     * </p><p>
      * Alternatively, check and see what variables show up multiple times and mark
      * those to be sampled.
      * </p>
@@ -299,21 +606,188 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      * @return a possibly new sampleChain updated with the new sample(s) or some
      * other Sample if this is the first.
      */
-    protected Sample<T> sampleCall(SampleChain sampleChain) {
-        Map<Variable, Variable> substitutions = new LinkedHashMap<>();
+    protected Sample<T> sampleCallBig(SampleChain sampleChain) {
+
+        // Suppose this function is o.f(a, g(a, b)) with random variables, a, b, and o.
+        // Also, suppose the return value is c, another random variable.
+        // How do we sample?
+        // Get a sample from g(a, b) :
+        //    ((a=2, wa=0.2, da, va),
+        //     (b=3, wb = 0.4, dv, vb),
+        //     (g_rv=6, wg = wa * wb = 0.08, null, g_call))
+        // Get sample from o.f(a, g(a, b):
+        //    ((a=2, wa=0.2, da, a),
+        //     (b=3, wb = 0.4, dv, b),
+        //     (g_rv=6, wg = wa * wb = 0.08, null, g_call),
+        //     (o=O(1,1), wo=0.5, do, o),
+        //     (f_rv=N(0,1), wf = wa * wb * wo = 0.04, null, f_call ))
+        // We only sample f()'s return value if the function call to f() is an
+        // argument of some other function call that needs a real number argument
+        // as opposed to a distribution.
+
+        // sample all random variables in object/arguments
+        // (shallow, not ones in nested functions).
+
+        Set<Variable> rVars = DistributionHelper.getRandomVars( call.getObject(), true ); //getRandomVariables();
+        rVars = Utils.addAll( rVars, DistributionHelper.getRandomVars( call.getArguments(), true ) );
+        sampleAndCreateSubstitutionVars( rVars, sampleChain );
+
+        // substitute random variables with sampled values in object/arguments.
+
+        substitute( this, sampleChain.getVariables() ); // TODO -- FIXME????!!!!!!
+
+        // if object/arguments are DistributionFunctionCalls, call sample() to
+        // get evaluated object/arguments; otherwise evaluate as usual.
+
+        for ( Object arg : call.getArguments() ) {
+            Distribution<?> d = DistributionHelper.getDistribution( arg );
+            if ( d instanceof FunctionOfDistributions ) {
+                if ( d != this ) {
+                    Debug.error( true, false,
+                                 "FunctionOfDistributions.tryToSample(): call returned a different distribution than this one!" );
+                }
+                Sample s = ( (FunctionOfDistributions<?>)d ).sample( sampleChain );
+                if ( s instanceof SampleChain ) {
+                    sampleChain = (SampleChain)s;
+                } else {
+                    sampleChain.add( s );
+                }
+            }
+        }
+
+        // sample all random variables in evaluated object/arguments (shallow).
+        //Set<Variable> Vars
+        try {
+            call.evaluate( true );
+        } catch ( IllegalAccessException e ) {
+            e.printStackTrace();
+        } catch ( InvocationTargetException e ) {
+            e.printStackTrace();
+        } catch ( InstantiationException e ) {
+            e.printStackTrace();
+        }
+        rVars = DistributionHelper.getRandomVars( call.getEvaluatedObject(), true ); //getRandomVariables();
+        rVars = Utils.addAll( rVars, DistributionHelper.getRandomVars( call.getEvaluatedArguments(), true ) );
+        sampleAndCreateSubstitutionVars( rVars, sampleChain );
+
+        // substitute random variables with sampled values in object/arguments
+
+        substitute( this, sampleChain.getVariables() ); // TODO -- FIXME????!!!!!!
+
+        // re-evaluate function
+
+        T result = null;
+        try {
+            result = (T)call.invoke( call.getEvaluatedObject(), call.getEvaluatedArguments() );
+        } catch ( InstantiationException e ) {
+            e.printStackTrace();
+        } catch ( IllegalAccessException e ) {
+            e.printStackTrace();
+        } catch ( InvocationTargetException e ) {
+            e.printStackTrace();
+        }
+
+        // put result in SampleChain
+        Distribution d = this.distribution;//getDistribution();
+
+        SampleInContext sic =
+                new SampleInContext( result, d.pdf( result ), d, null );
+        sampleChain.add(sic);
+
+
+        ///////////////////////////
+
 
         // Walk through the arguments and find which variables need to be sampled.
         // Those variables are the ones that are already in the sample chain or
         // show up in more than one argument.
-        Set<Variable> varsToResample = sampleChain.getVariables();
-        Object[] evalArgs = call.getEvaluatedArguments();
+        //Set<Variable> varsToResample = sampleChain.getVariables();
+/*
+        Set<Variable> varsInArgs = null;
+        if ( call.getObject() != null ) {
+            varsInArgs = DistributionHelper.getRandomVars( call.getObject() );
+        }
         for ( int i = 0; i < call.getArguments().size(); ++i ) {
             Object arg = call.getArgument( i );
-            Object evaluatedArg = evalArgs != null && evalArgs.length > i ? evalArgs[ i ] : null;
+            Set<Variable> rVars = DistributionHelper.getRandomVars( arg );
+            if ( rVars != null ) {
+                if ( varsInArgs == null ) {
+                    varsInArgs = rVars;
+                } else {
+                    for ( Variable rv : rVars ) {
+                        if ( varsInArgs.contains( rv ) ) {
 
-            Set<Variable> rVars = getRandomVars( arg );
+                        }
+                    }
+                }
+            }
+        }
+*/
+
+        Set<Variable> varsNeedSample = varsThatNeedToBeSampled(sampleChain);
+
+
+        boolean someArgUpdated = false;
+        boolean someEvalArgUpdated = false;
+
+        boolean objUpdated = updateArgumentForSampling( call.getObject(),
+                                                        varsNeedSample,
+                                                        sampleChain );
+
+        for ( int i = 0; i < call.getArguments().size(); ++i ) {
+            Object arg = call.getArgument( i );
+            boolean updated = updateArgumentForSampling( arg,
+                                                         varsNeedSample,
+                                                         sampleChain );
+            if ( updated ) someArgUpdated = true;
+        }
+        if ( someArgUpdated ) {
+            call.setEvaluatedArguments( null );
+            call.setStale( true );
+            try {
+                call.setEvaluatedArguments( call.evaluateArgs( true ) );
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
+        Object[] evalArgs = call.getEvaluatedArguments();
+        if (evalArgs != null ){
+            for ( Object evalArg : evalArgs ) {
+                boolean updated = updateArgumentForSampling( evalArg,
+                                                             sampleChain.getVariables(),
+                                                             sampleChain );
+                if ( updated ) someEvalArgUpdated = true;
+            }
+        }
+        if ( someEvalArgUpdated ) {
+            call.setStale( true );
+        }
+        if (someEvalArgUpdated) {
+            Object evaluatedObj = null;
+//            if ( objUpdated ) {
+                try {
+                    evaluatedObj = call.evaluateObject( true );
+                } catch ( Throwable e ) {
+                    e.printStackTrace();
+                }
+//            }
+            // ???  evaluatedArgs =
+
+            // we can call invoke directly since we have the args ready
+            // ??  call.invoke( evaluatedobj, ev )
+        } else {
 
         }
+//
+//        for ( int i = 0; i < call.getArguments().size(); ++i ) {
+//            Object arg = call.getArgument( i );
+//            Object evaluatedArg = evalArgs != null && evalArgs.length > i ? evalArgs[ i ] : null;
+//            if (succ) {
+//                succ = updateArgumentForSampling( evaluatedArg );
+//            }
+//            Set<Variable> rVars = DistributionHelper.getRandomVars( arg );
+//
+//        }
 
         // Save away the current evaluated arguments that will be replaced.
         // Make sure to set stale.
@@ -326,11 +800,13 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
         // argument directly.  If the argument is one of the random variables,
         // replace it with its sampled value.  If a FunctionOfDistributions,
         // call recursively with the updated sampleChain.
-        Object[] evalArgs = call.getEvaluatedArguments();
+        //Object[]
+                evalArgs = call.getEvaluatedArguments();
         for ( int i = 0; i < call.getArguments().size(); ++i ) {
             Object arg = call.getArgument( i );
             Object evaluatedArg = evalArgs != null && evalArgs.length > i ? evalArgs[ i ] : null;
             if ( evaluatedArg != null ) {
+                Set<Variable> varsToResample = null;  // ????  This was supposed to be defined elsewhere
                 boolean updated = updateArgumentForSampling( evaluatedArg, varsToResample, sampleChain );
             }
         }

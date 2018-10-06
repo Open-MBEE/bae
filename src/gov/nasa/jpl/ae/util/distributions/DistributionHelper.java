@@ -1,11 +1,17 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.ae.event.TimeVaryingMap;
+import gov.nasa.jpl.ae.event.*;
+import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
-import org.apache.commons.math3.analysis.function.Gaussian;
+import gov.nasa.jpl.mbee.util.Wraps;
 import org.apache.commons.math3.distribution.*;
+
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 import static gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality.EQ;
 
@@ -297,6 +303,142 @@ public class DistributionHelper {
         };
         if ( p == null ) return null;
         return new BooleanDistribution( p );
+    }
+
+    public static Distribution getDistribution( Object o ) {
+        Distribution<?> d = null;
+        try {
+            d = Expression.evaluate( o, Distribution.class, true );
+        } catch ( Throwable e ) {
+            // ignore
+        }
+        return d;
+    }
+
+    public static Set<Variable> getRandomVars( Collection<?> c, boolean deep ) {
+        if ( c == null ) return null;
+        return getRandomVars( c.toArray(), deep );
+    }
+    public static Set<Variable> getRandomVars( Object[] a, boolean deep ) {
+        if ( a == null ) return null;
+        Set<Variable> vars = new LinkedHashSet<>();
+        for ( int i = 0; i < a.length; ++i ) {
+            Set<Variable> s = getRandomVars( a[i], deep );
+            vars = Utils.addAll( vars, s );
+        }
+        return vars;
+    }
+    public static Set<Variable> getRandomVars( Map map, boolean deep ) {
+        if ( map == null ) return null;
+        Set<Variable> vars1 = getRandomVars( map.keySet(), deep );
+        Set<Variable> vars2 =  getRandomVars( map.values(), deep );
+        if ( vars1 == null && vars2 == null ) {
+            return new LinkedHashSet<>();
+        }
+        vars1 = Utils.addAll(vars1, vars2);
+        return vars1;
+    }
+    public static Set<Variable> getRandomVars( Variable v, boolean deep ) {
+        if ( v == null ) return null;
+        Set<Variable> randomVars = new LinkedHashSet<>();
+        if ( isVarRandom( v ) ) {
+            randomVars.add( v );
+            if ( !deep ) return randomVars;
+            Object val = v.getValue( false );
+            if ( val instanceof FunctionOfDistributions ) {
+                Set<Variable> moreVars =
+                        ( (FunctionOfDistributions)val ).getRandomVariables();
+                randomVars = Utils.addAll( randomVars, moreVars );
+            }
+            return randomVars;
+        }
+        if ( !deep ) return randomVars;
+        return getRandomVars( v.getValue( false ), deep );
+    }
+    protected Set<Variable> getRandomVariables( Call call, boolean deep ) {
+        Set<Variable> varsInArgs = null;
+        if ( call.getObject() != null ) {
+            varsInArgs = DistributionHelper.getRandomVars( call.getObject(), deep );
+        }
+        varsInArgs = Utils.addAll( varsInArgs, getRandomVars( call.getArguments(), deep ) );
+        if ( deep ) {
+            varsInArgs = Utils.addAll( varsInArgs, getRandomVars( call.getEvaluatedObject(), deep ) );
+            varsInArgs = Utils.addAll( varsInArgs, getRandomVars( call.getEvaluatedArguments(), deep ) );
+        }
+        if ( varsInArgs == null ) return new LinkedHashSet<>();
+        return varsInArgs;
+    }
+
+    public static Set<Variable> getRandomVars( Object o, boolean deep ) {
+        if ( o == null ) return null;
+
+        Set<Variable> randomVars = new LinkedHashSet<>();
+
+        // Check if an array
+        if ( o.getClass().isArray() ) {
+            return getRandomVars( (Object[])o, deep );
+        }
+
+        // Check if a random variable.
+        if ( o instanceof Variable ) {
+            Variable v = (Variable)o;
+            return getRandomVars( v, deep );
+        }
+
+        if ( o instanceof Expression ) {
+            return getRandomVars( ( (Expression)o ).getExpression(), deep );
+        }
+
+        // Check if a Collection
+        if ( o instanceof Collection ) {
+            return getRandomVars( (Collection)o, deep );
+        }
+
+        // Check if a Map
+        if ( o instanceof Map ) {
+            return getRandomVars( (Map)o, deep );
+        }
+
+        if ( o instanceof Call ) {
+            return getRandomVars( (Call)o, deep );
+        }
+
+        if ( o instanceof HasParameters ) {
+            Set<Parameter<?>> params =
+                    ( (HasParameters)o ).getParameters( deep, null );
+            return getRandomVars( params, deep );
+        }
+
+        if ( o instanceof Wraps ) {
+            return getRandomVars( ( (Wraps)o ).getValue(false), deep );
+        }
+        return new LinkedHashSet<>();
+    }
+
+    public static boolean isVarRandom(Variable v) {
+        if ( v == null ) return false;
+        if ( v.getType() != null &&
+             Distribution.class.isAssignableFrom( v.getType() ) ) {
+            return true;
+        }
+        if ( v.hasValue() ) {
+            if ( v.getValue( false ) instanceof Distribution ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Variable getRandomVar( Object object ) {
+        Variable v = null;
+        try {
+            v = Expression.evaluate( object, Variable.class, true, false );
+        } catch (Throwable t) {
+        }
+        if ( isVarRandom( v ) ) {
+            return v;
+        }
+        return null;
     }
 
 

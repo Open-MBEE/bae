@@ -1,6 +1,7 @@
 package gov.nasa.jpl.ae.util;
 
 import gov.nasa.jpl.ae.event.*;
+import gov.nasa.jpl.ae.util.distributions.Distribution;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
@@ -57,8 +58,10 @@ public class JavaForFunctionCall {
 
   protected Call call = null;
 
-  protected Boolean isTimeVarying = null;
-  protected Boolean timeVaryingCall = null;
+//  protected Boolean isTimeVarying = null;
+//  protected Boolean timeVaryingCall = null;
+//  protected Boolean isDistribution = null;
+//  protected Boolean distributionCall = null;
 
   //private Duration dummyForClassLoader = new Duration();
 
@@ -250,6 +253,19 @@ public class JavaForFunctionCall {
     return false;
   }
 
+  public boolean isADistributionCall() {
+    if ( hasUnexpectedDistributionObject() ) {
+      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      return true;
+    }
+    if ( hasUnexpectedDistributionArgs() ) {
+      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      return true;
+    }
+    System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+    return false;
+  }
+
   public String getCallTypeName() {
     // call getMatchingMethod() to make find out if it's a TimeVaryingFunctionCall
     Method m = getMatchingMethod();
@@ -259,14 +275,15 @@ public class JavaForFunctionCall {
     else if ( c == null && m != null ) setMethodOrConstructor( true );
 
     //String prefix = (Boolean.TRUE.equals((getTimeVaryingCall())) ? "TimeVarying" : "");
-    String prefix = (isATimeVaryingCall() ? "TimeVarying" : "");
+    String prefix = isADistributionCall() ? "Distribution" :
+                    (isATimeVaryingCall() ? "TimeVarying" : "");
     if ( !isMethodOrConstructor() ) {
       return prefix + "ConstructorCall";
     }
     if ( isEffectFunction() ) {
-      if ( Boolean.TRUE.equals(timeVaryingCall) ) {
-        Debug.error("TimeVarying EffectFunction not supported!!! " + expression);
-      }
+//      if ( Boolean.TRUE.equals(timeVaryingCall) ) {
+//        Debug.error("TimeVarying EffectFunction not supported!!! " + expression);
+//      }
       return "EffectFunction";
     }
     return prefix + "FunctionCall";
@@ -488,6 +505,62 @@ public class JavaForFunctionCall {
 //  public void setTimeVaryingCall(Boolean timeVaryingCall) {
 //    this.timeVaryingCall = timeVaryingCall;
 //  }
+
+  public boolean hasUnexpectedDistributionObject() {
+    boolean mOrC = isMethodOrConstructor();
+    Member member = mOrC ? getMatchingMethod() : getMatchingConstructor();
+    // TODO -- This only works on pre-existing classes.  Need to make this work for classes being parsed in getExprXlator().getClassData().
+    if ( member == null ) {
+      return false;
+    }
+    if ( isStatic() ) {
+      return false;
+    }
+    Class<?> t = getObjectType();
+    if ( t == null || !Distribution.class.isAssignableFrom( t ) ) {
+      return false;
+    }
+    if ( mOrC ) {
+      if ( !Distribution.class.isAssignableFrom( member.getDeclaringClass() ) ) {
+        return true;
+      }
+    } else {
+      Class<?> cls = getMatchingConstructor().getDeclaringClass();
+      Class<?> enclosingClass = cls.getEnclosingClass();
+      if ( enclosingClass != null && !Distribution.class.isAssignableFrom(enclosingClass) ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean hasUnexpectedDistributionArgs() {
+    Class<?>[] types = getArgTypes();
+    boolean mOrC = isMethodOrConstructor();
+    Member member = mOrC ? getMatchingMethod() : getMatchingConstructor();
+    if ( member == null || ( DurativeEvent.class.isAssignableFrom(member.getDeclaringClass()) &&
+                             member.getName().contains("elaborate") ) ) {
+      return false;
+    }
+    Class<?>[] paramTypes = mOrC ? ((Method)member).getParameterTypes() : ((Constructor)member).getParameterTypes();
+    int i = 0, j = 0;
+    if ( types == null || types.length == 0 || paramTypes == null || paramTypes.length == 0 ) {
+      return false;
+    }
+    while ( i < types.length ) {
+      Class<?> type = types[i];
+      Class<?> pType = paramTypes[j];
+      if ( type != null && pType != null &&
+           Distribution.class.isAssignableFrom( type ) &&
+           !Distribution.class.isAssignableFrom( pType ) ) {
+        return true;
+      }
+      ++i;
+      if ( j < paramTypes.length - 1 ) ++j;
+    }
+    return false;
+
+  }
 
   /**
    * @return the methodOrConstructor
@@ -1257,7 +1330,7 @@ public class JavaForFunctionCall {
         if ( Utils.isNullOrEmpty( getClassName() ) ) {
           classNameString = "null";
         } else {
-          if ( isATimeVaryingCall() ) {
+          if ( isATimeVaryingCall() || isADistributionCall() ) {
           //if ( Boolean.TRUE.equals(getTimeVaryingCall()) ) {
             if ( m != null ) {
               classNameString = m.getDeclaringClass().getCanonicalName();

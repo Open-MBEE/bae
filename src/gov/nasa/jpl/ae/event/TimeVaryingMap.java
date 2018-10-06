@@ -953,6 +953,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       }
   
       // Get the arguments.
+      // TODO -- argsForTime and newCall below need not be reconstructed every time;
+      // TODO -- pull them outside of the loop!
       Object[] argsForTime = new Object[args.length];
       i = 0;
       for ( Object arg : args ) {

@@ -16,7 +16,7 @@ public class SampleChain<T> implements Sample<T> {
     //List<SampleChain<?>> nextSamples = null;
 
     List<Sample> samples = new ArrayList<>();
-    Map<Variable, Sample> samplesByVariable = new LinkedHashMap<>();
+    Map<Variable, Sample> samplesByVariable = new LinkedHashMap<Variable, Sample>();
     // We assume that the Java Object hash code differentiates distributions.
     Map<Distribution, Sample> samplesByDistribution = new LinkedHashMap<>();
 
@@ -39,10 +39,10 @@ public class SampleChain<T> implements Sample<T> {
     public boolean add( Sample s ) {
         if ( s instanceof SampleInContext ) {
             SampleInContext sic = (SampleInContext)s;
-            if ( sic.getVariable() != null &&
-                 samplesByVariable.containsKey( sic.getVariable() ) ) {
+            if ( sic.getOwner() != null && sic.getOwner() instanceof Variable &&
+                 samplesByVariable.containsKey( sic.getOwner() ) ) {
                 // The variable has already been sampled!
-                Debug.error( true, true, "Already sampled variable: " + sic.getVariable() );
+                Debug.error( true, true, "Already sampled variable: " + sic.getOwner() );
                 return false;
             }
             if ( sic.getDistribution() != null &&
@@ -52,7 +52,9 @@ public class SampleChain<T> implements Sample<T> {
                 return false;
             }
             samplesByDistribution.put( sic.getDistribution(), sic );
-            samplesByVariable.put( sic.getVariable(), sic );
+            if ( sic.getOwner() instanceof Variable ) {
+                samplesByVariable.put( (Variable)sic.getOwner(), sic );
+            }
         }
         lastSample = s;
         samples.add( s );

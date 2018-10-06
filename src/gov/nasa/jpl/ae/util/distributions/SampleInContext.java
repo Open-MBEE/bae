@@ -1,10 +1,12 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.ae.solver.Variable;
-
 public class SampleInContext<T> extends SimpleSample<T> {
     protected Distribution distribution;
-    protected Variable variable;
+    /**
+     * The object from which the sample is drawn.  This could be a distribution
+     * or a variable with a distribution as its value.
+     */
+    protected Object owner;
 
     /**
      * Create a Sample with the context of the distribution from which it was
@@ -13,11 +15,11 @@ public class SampleInContext<T> extends SimpleSample<T> {
      * @param value the sample value
      * @param weight the relative weight or probability of the sample
      * @param distribution the distribution from which the sample is drawn
-     * @param variable the variable from which the sample is drawn
+     * @param owner the variable from which the sample is drawn
      */
-    public SampleInContext( T value, double weight, Distribution distribution, Variable variable ) {
+    public SampleInContext( T value, double weight, Distribution distribution, Object owner ) {
         super(value, weight);
-        this.variable = variable;
+        this.owner = owner;
         this.distribution = distribution;
     }
 
@@ -25,8 +27,10 @@ public class SampleInContext<T> extends SimpleSample<T> {
      * @return the distribution from which the sample is drawn
      */
     public Distribution getDistribution() {
-        if ( distribution == null && variable != null && variable.getValue( false ) instanceof Distribution ) {
-            return (Distribution)variable.getValue( false );
+        if ( distribution == null && owner != null  ) {
+            Distribution d = DistributionHelper.getDistribution( owner );
+            if ( d != null )
+            return (Distribution)d;
         }
         return distribution;
     }
@@ -41,14 +45,14 @@ public class SampleInContext<T> extends SimpleSample<T> {
     /**
      * @return get the variable from which the sample is drawn
      */
-    public Variable getVariable() {
-        return variable;
+    public Object getOwner() {
+        return owner;
     }
 
     /**
-     * Set the variable from which the sample is drawn
+     * The object from which the sample is drawn.  This could
      */
-    public void setVariable( Variable variable ) {
-        this.variable = variable;
+    public void setOwner( Object owner ) {
+        this.owner = owner;
     }
 }

@@ -37,6 +37,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   protected Object object = null; // object from which constructor is invoked
   protected Class<?> returnType = null;
   protected Vector< Object > arguments = null; // arguments to constructor
+  protected Object evaluatedObject = null;
   public Vector< Vector< Object > > alternativeArguments = new Vector< Vector< Object > >(); // arguments to member if the default arguments don't work.
   protected Object[] evaluatedArguments = null; // arguments to constructor
   protected boolean evaluationSucceeded = false;
@@ -57,7 +58,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   abstract public boolean isVarArgs();
   abstract public boolean isStatic();
   abstract public Call clone();
-  
+
   // Hook to externally preprocess arguments for proper parameter type matching.
   public static interface ArgHelper {
     public void helpArgs( Call call );
@@ -468,7 +469,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     return result;
   }
-  
+
   public synchronized Object evaluateWithSetArguments( boolean propagate,
                                                        boolean doEvalArgs )
                                                                        throws IllegalAccessException,
@@ -575,6 +576,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Member m = getMember();
     Class<?> cls = ( m == null ? null : m.getDeclaringClass() );
     Object evaluatedObj = Expression.evaluate( object, cls, propagate, true );
+
+    this.evaluatedObject = evaluatedObj;
 
     return evaluatedObj;
   }
@@ -1529,6 +1532,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public Object[] getEvaluatedArguments() {
     return evaluatedArguments;
   }
+  /**
+   * @return the evaluatedObject
+   */
+  public Object getEvaluatedObject() {
+    return evaluatedObject;
+  }
+
   /**
    * @param evaluatedArguments the evaluatedArguments to set
    */
