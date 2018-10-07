@@ -713,9 +713,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     //boolean wasDebugOn = Debug.isOn();
     //Debug.turnOff();
-    assert ( args.size() == paramTypes.length
-             || ( isVarArgs && ( args.size() > paramTypes.length
-                                 || paramTypes.length == 1 ) ) );
+//    assert ( args.size() == paramTypes.length
+//             || ( isVarArgs && ( args.size() > paramTypes.length
+//                                 || paramTypes.length == 1 ) ) );
     Object argObjects[] = new Object[args.size()];
     for ( int i = 0; i < args.size(); ++i ) {
       Object unevaluatedArg = args.get( i );

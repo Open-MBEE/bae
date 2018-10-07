@@ -5,7 +5,7 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 /**
  * Created by dank on 6/29/17.
  */
-public class BooleanDistribution implements Distribution<Boolean> {
+public class BooleanDistribution extends AbstractDistribution<Boolean> {
 
     protected BinomialDistribution d;
 
@@ -30,9 +30,16 @@ public class BooleanDistribution implements Distribution<Boolean> {
     }
 
     @Override public Sample<Boolean> sample() {
+        // we should try to never
         int s = d.sample();
-        double w = d.probability( s );
+        double w = 1.0;//d.probability( s );
         return new SimpleSample<>( s == 1, w );
+    }
+
+    @Override public Sample<Boolean> sample( Distribution<Boolean> bias ) {
+        Sample<Boolean> ds = bias.sample();
+        double w = pdf(ds.value()) / bias.pdf(ds.value());//d.probability( s );
+        return new SimpleSample<>( ds.value(), w );
     }
 
     @Override public Class<Boolean> getType() {

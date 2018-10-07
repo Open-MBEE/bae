@@ -2,6 +2,7 @@ package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
 
 import java.util.*;
 
@@ -39,21 +40,27 @@ public class SampleChain<T> implements Sample<T> {
     public boolean add( Sample s ) {
         if ( s instanceof SampleInContext ) {
             SampleInContext sic = (SampleInContext)s;
-            if ( sic.getOwner() != null && sic.getOwner() instanceof Variable &&
-                 samplesByVariable.containsKey( sic.getOwner() ) ) {
+            Distribution d = sic.getDistribution();
+            Object owner = sic.getOwner();
+            if ( owner == null ||
+                 (!( owner instanceof Variable ) && d != null &&
+                  d.getOwner() instanceof Variable) ) {
+                owner = d.getOwner();
+            }
+            if ( owner != null && owner instanceof Variable &&
+                 samplesByVariable.containsKey( owner ) ) {
                 // The variable has already been sampled!
-                Debug.error( true, true, "Already sampled variable: " + sic.getOwner() );
+                // Debug.error( true, false, "Already sampled variable: " + owner );
                 return false;
             }
-            if ( sic.getDistribution() != null &&
-                 samplesByDistribution.containsKey( sic.getDistribution() ) ) {
+            if ( d != null && samplesByDistribution.containsKey( d ) ) {
                 // The distribution has already been sampled!
-                Debug.error( true, true, "Already sampled distribution: " + sic.getDistribution() );
+                //Debug.error( true, false, "Already sampled distribution: " + d );
                 return false;
             }
-            samplesByDistribution.put( sic.getDistribution(), sic );
-            if ( sic.getOwner() instanceof Variable ) {
-                samplesByVariable.put( (Variable)sic.getOwner(), sic );
+            samplesByDistribution.put( d, sic );
+            if ( owner instanceof Variable ) {
+                samplesByVariable.put( (Variable)owner, sic );
             }
         }
         lastSample = s;
@@ -69,15 +76,45 @@ public class SampleChain<T> implements Sample<T> {
     @Override
     public double weight() {
         double w = 1.0;
-        for ( Sample s : samples ) {
+        for ( Sample s : samplesByVariable.values() ) {
+            if ( s instanceof SampleInContext ) {
+                SampleInContext sic = (SampleInContext)s;
+                if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
+                    continue;
+                }
+            }
             w *= s.weight();
         }
-        //return weight * (lastSample != null ? lastSample.weight() : 1.0);
         return w;
     }
 
     public Set<Variable> getVariables() {
+        Debug.error(true, false,"Warning!  This should probably ignore FunctionOfDistributions!");
         if ( samplesByVariable == null ) return null;
         return samplesByVariable.keySet();
+    }
+
+    @Override public String toString() {
+        return toStringSalient();
+    }
+
+    public String toStringSalient() {
+        StringBuilder sb = new StringBuilder();
+        sb.append( "SampleChain" );
+        ArrayList<String> samples = new ArrayList<>();
+        for ( Sample s : samplesByVariable.values() ) {
+            if ( s instanceof SampleInContext ) {
+                SampleInContext sic = (SampleInContext)s;
+                if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
+                    continue;
+                }
+                samples.add("(" + sic.getOwner() + ", " + sic.value() + ", " + sic.weight() + ")");
+            } else {
+                samples.add("(" + s.value() + ", " + s.weight() + ")");
+            }
+        }
+        samples.add( "value=" + value() + ", weight=" + weight() );
+        sb.append( MoreToString.Helper.toString( samples ) );
+        return sb.toString();
     }
 }

@@ -5,13 +5,12 @@ import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
-public class FunctionOfDistributions<T> implements Distribution<T> {
+public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     /**
      * The function call or constructor that produces this distribution
      */
@@ -73,14 +72,62 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      */
     Double combinedValue = null;
 
+    boolean samplingConverged = false;
+
     public Class<T> type = null;
+
+    public FunctionOfDistributions() {
+        Debug.breakpoint();
+    }
 
     @Override public double probability( T t ) {
         if ( distribution != null ) {
-            return distribution.probability( t );
+            double p = distribution.probability( t );
+            System.out.println( "~~~~~~~~   Returning probability of " + p + " for  distribution " + distribution + " for call: " + call);
+            return p;
         }
+        //Double combinedValue = null;
+        Double lastCombinedValue = null;
+        int matchCount = 0;
+        int totalSamples = 0;
+        int totalFailedSamples = 0;
+        while ( !this.samplingConverged && totalSamples < 1000000 && totalFailedSamples < 4 ) {
+            Sample<T> s = null;
+            try {
+                s = sample();
+            } catch ( Throwable e ) {
+                e.printStackTrace();
+            }
+            if ( s == null ) {
+                System.out.println( "xxxxxxxxx   Sample failed!" );
+                ++totalFailedSamples;
+                continue;
+            }
+            T v = s.value();
+            ++totalSamples;
+            if ( totalSamples <= 10 || totalSamples % 10000 == 0) {
+                System.out.println( totalSamples + " samples with combined probability " + this.combinedValue );
+                System.out.println( "latest sample: " + s );
+            }
+            if ( lastCombinedValue != null && Expression
+                    .valuesEqual( lastCombinedValue, this.combinedValue ) ) {
+                ++matchCount;
+            } else {
+                matchCount = 0;
+            }
+            lastCombinedValue = this.combinedValue;
+            if ( matchCount >= 4 ) {
+                System.out.println( "~~~~~~~~   Sampling converged!!" );
+                this.samplingConverged = true;
+            }
+        }
+        System.out.println( "sample distribution: " + samples.probability( (T)Boolean.TRUE ) );;
         // TODO  -- throw error?
-        return 0;
+        if (this.combinedValue == null ){
+            return -1.0;
+        }
+        System.out.println( "~~~~~~~~   Returning probability of " + combinedValue + " for " + totalSamples + " samples for call: " + call);
+        return this.combinedValue;
     }
 
     @Override public double pdf( T t ) {
@@ -98,8 +145,23 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      * @return the Sample
      */
     @Override public Sample<T> sample() {
-        return sample(null);
+        return sample((SampleChain)null);
     }
+
+    /**
+     * A sample of the return value of the function is used to generate a sample
+     * chain that produces that value.  So if the function is x + y and the
+     * sample of the return value is 5, we need to generate a sample of x and y
+     * such that the sum is 5 with a weight of P( x and y | x + y = 5 )/bias.pdf(5).
+     * Need to figure this out!
+     * @param bias
+     * @return
+     */
+    @Override public Sample<T> sample( Distribution<T> bias ) {
+        // TODO
+        return null;
+    }
+
     /**
      * Sample this distribution and record and/or combine the samples according
      * the recordSamples and combiningSamples flags.  If we have a clean
@@ -114,29 +176,30 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      */
     public Sample<T> sample(SampleChain sampleChain) {
         Sample<T> p = tryToSample(sampleChain);
+        if ( p == null ) return null;
         if ( recordingSamples ) {
             if ( samples == null ) samples = new SampleDistribution<T>();
             samples.add( p );
         }
         if ( combiningSamples ) {
-            if ( getType() == null ) {
+            if ( getType() == null && p.value() != null ) {
                 type = (Class<T>)p.value().getClass();
             }
-            if ( combinedValue == null && Number.class.isAssignableFrom( getType() ) ) {
-                combinedValue = ((Number)p.value()).doubleValue();
-            }
-            if ( getType() == Double.class ) {
-                Double cd = (totalWeight*((Double)combinedValue) +
-                             p.weight() * ((Double)p.value())) /
+            if ( combinedValue == null && p.value() instanceof Number ) {
+                combinedValue = ( (Number)p.value() ).doubleValue();
+            } else if ( p.value() instanceof Number ) {
+                Double cd = (totalWeight * combinedValue +
+                             p.weight() * ((Number)p.value()).doubleValue()) /
                             (totalWeight + p.weight());
                 combinedValue = cd;
-            } else if (getType() == Integer.class) {
-                Double cd = (totalWeight*((Double)combinedValue) +
-                             p.weight() * ((Double)p.value())) /
+            } else if ( p.value() instanceof Boolean ) {
+                if ( combinedValue == null ) combinedValue = 0.0;
+                Double cd = (totalWeight * combinedValue +
+                             p.weight() * (((Boolean)p.value()) ? 1.0 : 0.0)) /
                             (totalWeight + p.weight());
                 combinedValue = cd;
             } else {
-                // TODO -- FIXME!!! -- what about boolean samples? or from a discrete set?
+                // TODO -- FIXME!!! -- what about samples from a discrete set? Strings?
             }
             totalWeight += p.weight();
         }
@@ -153,15 +216,23 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
      */
     protected Sample<T> tryToSample(SampleChain sampleChain) {
         Object r = null;
+        boolean callReturnsFunctionOfDistributions =
+                call.returnValue instanceof FunctionOfDistributions;
         try {
-            r = call.evaluate( true );
+            //if ( !callReturnsFunctionOfDistributions ) {
+                r = call.evaluate( true );
+            //}
+            if (!callReturnsFunctionOfDistributions) {
+                callReturnsFunctionOfDistributions = r instanceof FunctionOfDistributions;
+            }
         } catch ( Throwable t ) {
             // ignore
         }
         if ( r == null) return null;
         T t = null;
         Double w = null;
-        if ( getType() == null || getType().isInstance( r ) ) {
+        if ( ( getType() == null && !callReturnsFunctionOfDistributions ) ||
+             ( getType() != null && getType().isInstance( r ) ) ) {
             t = (T)r;
             w = 1.0;
             return new SimpleSample<>(t, w);
@@ -169,10 +240,10 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
 
         Distribution<?> d = DistributionHelper.getDistribution( r );
         if ( d instanceof FunctionOfDistributions ) {
-            if ( d != this ) {
-                Debug.error(true, false,
-                            "FunctionOfDistributions.tryToSample(): call returned a different distribution than this one!");
-            }
+//            if ( d != this ) {
+//                Debug.error(true, false,
+//                            "FunctionOfDistributions.tryToSample(): call returned a different distribution than this one!");
+//            }
         } else if ( d instanceof SampleDistribution ) {
             return (Sample<T>)d.sample();
             //return new SimpleSample<T>( d, 1.0 );
@@ -189,7 +260,11 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
         }
 
         // sample in call
-        return sampleCall(sampleChain);
+        if ( sampleChain == null ) {
+            sampleChain = new SampleChain();
+        }
+        Sample s = sampleCall(sampleChain);
+        return sampleChain;
     }
 
     protected boolean substitute( Object o, Set<Variable> randomVars ) {
@@ -469,14 +544,7 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
     }
 
     public double weight( SampleChain sampleChain ) {
-        Set<Variable> vars = getRandomVariables();
-        double w = 1.0;
-        for ( Variable v : vars ) {
-            Sample s = (Sample)sampleChain.samplesByVariable.get( v );
-            if ( s != null ) {
-                w *= s.weight();
-            }
-        }
+        double w = sampleChain.weight();
         return w;
     }
 
@@ -506,6 +574,7 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
         // argument of some other function call that needs a real number argument
         // as opposed to a distribution.
 
+        // Sample the object and arguments.
         Sample s = sample( call.getObject(), sampleChain );
         Object eObj = null;
         if ( s != null ) {
@@ -532,18 +601,25 @@ public class FunctionOfDistributions<T> implements Distribution<T> {
             }
             ++i;
         }
-        call.setStale( true );
+
+        // Invoke the call with the sampled arguments.
+        Object v = null;
         try {
-            call.invoke( eObj, evalArgs );
+            call.setStale( true );
+            v = call.invoke( eObj, evalArgs );
+            // Set the call stale to avoid reusing the cached result since these
+            // are not its normal arguments
+            call.setStale( true );
         } catch (Throwable t) {
             t.printStackTrace();
         }
         if ( call.didEvaluationSucceed() ) {
-            Object v = call.returnValue;
-            double w = weight( sampleChain );
+            //v = call.returnValue;
+            double w = sampleChain.weight();
             Distribution d = this;
             Object owner = this;
             SampleInContext sic = new SampleInContext( v, w, d, owner );
+            sampleChain.add( sic );
             return sic;
         }
         return null;

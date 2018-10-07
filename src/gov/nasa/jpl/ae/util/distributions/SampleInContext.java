@@ -1,5 +1,9 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.mbee.util.Debug;
+import gov.nasa.jpl.mbee.util.MoreToString;
+
 public class SampleInContext<T> extends SimpleSample<T> {
     protected Distribution distribution;
     /**
@@ -46,6 +50,18 @@ public class SampleInContext<T> extends SimpleSample<T> {
      * @return get the variable from which the sample is drawn
      */
     public Object getOwner() {
+//        if ( owner instanceof Variable ) return owner;
+//        if ( distribution.getOwner() instanceof Variable ) {
+        if ( owner == null ) {
+//            if ( owner != null ) {
+//                Debug.error( true, false,
+//                             "Warning! Replacing sample owner " +
+//                             MoreToString.Helper.toShortString( owner ) +
+//                             " with Variable " + distribution.getOwner() +
+//                             " for sample: " + this );
+//            }
+            owner = distribution.getOwner();
+        }
         return owner;
     }
 

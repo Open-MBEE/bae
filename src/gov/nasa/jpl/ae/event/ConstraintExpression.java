@@ -2,6 +2,7 @@ package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.event.Functions.SuggestiveFunctionCall;
 import gov.nasa.jpl.ae.solver.*;
+import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
@@ -72,7 +73,11 @@ public class ConstraintExpression extends Expression< Boolean >
     Boolean sat = null;
     try {
       Object o = evaluate( this, Boolean.class, false );
-      sat = Utils.isTrue( o, false );
+      if ( o instanceof BooleanDistribution ) {
+        sat = ((BooleanDistribution)o).probability() > 0.0;
+      } else {
+        sat = Utils.isTrue( o, false );
+      }
       if (!Boolean.TRUE.equals(sat)) {
         if ( o instanceof Wraps ) {
           Object oo = ((Wraps)o).getValue(false);

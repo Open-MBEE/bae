@@ -2350,17 +2350,46 @@ public class Functions {
       Number n2 = null;
       TimeVaryingMap< ? > map1 = null;
       TimeVaryingMap< ? > map2 = null;
+      Distribution<?> d1 = null;
+      Distribution<?> d2 = null;
 
+      Object arg1 = null;
+      Object arg2 = null;
+
+      Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+      map1 = p1.second;
+      if ( p1.first instanceof Distribution ) {
+        d1 = (Distribution)p1.first;
+        arg1 = d1;
+      } else if ( p1.first instanceof Number ) {
+        n1 = (Number)p1.first;
+        arg1 = map1 == null ? n1 : map1;
+      }
+      if ( arg1 == null ) arg1 = o1;
+      Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      map2 = p2.second;
+      if ( p2.first instanceof Distribution ) {
+        d2 = (Distribution)p2.first;
+        arg2 = d2;
+      } else if ( p2.first instanceof Number ) {
+        n2 = (Number)p2.first;
+        arg2 = map2 == null ? n2 : map2;
+      }
+      if ( arg2 == null) arg2 = o2;
+
+      /*
       Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
       n1 = p1.first;
       map1 = p1.second;
-
+*/
       if ( map1 != null ) {
         result = (V1)plus( map1, o2 );
       } else {
+        /*
         Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
         n2 = p2.first;
         map2 = p2.second;
+        */
 
         if ( map2 != null ) {
           result = (V1)plus( o1, map2 );
@@ -2410,7 +2439,10 @@ public class Functions {
                                                             n2.intValue() );
         }
       }
-      // else {
+      if ( d1 != null || d2 != null ) {
+        result = DistributionHelper.plus( arg1, arg2 );
+      }
+        // else {
       // TimeVaryingMap<?> map = null;
       // try {
       // map = Expression.evaluate( o1, TimeVaryingMap.class, false );
@@ -3794,7 +3826,7 @@ public class Functions {
   }
 
 
-  public class P extends Unary<Boolean, Boolean> {
+  public static class P extends Unary<Boolean, Boolean> {
 
     public P( Variable<Boolean> o ) {
       super( o, "p" );
@@ -3810,6 +3842,35 @@ public class Functions {
 
     public P( P m ) {
       super( m );
+    }
+
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return new DoubleDomain( 0.0, 1.0 );
+      // TODO
+      /*
+      if ( arguments == null || arguments.isEmpty() ) {
+        return null;
+      }
+      Object arg = this.getArgument( 0 );
+      if ( arg == null ) {
+        return null;
+      }
+      if ( arg instanceof )
+      Domain<Object> d = DomainHelper.getDomain( arg );
+      Object[] args = null;
+      try {
+        args = evaluateArgs( true );
+      } catch ( Throwable t ) {
+        return null;
+      }
+      if ( args != null && args.length > 0 ) {
+        arg = args[0];
+        if ( arg != null ) {
+          return DomainHelper.getDomain( arg );
+        }
+      }
+      */
     }
 
   }
@@ -3857,11 +3918,12 @@ public class Functions {
               return p(r);
           }
       } catch ( Throwable t ) {
+        t.printStackTrace();
       }
       try {
           Boolean r = Expression.evaluate( o, Boolean.class, false, false );
           if ( r != null ) {
-              return (Boolean)o ? 1.0 : 0.0;
+              return (Boolean)r ? 1.0 : 0.0;
           }
       } catch ( Throwable t ) {
       }
@@ -5417,6 +5479,7 @@ public class Functions {
 
 
       if ( d1 != null || d2 != null ) {
+        //result = DistributionHelper.compare(o1, o2, arg1, arg2, i);
         result = DistributionHelper.compare(arg1, arg2, i);
       } else if ( map1 != null ) {
         result = (V1)compare( map1, arg2, i );

@@ -1,14 +1,13 @@
 package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Random;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
-public class SampleDistribution<T> implements Distribution<T> {
+public class SampleDistribution<T> extends AbstractDistribution<T> {
 
     static class SampleSet extends ArrayList<Sample> {
         Double totalWeight = 0.0;

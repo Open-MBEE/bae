@@ -37,12 +37,18 @@ ClassData {
     public String type;
     public String value;
     public String scope;
-  
+    public Boolean valueIsConstructor = null;
+
 //    public Param( String name, String type, String value ) {
 //      this.name = name;
 //      this.type = type;
 //      this.value = value;
 //    }
+
+    public Param( String name, String type, String value, String scope, boolean valueIsConstructor ) {
+      this(name, type, value, scope);
+      this.valueIsConstructor = valueIsConstructor;
+    }
     public Param( String name, String type, String value, String scope ) {
       this.name = name;
       this.type = type;

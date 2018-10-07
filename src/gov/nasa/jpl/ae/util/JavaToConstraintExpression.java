@@ -2418,7 +2418,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     if ( Utils.isNullOrEmpty( p.value ) ) {
       if ( Utils.isNullOrEmpty( p.type ) ||
            p.type.toLowerCase().equals( "time" ) ||
-           ClassUtils.getPrimitives().containsKey( p.type.toLowerCase() ) ) {
+           ClassUtils.getPrimitives().containsKey( p.type.toLowerCase() ) ||
+           Utils.isTrue( p.valueIsConstructor )
+           ) {
         p.value = "null";
       } else {
         p.value = "new " + typePlaceholder + "()";

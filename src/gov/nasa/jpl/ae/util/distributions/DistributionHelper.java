@@ -8,10 +8,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
 import org.apache.commons.math3.distribution.*;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality.EQ;
 
@@ -173,13 +170,21 @@ public class DistributionHelper {
     }
 
     public static Object compare( Object o1, Object o2, TimeVaryingMap.Inequality i ) {
+        Object result = null;
         if ( o1 instanceof Distribution ) {
-            return compare( (Distribution<?>)o1, o2, i);
+            result = compare( (Distribution<?>)o1, o2, i);
+        } else if ( o2 instanceof Distribution ) {
+            result = compare( o1, (Distribution<?>)o2, i);
+        } else {
+            result = TimeVaryingMap.doesInequalityHold( o1, o2, i );
         }
-        if ( o2 instanceof Distribution ) {
-            return compare( o1, (Distribution<?>)o2, i);
+        if ( result == null ) {
+            result = new FunctionOfDistributions<>();
+            FunctionOfDistributions d = ( (FunctionOfDistributions)result );
+            d.call = new DistributionFunctionCall( null, Functions.class, "compare", new Object[] {o1, o2, i}, Boolean.class );
+            d.type = Boolean.class;
         }
-        return TimeVaryingMap.doesInequalityHold( o1, o2, i );
+        return result;
     }
     public static BooleanDistribution compare( Object o1, Distribution<?> d2,
                                                TimeVaryingMap.Inequality i ) {
@@ -224,10 +229,84 @@ public class DistributionHelper {
      * @return
      */
     public static Distribution plus(Distribution d1, Distribution d2) {
+        if ( d1 instanceof Normal && d2 instanceof Normal ) {
+            Normal n1 = (Normal)d1;
+            Normal n2 = (Normal)d2;
+            Normal s = new Normal( n1.d.getMean() + n2.d.getMean(),
+                                   Math.sqrt( n1.d.getNumericalVariance() +
+                                              n2.d.getNumericalVariance() ) );
+            return s;
+        }
         if ( d1 == null || d2 == null ) return null;
-
-        return null;
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "plus",
+                                              new Object[] {d1, d2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
     }
+
+    public static Object plus( Distribution d1, Object o2 ) {
+        if ( o2 instanceof Distribution ) {
+            return plus( d1, (Distribution<?>)o2);
+        }
+        if ( o2 == null ) return null;
+        if ( d1 instanceof Normal && o2 instanceof Number ) {
+            Normal n1 = (Normal)d1;
+            Number n2 = (Number)o2;
+            Normal s = new Normal( n1.d.getMean() + n2.doubleValue(),
+                                   n1.d.getStandardDeviation() );
+            return s;
+        }
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "plus",
+                                              new Object[] {d1, o2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+    /*
+    public static Object plus( Object arg1, Object arg2, Object val1, Object val2 ) {
+        Variable v1 = null;
+        Variable v2 = null;
+        Object a1 = arg1;
+        Object a2 = arg2;
+        try {
+            v1 = Expression.evaluate( arg1, Variable.class, false, false );
+            if ( v1 != null ) a1 = v1;
+        } catch (Throwable t) {}
+        try {
+            v2 = Expression.evaluate( arg2, Variable.class, false, false );
+            if ( v2 != null ) a2 = v2;
+        } catch (Throwable t) {}
+
+        boolean isDist1 = arg1 instanceof Distribution;
+        boolean isDist2 = arg2 instanceof Distribution;
+        boolean isNorm1 = arg1 instanceof Normal;
+        boolean isNorm2 = arg2 instanceof Normal;
+        boolean isNum1 = arg1 instanceof Number;
+        boolean isNum2 = arg2 instanceof Number;
+
+
+    }
+*/
+    public static Object plus( Object o1, Object o2 ) {
+        if ( o1 instanceof Distribution ) {
+            return plus( (Distribution<?>)o1, o2);
+        }
+        if ( o2 instanceof Distribution ) {
+            return plus( (Distribution<?>)o2, o1);
+        }
+        return null;  // TODO -- error
+    }
+
+
+
     public static Distribution minus(Distribution d1, Distribution d2) {
         if ( d1 == null || d2 == null ) return null;
         return plus( d1, negative(d2) );
@@ -355,7 +434,8 @@ public class DistributionHelper {
         if ( !deep ) return randomVars;
         return getRandomVars( v.getValue( false ), deep );
     }
-    protected Set<Variable> getRandomVariables( Call call, boolean deep ) {
+
+    protected static Set<Variable> getRandomVariables( Call call, boolean deep ) {
         Set<Variable> varsInArgs = null;
         if ( call.getObject() != null ) {
             varsInArgs = DistributionHelper.getRandomVars( call.getObject(), deep );
@@ -400,7 +480,7 @@ public class DistributionHelper {
         }
 
         if ( o instanceof Call ) {
-            return getRandomVars( (Call)o, deep );
+            return getRandomVariables( (Call)o, deep );
         }
 
         if ( o instanceof HasParameters ) {

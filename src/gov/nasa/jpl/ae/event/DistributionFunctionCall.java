@@ -80,13 +80,43 @@ public class DistributionFunctionCall extends FunctionCall {
         return null;
     }
 
+    public boolean isRegularFunctionCall( Object evaluatedObject,
+                                          Object[] evaluatedArgs ) {
+        boolean regularCall = true;
+        if ( evaluatedObject instanceof Distribution ) {
+            if ( objectHasTypeErrors( evaluatedObject ) ) {
+                regularCall = false;
+            }
+        }
+        if ( regularCall && evaluatedArgs != null ) {
+            for ( Object a : evaluatedArgs ) {
+                if ( a instanceof Distribution ) {
+                    regularCall = !hasTypeErrors( evaluatedArgs );
+                    break;
+                }
+            }
+        }
+        return regularCall;
+    }
+
     @Override
     public Object invoke( Object evaluatedObject,
-                          Object[] evaluatedArgs ) {//throws IllegalArgumentException,
+                          Object[] evaluatedArgs )
+            throws IllegalAccessException, InvocationTargetException,
+                   InstantiationException {
+        // Evaluate the old fashioned way if there are no distributions in the
+        // arguments.
+        if ( isRegularFunctionCall( evaluatedObject, evaluatedArgs ) ) {
+            // ye olde fashioned way
+            Object result = super.invoke( evaluatedObject, evaluatedArgs );
+            return result;
+        }
+
         Object result = invoke( this, evaluatedObject, evaluatedArgs );
         evaluationSucceeded = true;
         return result;
     }
+
     public static Object invoke( Call call, Object evaluatedObject,
                                  Object[] evaluatedArgs ) {
         FunctionOfDistributions f = new FunctionOfDistributions();

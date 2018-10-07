@@ -1,54 +1,26 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import gov.nasa.jpl.ae.event.HasOwner;
+import gov.nasa.jpl.mbee.util.HasId;
+import gov.nasa.jpl.mbee.util.HasName;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 
 import java.util.Set;
 
-public class AbstractIntegerDistribution<D extends IntegerDistribution> extends AbstractDistribution<Integer> {
-    D d;
+public abstract class AbstractDistribution<T> implements Distribution<T> {
+    Object owner;
 
     //    public abstract Distribution<Double> plus( Distribution<?> otherDist );
     //    public abstract Distribution<Double> minus( Distribution<?> otherDist );
     //    public abstract Distribution<Double> times( Distribution<?> otherDist );
     //    public abstract Distribution<Double> dividedBy( Distribution<?> otherDist );
 
-    @Override public double probability( Integer t ) {
-        return d.probability( t );
-    }
-
-    @Override public double pdf( Integer integer ) {
-        double p = d.probability( integer );
-        if ( p > 0.0 ) return p;
-        // TODO ??
-        return 0;
-    }
-
-    @Override public Sample<Integer> sample() {
-        Integer x = d.sample();
-        Double w = 1.0; //pdf(x);
-        return new SimpleSample<>( x, w );
-    }
-
-    @Override public Sample<Integer> sample( Distribution<Integer> bias ) {
-        Sample<Integer> s = bias.sample();
-        double w = pdf( s.value() ) / bias.pdf( s.value() );
-        return new SimpleSample<>( s.value(), w );
-    }
-
-    @Override public double cumulativeProbability( Integer t ) {
-        return d.cumulativeProbability( (Integer)t );
-    }
-
-    @Override public Class<Integer> getType() {
-        return Integer.class;
-    }
-
     @Override public Object getOwner() {
-        return null;
+        return owner;
     }
 
     @Override public void setOwner( Object owner ) {
-
+        this.owner = owner;
     }
 
     /**
@@ -59,7 +31,17 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
      * @return
      */
     @Override public String getQualifiedName( Set<Object> seen ) {
-        return null;
+        String qn = null;
+        if ( owner instanceof HasOwner ) {
+            qn = ( (HasOwner)owner ).getQualifiedName( seen );
+        } else if ( owner instanceof HasName ) {
+            qn = "" + ( (HasName)owner ).getName();
+        }
+        if ( this instanceof HasName ) {
+            if ( qn == null ) qn = "" + ( (HasName)this ).getName();
+            else qn = qn + "." + ( (HasName)this ).getName();
+        }
+        return qn;
     }
 
     /**
@@ -70,6 +52,16 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
      * @return
      */
     @Override public String getQualifiedId( Set<Object> seen ) {
-        return null;
+        String qid = null;
+        if ( owner instanceof HasOwner ) {
+            qid = ( (HasOwner)owner ).getQualifiedId( seen );
+        } else if ( owner instanceof HasId ) {
+            qid = "" + ( (HasId)owner ).getId();
+        }
+        if ( this instanceof HasId ) {
+            if ( qid == null ) qid = "" + ( (HasId)this ).getId();
+            else qid = qid + "." + ( (HasId)this ).getId();
+        }
+        return qid;
     }
 }
