@@ -28,15 +28,6 @@ import java.util.Map.Entry;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import com.sun.jdi.ObjectReference;
-import com.sun.jdi.ReferenceType;
-import com.sun.jdi.Field;
-
-
-
 import junit.framework.Assert;
 
 /**
@@ -2591,6 +2582,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     if ( seen != null ) seen.remove( this );
     long num = 0;
     num += super.getNumberOfResolvedConstraints( deep, seen );
+    seen.add(this);
     num += elaborationsConstraint.getNumberOfResolvedConstraints( false, seen );
     num += effectsConstraint.getNumberOfResolvedConstraints( deep, seen );
     if ( deep ) {
@@ -3565,13 +3557,19 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
    * Parameter)
    */
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
-    boolean didRefresh = super.refresh( parameter );
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+      Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+      if ( pr != null && pr.first ) return false;
+      seen = pr.second;
+
+      seen.remove(this);
+      boolean didRefresh = super.refresh( parameter, seen );
+      seen.add(this);
 
     if ( !didRefresh ) {
       for ( Event e : getEvents( false, null ) ) {
         if ( e instanceof ParameterListener ) {
-          if ( ( (ParameterListener)e ).refresh( parameter ) ) return true;
+          if ( ( (ParameterListener)e ).refresh( parameter, seen ) ) return true;
         }
       }
     }
@@ -3595,6 +3593,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
 
     // Alert affected dependencies.
     super.setStaleAnyReferencesTo( changedParameter, seen );
+    seen.add(this);
 
     Set<Event> events = getEvents(false, null);
     for ( Event e : events ) {

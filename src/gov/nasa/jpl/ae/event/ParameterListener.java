@@ -58,9 +58,10 @@ public interface ParameterListener extends HasParameters, HasName< String > {
    * information.
    * 
    * @param parameter the parameter to refresh
+   * @param seen
    * @return whether or not the parameter was refreshed successfully
    */
-  boolean refresh( Parameter< ? > parameter );
+  boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen );
 
   /**
    * Pick a new value for the {@link Variable}, possibly to help resolve constraints.
@@ -111,7 +112,8 @@ public interface ParameterListener extends HasParameters, HasName< String > {
     }
     @Override public void detach( Parameter<?> parameter ) {
     }
-    @Override public boolean refresh( Parameter<?> parameter ) {
+    @Override public boolean refresh( Parameter<?> parameter,
+                                      Set<ParameterListener> seen ) {
       return false;
     }
     @Override public <T> boolean pickParameterValue( Variable<T> variable ) {

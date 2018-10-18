@@ -90,6 +90,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   @Override public long getLastUpdated() {
     return lastUpdated;
   }
+  @Override public long getLastUpdated(Set<UsesClock> seen) {
+    return lastUpdated;
+  }
 
   public static class Interpolation  {
     public static final byte STEP = 0; // value for key = get(floorKey( key ))
@@ -1725,7 +1728,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @see gov.nasa.jpl.ae.event.ParameterListener#refresh(gov.nasa.jpl.ae.event.Parameter)
    */
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
     // TODO -- REVIEW -- do nothing? owner's responsibility?
     // TODO -- TimeVaryingMap should own the values if they are Parameters and
     // maybe any Parameters the value has itself, unless the value is a

@@ -41,4 +41,12 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
         return Double.class;
     }
 
+    @Override public Double mean() {
+        return d.getNumericalMean();
+    }
+
+    @Override public Double variance() {
+        return d.getNumericalVariance();
+    }
+
 }

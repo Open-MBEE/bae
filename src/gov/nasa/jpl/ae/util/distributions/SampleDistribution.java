@@ -106,6 +106,37 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
         // TODO -- Is this right?
     }
 
+    @Override public Number mean() {
+        return samples.combinedValue;
+    }
+
+    @Override public Double variance() {
+        double totalVar = 0.0;
+        double totalWeight = 0.0;
+        for ( Map.Entry<T, SampleSet> e : samples.entrySet() ) {
+            T valObj = e.getKey();
+            SampleSet sampleSet = e.getValue();
+            if ( valObj == null || sampleSet == null ) continue;
+            double diff = 0.0;
+            if ( valObj instanceof Number ) {
+                diff = ((Number)valObj).doubleValue() - samples.combinedValue;
+            } else if ( valObj instanceof Boolean ) {
+                diff = (((Boolean)valObj) ? 1.0 : 0.0) - samples.combinedValue;
+            } else {
+                // TODO -- WARNING?!?!
+                continue;
+            }
+            totalVar += diff * diff * sampleSet.totalWeight;
+            totalWeight += sampleSet.totalWeight;
+        }
+        if ( totalWeight == 0.0 ) {
+            // TODO -- ERROR?!?!
+            return null;
+        }
+        double variance = totalVar / totalWeight;
+        return variance;
+    }
+
     /**
      * Sample from the samples
      * @return a sample from the samples
@@ -122,6 +153,11 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
                 return new SimpleSample<>( ssE.getKey(), ssE.getValue().totalWeight );
             }
         }
+        return null;
+    }
+
+    @Override public Sample<T> sample( Distribution<T> bias ) {
+        // TODO
         return null;
     }
 
@@ -145,4 +181,5 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
     @Override public Class<T> getType() {
         return type;
     }
+
 }

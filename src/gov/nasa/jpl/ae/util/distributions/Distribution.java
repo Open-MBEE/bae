@@ -19,4 +19,10 @@ public interface Distribution<T> extends HasOwner {
     Sample<T> sample( Distribution<T> bias );
     double cumulativeProbability(T t);
     Class<T> getType();
+    Number mean();
+    Double variance();
+    // TODO -- add these below and maybe
+    // T expectedValue();
+    //double cdf(T t);
+    //T quantile(double p);
 }

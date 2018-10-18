@@ -138,6 +138,15 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         return 0;
     }
 
+
+    @Override public Number mean() {
+        return null;
+    }
+
+    @Override public Double variance() {
+        return null;
+    }
+
     /**
      * Sample this distribution and record and/or combine the samples according
      * the recordSamples and combiningSamples flags.

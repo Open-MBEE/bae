@@ -96,6 +96,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   @Override public long getLastUpdated() {
     return lastUpdated;
   }
+  @Override public long getLastUpdated(Set<UsesClock> seen) {
+    return lastUpdated;
+  }
 
   static boolean simpleDeconstruct = true;
   /* (non-Javadoc)
@@ -670,6 +673,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( ( c == null || c.equals( Object.class ) ) // || Expression.class.isAssignableFrom( c ) )
          && unevaluatedArg instanceof Wraps ) {
       c = ((Wraps)unevaluatedArg).getType();
+      // Don't complain if we're guessing the type.
+      // This could be a domain, distribution, timeline,...
+      complainIfError = false;
     }
     //Object result = Expression.evaluate( unevaluatedArg, c, propagate, true );
     Object result = evaluateArg( unevaluatedArg, c, propagate);
@@ -2150,7 +2156,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
    * @see gov.nasa.jpl.ae.event.ParameterListener#refresh(gov.nasa.jpl.ae.event.Parameter)
    */
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     // TODO -- REVIEW -- Is thjs necessary? Doesn't the
     // setStaleAnyReferencesTo() function do this? Or, does it only do it on
     // value changes, and are there other cases where things become stale and

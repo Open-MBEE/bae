@@ -7,9 +7,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.Map.Entry;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-
 import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.ae.util.LamportClock;
 import gov.nasa.jpl.ae.util.UsesClock;
@@ -1816,7 +1813,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     boolean didRefresh = false;
 
     boolean triedRefreshing = false;
@@ -1824,7 +1825,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     for ( Dependency< ? > d : getDependencies() ) {
       if ( d.parameter == parameter ) {
         triedRefreshing = true;
-        if ( d.refresh( parameter ) ) didRefresh = true;
+        if ( d.refresh( parameter, seen ) ) didRefresh = true;
+        // TODO -- should we break out of the loop if didRefresh?
       }
     }
 
@@ -2185,6 +2187,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num +=
         HasConstraints.Helper.getNumberOfResolvedConstraints( getParameters(),
@@ -2207,6 +2213,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfUnresolvedConstraints( boolean deep,
                                                 Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num +=
         HasConstraints.Helper.getNumberOfUnresolvedConstraints( getParameters(),
@@ -2229,6 +2239,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfConstraints( boolean deep,
                                       Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num += HasConstraints.Helper.getNumberOfConstraints( getParameters(), deep,
                                                          seen );
@@ -2379,9 +2393,15 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   @Override public long getLastUpdated() {
+    return getLastUpdated( null );
+  }
+  @Override public long getLastUpdated( Set<UsesClock> seen) {
+    Pair<Boolean, Set<UsesClock>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return lastUpdated;
+    seen = pr.second;
     long t = lastUpdated;
     for ( Parameter p : parameters ) {
-      long pt = p.getLastUpdated();
+      long pt = p.getLastUpdated(seen);
       if (pt > t) {
         t = pt;
       }

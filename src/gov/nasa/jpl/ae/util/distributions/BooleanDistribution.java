@@ -45,4 +45,12 @@ public class BooleanDistribution extends AbstractDistribution<Boolean> {
     @Override public Class<Boolean> getType() {
         return Boolean.class;
     }
+
+    @Override public Double mean() {
+        return d.getNumericalMean();
+    }
+
+    @Override public Double variance() {
+        return d.getNumericalVariance();
+    }
 }

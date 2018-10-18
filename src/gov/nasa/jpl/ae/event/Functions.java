@@ -32,6 +32,8 @@ import java.util.*;
 public class Functions {
 
   // private static boolean complainAboutBadExpressions = true;
+  private static Method newListMethod =
+          ClassUtils.getMethodsForName( Utils.class, "newList" )[ 0 ];
 
   private static Expression forceExpression( Object o ) {
     if ( o instanceof Expression ) return (Expression< ? >)o;
@@ -139,8 +141,7 @@ public class Functions {
       if ( singleValueFcn == null ) return null;
 //      return singleValueFcn;
       return new FunctionCall( null,
-                               ClassUtils.getMethodsForName( Utils.class,
-                                                             "newList" )[ 0 ],
+                               newListMethod,
                                new Object[] { singleValueFcn },
                                (Class< ? >)null );
     }
@@ -310,10 +311,10 @@ public class Functions {
       Object cObj = null;
       if ( inverse instanceof HasDomain ) {
         Domain<?> d = inverse.getDomain(false, null);
-        if ( d == null && inverse.getMethod() != null && inverse.getMethod().getName().contains("newList") ) {
+        if ( d == null && newListMethod.equals( inverse.getMethod() ) ) {
           d = DomainHelper.combineDomains(inverse.getArguments(), null, false);
         }
-        boolean flatten = (inverse.getMethod().getName().contains("newList") && d != null && !d.isEmpty());
+        boolean flatten = (newListMethod.equals( inverse.getMethod() ) && d != null && !d.isEmpty());
         List<Object> values = DomainHelper.getRepresentativeValues(d, null, flatten);
         if ( values != null && values.size() > 0 ) {
           listOfInverseResults.addAll(values);
@@ -1723,6 +1724,125 @@ public class Functions {
     return sd;
   }
 
+  // A potentially simpler implementation of mod.
+  public static class Mod2< T, R > extends Sub< T, R > {
+    public Mod2( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, new Expression<T>( new Times(o2, new Divide(o1, o2))));
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public Mod2( Object o1, Object c ) {
+      super( o1, (Object)new Expression(new Times(c, new Divide(o1, c))));
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public Mod2( Functions.Mod2< T, R > m ) {
+      super( m );
+    }
+
+    public Mod2< T, R > clone() {
+      return new Mod2< T, R >( this );
+    }
+}
+
+  /**
+   * o1 % o2
+   * @param <T>
+   * @param <R>
+   */
+  public static class Mod< T, R > extends Binary< T, R > {
+    public Mod( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, o2, "subtract", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public Mod( Object o1, Object c ) {
+      super( o1, c, "subtract", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public Mod( Functions.Mod< T, R > m ) {
+      super( m );
+    }
+
+    public Mod< T, R > clone() {
+      return new Mod< T, R >( this );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
+                                                    : arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+      // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+      // null!
+      if ( firstArg ) {
+        return new Sum< T, T >( returnValue, new Times(otherArg, new Divide(arg, otherArg)) );
+      }
+      // The set of numbers whose mod with otherArg equals returnValue.  Represent as
+      // otherArg * IntegerDomain.positiveDomain + returnValue.
+      // TODO  -- We should intersect the result with the domain of arg.
+      // FIXME -- Instead, we're just using arg's domain instead of the positive integers.
+      Domain d = DomainHelper.getDomain( arg );
+      if ( d == null ) d = IntegerDomain.positiveDomain;
+      return new Sum< T, T >( returnValue, new Plus( new Times( d, otherArg ), returnValue ) );
+    }
+  }
+
+  /**
+   * o1 % o2
+   * @param <T>
+   * @param <R>
+   */
+  public static class Remainder< T, R > extends Mod< T, R > {
+    public Remainder( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, o2 );
+      setMonotonic( true );
+    }
+
+    public Remainder( Object o1, Object c ) {
+      super( o1, c );
+      setMonotonic( true );
+    }
+
+    public Remainder( Functions.Remainder< T, R > m ) {
+      super( m );
+    }
+
+    public Remainder< T, R > clone() {
+      return new Remainder< T, R >( this );
+    }
+
+}
+
+  public static < T, TT > T
+  mod( Expression< T > o1,
+            Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof Double && r2 instanceof Number ) {
+      return (T)(Double)0.0;
+    }
+    return mod( r1, r2 );
+  }
+
+  public static < V1, V2 > V1 mod( V1 o1, V2 o2 ) throws ClassCastException,
+                                                           IllegalAccessException,
+                                                           InvocationTargetException,
+                                                           InstantiationException {
+    return minus( o1, times(o2, divide( o1, o2 ) ) );
+  }
+
 
 
   public static class Times< T, R > extends Binary< T, R > {
@@ -1830,10 +1950,275 @@ public class Functions {
       if ( returnValue == null || otherArg == null ) return null; // arg can be
                                                                   // null!
       if ( firstArg ) {
-        return new Times< T, T >( returnValue, otherArg );
+        return inverseDivideForNumerator( returnValue, otherArg );
+      } else {
+        return inverseDivideForDenominator( returnValue, otherArg );
       }
-      return new Divide< T, T >( otherArg, returnValue );
     }
+
+    public static boolean areIntegers( Object r1, Object r2 ) {
+      if ( r1 == null || r2 == null ) return false;
+      boolean isint = r1 instanceof Integer &&
+                      r2 instanceof Integer;
+      return isint;
+    }
+    public static boolean areIntegersOrLong( Object r1, Object r2 ) {
+        if ( r1 == null || r2 == null ) return false;
+        boolean isint = ( r1 instanceof Integer || r1 instanceof Long ) &&
+                        ( r2 instanceof Integer || r2 instanceof Long );
+        return isint;
+    }
+
+    public static <T> FunctionCall inverseDivideForNumerator(Object returnValue,
+                                                             Object denominator) {
+      // If the arguments are both integer/long, then we need to return
+      // the range of integers that when divided by otherArg, equals returnValue.
+      // For example, for 3 = x / 5, x can be [15,19].
+      // So, we want
+      // [returnValue * otherArg, (returnValue+1) * otherArg - 1]
+      // special cases:
+      //   1 = x / y  -> x = y
+      //   0 = x / inf  -> x is anything
+      //   z = x / inf  -> x is inf
+      //   0 = x / y  -> x = 0
+      //   inf = x / 0  -> x is anything
+      //   z = x / 0  -> x = 0
+      //
+      Object r1=null, r2=null;
+      try {
+        r1 = Expression.evaluateDeep( returnValue, null, false, false );
+        r2 = Expression.evaluateDeep( denominator, null, false, false );
+      } catch (Throwable t) {}
+
+      if ( r1 == null || r2 == null ) return null;
+      if ( areIntegersOrLong( r1, r2 ) ) {
+        long l1 = ((Number)r1).longValue();
+        long l2 = ((Number)r2).longValue();
+        boolean isPositive = l1 < 0 == l2 < 0;
+        Domain d = null;
+        boolean resultLong = !areIntegers( r1, r2 );
+        Integer i1 = resultLong ? null : ((Number)r1).intValue();
+        Integer i2 = resultLong ? null : ((Number)r2).intValue();
+
+        // If the return value is one, return the denominator
+        if ( l1 == 1 ) {
+          return new Identity<Number>(new Expression<Number>( denominator ) );
+        }
+        // If the denominator value is one, return the return value
+        if ( l2 == 1 ) {
+          return new Identity<Number>(new Expression<Number>( returnValue ) );
+        }
+        // If the denominator is zero
+        if ( l2 == 0 ) {
+          // If the return value is also. zero the numerator is zero.
+          if ( l1 == 0 ) {
+            return new Identity<Number>(new Expression<Number>( 0 ) );
+          }
+          // If the return value is infinity, the numerator is either
+          // non-zero positive or negative and not zero, I guess.
+          if ( gov.nasa.jpl.ae.util.Math.isInfinity( r1 ) ||
+               gov.nasa.jpl.ae.util.Math.isNegInfinity( r1 ) ) {
+            if ( isPositive ) {
+              if ( resultLong ) {
+                d = new LongDomain( 1, LongDomain.typeMaxValue );
+              } else {
+                d = new IntegerDomain( 1, IntegerDomain.typeMaxValue );
+              }
+            } else {
+              if ( resultLong ) {
+                d = new LongDomain( LongDomain.typeMinValue, -1 );
+              } else {
+                d = new IntegerDomain( IntegerDomain.typeMinValue, -1 );
+              }
+            }
+          }
+          //d = resultLong ? new LongDomain() : new IntegerDomain();
+        } else
+        // If the return value is zero
+        if ( l1 == 0 ) {
+          // and the denominator is infinity, then the numerator can be anything.
+          if ( gov.nasa.jpl.ae.util.Math.isInfinity( r2 ) ||
+               gov.nasa.jpl.ae.util.Math.isNegInfinity( r2 ) ) {
+            d = resultLong ? new LongDomain() : new IntegerDomain();
+          }
+        }
+
+//        if ( d == null ) {
+//          return new Minus( new Times( new Plus( returnValue, 1 ), denominator ), 1 );
+//        }
+//        // TODO -- delete the if-else below -- will not get called because d == null returns above
+
+        // Integer or Long domain =
+        // [returnValue * otherArg, (returnValue+1) * otherArg - 1]
+        if ( d == null && resultLong ) {
+          Long lb = gov.nasa.jpl.ae.util.Math.times( l1, l2 );
+          Long ub =
+                  gov.nasa.jpl.ae.util.Math.minus(
+                          gov.nasa.jpl.ae.util.Math.times(
+                                  gov.nasa.jpl.ae.util.Math.plus(l1, l1 < 0 ? -1 : 1),
+                                  l2 ),
+                          isPositive ? 1 : -1);
+          // swap in case of negative signs
+          if ( ub < lb ) {
+            Long t = ub;
+            ub = lb;
+            lb = t;
+          }
+          d = new LongDomain( lb,ub );
+        } else if ( d == null ) {
+          Integer lb = gov.nasa.jpl.ae.util.Math.times( i1, i2 );
+          Integer ub =
+                  gov.nasa.jpl.ae.util.Math.minus(
+                          gov.nasa.jpl.ae.util.Math.times(
+                                  gov.nasa.jpl.ae.util.Math.plus(i1, i1 < 0 ? -1 : 1),
+                                  i2 ),
+                          isPositive ? 1 : -1);
+          // swap in case of negative signs
+          if ( ub < lb ) {
+            Integer t = ub;
+            ub = lb;
+            lb = t;
+          }
+          d = new IntegerDomain(lb, ub);
+        }
+        if ( d != null ) {
+          return new Identity<Number>( new Expression<Number>( d ) );
+//          return new FunctionCall( null, newListMethod,
+//                                   new Object[] { d }, (Class<?>)null );
+        }
+      }
+      return new Times< T, T >( returnValue, denominator );
+    }
+
+    public static <T> FunctionCall inverseDivideForDenominator(Object returnValue,
+                                                           Object numerator) {
+      // If the arguments are both integer/long, then we need to return
+      // the range of integers that can divided into the numerator to get the returnValue.
+      // For example, for 3 = 100 / x, x can be [26,33].
+      // So, we want
+      // [1 + numerator / (returnValue + 1), numerator / returnValue]
+      // but only if abs(numerator) >= abs(returnValue); otherwise, return 0;
+      // special cases:
+      //   1 = x / y  -> y = x
+      //   z = z / y  -> y = 1
+      //   z = -z / y  -> y = -1
+      //   z = inf / y  -> y is inf or -inf
+      //   0 = 0 / y  -> y = anything
+      //   0 = x / y  -> y = inf or -inf (or *maybe* empty set if x = inf)
+      //   z = 0 / y  -> y = 0
+      //   inf = x / y  -> y = 0
+
+      Object r1=null, r2=null;
+      try {
+        r1 = Expression.evaluateDeep( returnValue, null, false, false );
+        r2 = Expression.evaluateDeep( numerator, null, false, false );
+      } catch (Throwable t) {}
+
+      if ( r1 == null || r2 == null ) return null;
+      if ( !areIntegersOrLong( r1, r2 ) ) {
+        return new Divide< T, T >( numerator, returnValue );
+      }
+      long l1 = ((Number)r1).longValue();
+      long l2 = ((Number)r2).longValue();
+      Domain d = null;
+      boolean resultLong = !areIntegers( r1, r2 );
+      Integer i1 = resultLong ? null : ((Number)r1).intValue();
+      Integer i2 = resultLong ? null : ((Number)r2).intValue();
+      boolean isPositive = l1 < 0 == l2 < 0;
+
+      // If you divide a smaller int by a bigger one, you get 0 because there are no fractions.
+      // This takes care of the special case: z = 0 / y  -> y = 0
+      if ( Math.abs( l2 ) < Math.abs( l1 ) ) {
+        return new Identity<Number>(new Expression<Number>( 0 ) );
+      }
+      // If the return value is one, return the numerator
+      if ( l1 == 1 ) {
+        return new Identity<Number>(new Expression<Number>( numerator ) );
+      }
+      // If the values are equal return 1.
+      if ( Utils.valuesEqual( Math.abs( l2 ), Math.abs( l1 ) ) ) {
+        return new Identity<Number>(new Expression<Number>( isPositive ? 1 : -1 ) );
+      }
+      // If the return value and the denominator are zero, return anything
+      if ( l2 == 0 && l1 == 0 ) {
+          d = resultLong ? new LongDomain() : new IntegerDomain();
+          return new Identity<Number>( new Expression<Number>( d ) );
+      }
+      // If the numerator is inf, return inf
+      // If the return value is zero, return inf
+      if ( gov.nasa.jpl.ae.util.Math.isInfinity( r2 ) ||
+           gov.nasa.jpl.ae.util.Math.isNegInfinity( r2 ) ) {
+        Number n = null;
+        if ( resultLong ) {
+          n = isPositive ? LongDomain.typeMaxValue : LongDomain.typeMinValue;
+        } else {
+          n = isPositive ? IntegerDomain.typeMaxValue : IntegerDomain.typeMinValue;
+        }
+        return new Identity<Number>(new Expression<Number>( n ) );
+      }
+      // If the return value is zero, return {-inf,inf}
+      if ( l1 == 0 ) {
+        Set<Domain> includeSet = new LinkedHashSet<>();
+        Set<Domain> excludeSet = null;
+        if ( resultLong ) {
+          d = new LongDomain( LongDomain.typeMinValue, LongDomain.typeMinValue );
+          includeSet.add( d );
+          d = new LongDomain( LongDomain.typeMaxValue, LongDomain.typeMaxValue );
+          includeSet.add( d );
+        } else {
+          d = new IntegerDomain( IntegerDomain.typeMinValue, IntegerDomain.typeMinValue );
+          includeSet.add( d );
+          d = new IntegerDomain( IntegerDomain.typeMaxValue, IntegerDomain.typeMaxValue );
+          includeSet.add( d );
+        }
+        d = new MultiDomain( resultLong ? Long.class : Integer.class, includeSet, excludeSet);
+        return new Identity<Number>( new Expression<Number>( d ) );
+      }
+
+      // Integer or Long domain =
+      // [1 + numerator / (returnValue + 1), numerator / returnValue]
+      if ( d == null && resultLong ) {
+        Long lb =
+                gov.nasa.jpl.ae.util.Math.plus(
+                        gov.nasa.jpl.ae.util.Math.dividedBy(
+                                l2,
+                                gov.nasa.jpl.ae.util.Math.plus(l1, l1 > 0 ? 1 : -1) ),
+                        isPositive ? 1 : -1);
+        Long ub = gov.nasa.jpl.ae.util.Math.dividedBy( l2, l1 );
+        // swap in case of negative signs
+        if ( ub < lb ) {
+          Long t = ub;
+          ub = lb;
+          lb = t;
+        }
+        d = new LongDomain( lb, ub );
+      } else if ( d == null ) {
+        Integer lb =
+                gov.nasa.jpl.ae.util.Math.plus(
+                        gov.nasa.jpl.ae.util.Math.dividedBy(
+                                i2,
+                                gov.nasa.jpl.ae.util.Math.plus(i1, i1 > 0 ? 1 : -1) ),
+                        isPositive ? 1 : -1);
+        Integer ub = gov.nasa.jpl.ae.util.Math.dividedBy( i2, i1 );
+        // swap in case of negative signs
+        if ( ub < lb ) {
+          Integer t = ub;
+          ub = lb;
+          lb = t;
+        }
+        d = new IntegerDomain( lb, ub );
+      }
+
+
+      if ( d == null ) {
+        return new Divide< T, T >( numerator, returnValue );
+//        // [1 + numerator / (returnValue + 1), numerator / returnValue]
+//        return new Minus( new Times( new Plus( returnValue, 1 ), denominator ), 1 );
+      } else {
+        return new Identity<Number>( new Expression<Number>( d ) );
+      }
+    }
+
 
     @Override
     public Domain< ? > inverseDomain( Domain< ? > returnValue,
@@ -3913,16 +4298,16 @@ public class Functions {
           }
       };
       try {
-          Distribution r = Expression.evaluate( o, Distribution.class, false, false );
-          if ( r != null && r != o ) {
+          Object r = Expression.evaluate( o, Distribution.class, false, false );
+          if ( r != null && r != o && r instanceof Distribution ) {
               return p(r);
           }
       } catch ( Throwable t ) {
-        t.printStackTrace();
+        //t.printStackTrace();
       }
       try {
-          Boolean r = Expression.evaluate( o, Boolean.class, false, false );
-          if ( r != null ) {
+          Object r = Expression.evaluate( o, Boolean.class, false, false );
+          if ( r != null && r instanceof Boolean ) {
               return (Boolean)r ? 1.0 : 0.0;
           }
       } catch ( Throwable t ) {
@@ -7540,6 +7925,57 @@ public class Functions {
     Domain cdd = mp.calculateDomain( true, null );
 
     System.out.println("" + mp + ".calculateDomain() = " + cdd);
+
+
+    System.out.println("\ndividing negative integers");
+    System.out.println(" 7 / 3 = " + (7 / 3));
+    System.out.println(" -7 / 3 = " + (-7 / 3));
+    System.out.println(" 7 / -3 = " + (7 / -3));
+    System.out.println(" -7 / -3 = " + (-7 / -3));
+
+    // inverseDivideForNumerator(2, 3) = [6, 8]
+    System.out.println("inverseDivideForNumerator(2, 3) = " +
+                       Functions.Divide.inverseDivideForNumerator(2, 3));
+    System.out.println("inverseDivideForNumerator(2L, 3L) = " +
+                       Functions.Divide.inverseDivideForNumerator(2L, 3L));
+    // inverseDivideForNumerator(0, 0) = 0?
+    System.out.println("inverseDivideForNumerator(0, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, 0));
+    // inverseDivideForNumerator(0, inf) = anything
+    System.out.println("inverseDivideForNumerator(0, Integer.MAX_VALUE) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, Integer.MAX_VALUE));
+    // inverseDivideForNumerator(0, -inf) = anything
+    System.out.println("inverseDivideForNumerator(0, Integer.MIN_VALUE) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, Integer.MIN_VALUE));
+    // inverseDivideForNumerator(inf, 0) = anything
+    System.out.println("inverseDivideForNumerator(Integer.MAX_VALUE, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(Integer.MAX_VALUE, 0));
+    // inverseDivideForNumerator(-inf, 0) = anything
+    System.out.println("inverseDivideForNumerator(Integer.MIN_VALUE, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(Integer.MIN_VALUE, 0));
+
+    System.out.println("");
+
+    // inverseDivideForDenominator(3, 100) = [26, 33]
+    System.out.println("inverseDivideForDenominator(3, 100) = [26, 33] = " +
+                       Functions.Divide.inverseDivideForDenominator(3, 100));
+    System.out.println("inverseDivideForDenominator(3L, 100L) = [26, 33] = " +
+                       Functions.Divide.inverseDivideForDenominator(3L, 100L));
+    // inverseDivideForDenominator(0, 0) = 0?
+    System.out.println("inverseDivideForDenominator(0, 0) = 0? = " +
+                       Functions.Divide.inverseDivideForDenominator(0, 0));
+    // inverseDivideForDenominator(0, inf) = anything
+    System.out.println("inverseDivideForDenominator(0, Integer.MAX_VALUE) = inf = " +
+                       Functions.Divide.inverseDivideForDenominator(0, Integer.MAX_VALUE));
+    // inverseDivideForDenominator(0, -inf) = anything
+    System.out.println("inverseDivideForDenominator(0, Integer.MIN_VALUE) = -inf = " +
+                       Functions.Divide.inverseDivideForDenominator(0, Integer.MIN_VALUE));
+    // inverseDivideForDenominator(inf, 0) = anything
+    System.out.println("inverseDivideForDenominator(Integer.MAX_VALUE, 0) = 0 = " +
+                       Functions.Divide.inverseDivideForDenominator(Integer.MAX_VALUE, 0));
+    // inverseDivideForDenominator(-inf, 0) = anything
+    System.out.println("inverseDivideForDenominator(Integer.MIN_VALUE, 0) = 0 = " +
+                       Functions.Divide.inverseDivideForDenominator(Integer.MIN_VALUE, 0));
 
 
     // TODO -- Add tests for overflow!!

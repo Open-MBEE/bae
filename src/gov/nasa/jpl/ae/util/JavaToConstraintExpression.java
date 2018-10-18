@@ -98,6 +98,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 //   */
 //  protected String packageName = null;
 
+  public static boolean initAllToNull = true;
+
   // This is for handling class names outside Java syntax.
   protected NameTranslator nameTranslator = new NameTranslator();
 
@@ -406,7 +408,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
           case '^':
             return "Xor"; // bitwise?
           case '%':
-            return "Mod"; // TODO -- add to Functions.java
+            return "Mod";
           case '<':
             return "LT";
           case '>':
@@ -533,6 +535,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         if ( operator == null ) return null;
         Class< ? extends Binary< ?, ? > > cls = 
                 binaryOpNameToFunctionClass( operator.toString() );
+        if ( cls == null ) return null;
         return cls.getSimpleName();
     }  
 
@@ -2416,7 +2419,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     String typePlaceholder = "!TYPE!";
     String valuePlaceholder = "!VALUE!";
     if ( Utils.isNullOrEmpty( p.value ) ) {
-      if ( Utils.isNullOrEmpty( p.type ) ||
+      if ( initAllToNull || Utils.isNullOrEmpty( p.type ) ||
            p.type.toLowerCase().equals( "time" ) ||
            ClassUtils.getPrimitives().containsKey( p.type.toLowerCase() ) ||
            Utils.isTrue( p.valueIsConstructor )

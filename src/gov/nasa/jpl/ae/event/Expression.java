@@ -1,5 +1,4 @@
 package gov.nasa.jpl.ae.event;
-import gov.nasa.jpl.ae.event.TimeVaryingMap.Interpolation;
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
@@ -920,7 +919,9 @@ public class Expression< ResultType > extends HasIdImpl
     
     // avoid infinite recursion
     Pair< Boolean, Set< HasDomain > > pair = Utils.seen( this, propagate, seen );
-    if ( pair.first ) return null;
+    if ( pair.first ) {
+      return null;
+    }
     seen = pair.second;
 
     // If the expression is null, check to see if null is in the domain.
@@ -1397,9 +1398,13 @@ public class Expression< ResultType > extends HasIdImpl
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     if ( expression instanceof ParameterListener ) {
-      return ( (ParameterListener)expression ).refresh( parameter );
+      return ( (ParameterListener)expression ).refresh( parameter, seen );
     }
     return false;
   }

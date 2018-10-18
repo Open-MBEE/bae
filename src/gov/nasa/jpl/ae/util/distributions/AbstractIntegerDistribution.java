@@ -23,6 +23,15 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
         return 0;
     }
 
+    @Override public Double mean() {
+        return d.getNumericalMean();
+    }
+
+    @Override public Double variance() {
+        return d.getNumericalVariance();
+    }
+
+
     @Override public Sample<Integer> sample() {
         Integer x = d.sample();
         Double w = 1.0; //pdf(x);

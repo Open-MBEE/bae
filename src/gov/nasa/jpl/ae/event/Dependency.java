@@ -407,7 +407,7 @@ public class Dependency< T > extends HasIdImpl
     if ( Debug.isOn() ) Debug.outln( "Dependency.pickValue(" + variable + ") begin" );
     if ( variable == this.parameter ) {
       Object value = variable.getValue( false ); // DON'T CHANGE false
-      if ( refresh( this.parameter ) ) {
+      if ( refresh( this.parameter, null ) ) {
         if ( !Utils.valuesEqual( variable.getValue( true ), value ) ) { // DON'T CHANGE true
           if ( Debug.isOn() ) Debug.outln( "Dependency.pickValue(" + variable + ") returning refreshed value" );
           return true;
@@ -682,7 +682,11 @@ public class Dependency< T > extends HasIdImpl
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     if ( this.parameter == parameter ) {
       if ( !refreshing ) {
         refreshing = true;
@@ -758,17 +762,29 @@ public class Dependency< T > extends HasIdImpl
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return isSatisfied( false, null ) ? 1 : 0;
   }
 
   @Override
   public long getNumberOfUnresolvedConstraints( boolean deep,
                                                 Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return isSatisfied( false, null ) ? 0 : 1;
   }
 
   @Override
   public long getNumberOfConstraints( boolean deep, Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return 1;
   }
       

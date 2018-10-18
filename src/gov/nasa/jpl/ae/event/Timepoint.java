@@ -237,6 +237,20 @@ public class Timepoint extends LongParameter implements TimeVariable {
     return asDays( duration ) / 7.0;
   }
 
+  public static long years( double years ) {
+    return days( years * 365.25 );
+  }
+  public static double asYears( long duration ) {
+    return asDays( duration ) / 365.25;
+  }
+
+  public static long months( double months ) {
+    return years( months / 12.0 );
+  }
+  public static double asMonths( long duration ) {
+    return asYears( duration ) * 12.0;
+  }
+
 
   public static Long fromMillisToInteger( long millis ) {
     long t = (long)( Units.conversionFactor( Units.milliseconds, Timepoint.units )

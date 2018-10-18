@@ -279,7 +279,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( Debug.isOn() ) assert mayPropagate;
     if ( isStale() ) {
       if ( owner != null ) {
-        owner.refresh( this );
+        owner.refresh( this, null );
         if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() refreshed: " + this );
       } else {
         setStale( false );
@@ -535,7 +535,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public boolean refresh() {
     if ( owner != null ) {
-      if ( owner.refresh( this ) ) {
+      if ( owner.refresh( this, null ) ) {
         return true;
       }
     }
@@ -1010,6 +1010,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     for ( Constraint c : getConstraints(deep, seen) ) {
       if ( c.isSatisfied( false, null ) ) {
@@ -1134,8 +1138,15 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   }
 
   @Override public long getLastUpdated() {
+    return getLastUpdated( null );
+  }
+  @Override public long getLastUpdated( Set<UsesClock> seen) {
+    Pair<Boolean, Set<UsesClock>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return lastUpdated;
+    seen = pr.second;
+
     if ( value != null && value instanceof UsesClock ) {
-      long tt = ( (UsesClock)value ).getLastUpdated();
+      long tt = ( (UsesClock)value ).getLastUpdated(seen);
       if ( tt > lastUpdated ) {
         lastUpdated = tt;
       }
