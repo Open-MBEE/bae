@@ -1316,7 +1316,10 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   
 
 
-  public String kSolutionString( int indent ) {
+  public String kSolutionString( int indent, Set<ParameterListenerImpl> seen ) {
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return "";
+    seen = pair.second;
 
     String indentString = "";
     for (int i = 0 ; i < indent; i++) {
@@ -1335,7 +1338,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               ( (ParameterListenerImpl)p.getValueNoPropagate() );
           sb.append( indentString + p.getName() + " = " + pLI.getClass().getSimpleName()
                      + " {\n" );
-          sb.append(  pLI.kSolutionString( indent + 1 ) );
+          sb.append(  pLI.kSolutionString( indent + 1, seen ) );
           sb.append( indentString + "}\n" );
         } else {
             sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null) + "\n");
@@ -1347,9 +1350,14 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   }
   
 
-  public JSONArray kSolutionJSONArr() {
+  public JSONArray kSolutionJSONArr( Set<ParameterListenerImpl> seen ) {
     JSONArray value = new JSONArray();
-    Parameter<?> dontNeedParams[] = { startTime, duration, endTime }; 
+
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return value;
+    seen = pair.second;
+
+    Parameter<?> dontNeedParams[] = { startTime, duration, endTime };
 
     Set< Parameter< ? > > allParams = getParameters( false, null );
     allParams.removeAll( Arrays.asList( dontNeedParams ) );
@@ -1360,7 +1368,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
             ( (ParameterListenerImpl)p.getValueNoPropagate() );
         param.put( "name", p.getName() );
         param.put( "type", "class" );
-        JSONArray val = pLI.kSolutionJSONArr();
+        JSONArray val = pLI.kSolutionJSONArr(seen);
         param.put( "value", val );
         
       } else {

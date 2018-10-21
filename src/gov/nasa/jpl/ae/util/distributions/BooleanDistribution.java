@@ -30,7 +30,7 @@ public class BooleanDistribution extends AbstractDistribution<Boolean> {
     }
 
     @Override public Sample<Boolean> sample() {
-        // we should try to never
+        // we should try to never ... ???
         int s = d.sample();
         double w = 1.0;//d.probability( s );
         return new SimpleSample<>( s == 1, w );

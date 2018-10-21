@@ -52,13 +52,13 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
         return Integer.class;
     }
 
-    @Override public Object getOwner() {
-        return null;
-    }
-
-    @Override public void setOwner( Object owner ) {
-
-    }
+//    @Override public Object getOwner() {
+//        return null;
+//    }
+//
+//    @Override public void setOwner( Object owner ) {
+//
+//    }
 
     /**
      * Get the name preceded by parent names, separated by '.'

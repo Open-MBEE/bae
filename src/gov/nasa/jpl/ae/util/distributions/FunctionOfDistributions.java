@@ -81,17 +81,35 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     }
 
     @Override public double probability( T t ) {
-        if ( distribution != null ) {
-            double p = distribution.probability( t );
-            System.out.println( "~~~~~~~~   Returning probability of " + p + " for  distribution " + distribution + " for call: " + call);
-            return p;
+        double p = -1.0; // default bad value
+
+        Distribution d = getDistribution( true );
+
+        if ( d != null ) {
+            p = d.probability( t );
         }
-        //Double combinedValue = null;
+//
+//        // go for analytic
+//        if ( d != null && d == distribution ) {
+//            p = distribution.probability( t );
+//        }
+//
+//        if ( d != approximation && samplingConverged &&
+//             samples != null && !samples.isEmpty() ) {
+//            return samples.probability( t );
+//        }
+
+        System.out.println( "~~~~~~~~   Returning probability of " + p +
+                            " for  distribution " + d + " for call: " + call);
+        return p;
+    }
+
+    public double sampleLoop() {
         Double lastCombinedValue = null;
         int matchCount = 0;
         int totalSamples = 0;
         int totalFailedSamples = 0;
-        while ( !this.samplingConverged && totalSamples < 1000000 && totalFailedSamples < 4 ) {
+        while ( !this.samplingConverged && totalSamples < 10000 && totalFailedSamples < 4 ) {
             Sample<T> s = null;
             try {
                 s = sample();
@@ -106,7 +124,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
             T v = s.value();
             ++totalSamples;
             if ( totalSamples <= 10 || totalSamples % 10000 == 0) {
-                System.out.println( totalSamples + " samples with combined probability " + this.combinedValue );
+                System.out.println( totalSamples + " samples with combined value " + this.combinedValue );
                 System.out.println( "latest sample: " + s );
             }
             if ( lastCombinedValue != null && Expression
@@ -121,14 +139,32 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                 this.samplingConverged = true;
             }
         }
-        System.out.println( "sample distribution: " + samples.probability( (T)Boolean.TRUE ) );;
+
+        if (this.combinedValue == null ) {
+            System.out.println( "~~~~~~~~   No combined value!  " +
+                         totalSamples + " samples for call: " + call);
+            return -1.0;
+        }
+        System.out.println( "~~~~~~~~   Combined value of " + combinedValue +
+                            " for " + totalSamples + " samples for call: " + call);
+        return combinedValue;
+    }
+
+    public double sample( T t ) {
+        sampleLoop();
+        double v = samples.probability( t );
+        System.out.println( "sample distribution: probability(t) = " + v );;
         // TODO  -- throw error?
         if (this.combinedValue == null ){
             return -1.0;
         }
-        System.out.println( "~~~~~~~~   Returning probability of " + combinedValue + " for " + totalSamples + " samples for call: " + call);
-        return this.combinedValue;
+//        if ( !Utils.valuesEqual( v, combinedValue ) ) {
+//            System.out.println( "Sample probability of " + t + " is " + v +
+//                                ", but the combinedValue is " + combinedValue );
+//        }
+        return v;
     }
+
 
     @Override public double pdf( T t ) {
         if ( distribution != null ) {
@@ -139,11 +175,55 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     }
 
 
+    public boolean isSamplingConverged() {
+        return this.samplingConverged;
+    }
+    public boolean hasSamplingConverged() {
+        //!(samples == null  && samples.isEmpty() && !samplingConverged)
+        return this.samplingConverged;
+    }
+
+    protected Distribution getDistribution( boolean sampleIfNecessary ) {
+        // prefer analytic solution
+        if ( distribution != null ) {
+            return distribution;
+        }
+        // prefer approximation to samples if sampling has not coverged
+        if ( ( !hasSamplingConverged() || samples == null || samples.isEmpty() ) &&
+             approximation != null ) {  // TODO -- also compare error
+            return approximation;
+        }
+        // if approximation is null or not preferred, return samples
+        if ( samples != null  && !samples.isEmpty() ) {
+            if ( sampleIfNecessary ) {
+                sampleLoop();
+            }
+            return samples;
+        }
+        // return approximation if there's nothing else
+        if ( approximation != null ) {
+            return approximation;
+        }
+
+        // if there's nothing, we need to sample
+        if ( samples == null ) {
+            samples = new SampleDistribution<>();
+        }
+        if ( sampleIfNecessary ) {
+            sampleLoop();
+        }
+        return samples;
+    }
+
     @Override public Number mean() {
+        Distribution d = getDistribution(true);
+        if ( d != null ) return d.mean();
         return null;
     }
 
     @Override public Double variance() {
+        Distribution d = getDistribution(true );
+        if ( d != null ) return d.variance();
         return null;
     }
 
@@ -191,26 +271,12 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
             samples.add( p );
         }
         if ( combiningSamples ) {
-            if ( getType() == null && p.value() != null ) {
-                type = (Class<T>)p.value().getClass();
+            Double n = DistributionHelper.combineValues( getType(), p,
+                                                         combinedValue, totalWeight );
+            if ( n != null ) {
+                combinedValue = n;
+                totalWeight += p.weight();
             }
-            if ( combinedValue == null && p.value() instanceof Number ) {
-                combinedValue = ( (Number)p.value() ).doubleValue();
-            } else if ( p.value() instanceof Number ) {
-                Double cd = (totalWeight * combinedValue +
-                             p.weight() * ((Number)p.value()).doubleValue()) /
-                            (totalWeight + p.weight());
-                combinedValue = cd;
-            } else if ( p.value() instanceof Boolean ) {
-                if ( combinedValue == null ) combinedValue = 0.0;
-                Double cd = (totalWeight * combinedValue +
-                             p.weight() * (((Boolean)p.value()) ? 1.0 : 0.0)) /
-                            (totalWeight + p.weight());
-                combinedValue = cd;
-            } else {
-                // TODO -- FIXME!!! -- what about samples from a discrete set? Strings?
-            }
-            totalWeight += p.weight();
         }
         return p;
     }

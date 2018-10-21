@@ -2,10 +2,7 @@ package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.ae.event.*;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Wraps;
+import gov.nasa.jpl.mbee.util.*;
 import org.apache.commons.math3.distribution.*;
 
 import java.util.*;
@@ -209,6 +206,17 @@ public class DistributionHelper {
         return null;
     }
 
+    public static Distribution ifThenElse( Object condition, Object thenT, Object elseT ) {
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "ifthenelse",
+                                              new Object[] {condition, thenT, elseT},
+                                              (Class<?>)ClassUtils.getType( thenT ) );
+        d.call = call;
+        return d;
+    }
+
     /**
      * Compute the sum of two independent random variables according to their distributions.
      * <p>
@@ -383,6 +391,42 @@ public class DistributionHelper {
         if ( p == null ) return null;
         return new BooleanDistribution( p );
     }
+
+    public static Double combineValues(Class type, Sample p, Double combinedValue, double totalWeight) {
+        if ( p == null ) return null;
+        if ( type == null && p.value() != null ) {
+            type = p.value().getClass();
+        }
+        Number numVal = null;
+        if ( p.value() instanceof Number ) {
+            numVal = (Number)p.value();
+        } else {
+            try {
+                numVal = Expression
+                        .evaluate( p.value(), Number.class, false, false );
+            } catch ( Throwable t ) {}
+        }
+        if ( combinedValue == null && numVal != null ) {
+            combinedValue = numVal.doubleValue();
+        } else if ( p.value() instanceof Number ) {
+            Double cd = (totalWeight * combinedValue +
+                         p.weight() * numVal.doubleValue()) /
+                        (totalWeight + p.weight());
+            combinedValue = cd;
+        } else if ( p.value() instanceof Boolean ) {
+            if ( combinedValue == null ) combinedValue = 0.0;
+            Double cd = (totalWeight * combinedValue +
+                         p.weight() * (((Boolean)p.value()) ? 1.0 : 0.0)) /
+                        (totalWeight + p.weight());
+            combinedValue = cd;
+        } else {
+            Debug.error( "Can't combine value " + p.value() + " of type " + p.value().getClass().getSimpleName() );
+            // TODO -- FIXME!!! -- what about samples from a discrete set? Strings?
+        }
+        totalWeight += p.weight();
+        return combinedValue;
+    }
+
 
     public static Distribution getDistribution( Object o ) {
         Distribution<?> d = null;

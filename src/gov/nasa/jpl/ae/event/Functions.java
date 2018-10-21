@@ -782,11 +782,28 @@ public class Functions {
 
   public static < T > Object ifThenElse( Object condition, T thenT, T elseT ) {
     if ( condition == null ) return elseT;
-    Pair< Boolean, TimeVaryingMap< ? > > p = booleanOrTimeline( condition );
-    if ( p != null && p.first != null ) {
-      if ( p.first.booleanValue() ) return thenT;
-      return elseT;
+
+    Pair< Object, TimeVaryingMap< ? > > p = booleanOrTimelineOrDistribution( condition );
+    if ( p == null ) {
+      return null;
     }
+    if ( p != null && p.first != null && !(p.first instanceof Distribution) ) {
+      Boolean b = Utils.isTrue( p.first );
+      if ( b != null ) {
+        if ( b ) return thenT;
+        return elseT;
+      }
+    }
+
+    if ( p instanceof Distribution ) {
+      Distribution d = DistributionHelper.ifThenElse( condition, thenT, elseT );
+      return d;
+//      if ( DistributionHelper.isDistribution( thenT ) ||
+//           DistributionHelper.isDistribution( elseT ) ) {
+//        // Make a function of distributions?  Wait!  That's what this is!!!
+//      }
+    }
+
     TimeVaryingMap< ? > tvm = p.second;
     if ( tvm == null ) return elseT;
     // if (tvm.size() == 1) {
@@ -819,8 +836,8 @@ public class Functions {
                                                 InvocationTargetException,
                                                 InstantiationException {
     if ( conditionExpr == null && elseExpr == null ) return null;
-    Pair< Boolean, TimeVaryingMap< ? > > p =
-        booleanOrTimeline( conditionExpr.expression );
+    Pair< Object, TimeVaryingMap< ? > > p =
+        booleanOrTimelineOrDistribution( conditionExpr.expression );
     if ( p != null && p.second != null ) {
       Object thenObj = thenExpr.evaluate( true );
       Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
@@ -830,10 +847,15 @@ public class Functions {
       // T result = (T)p.second.ifThenElse( thenObj, elseObject );
       return result;
     }
+    if ( p != null && DistributionHelper.isDistribution( p.first ) ) {
+      Object thenObj = thenExpr.evaluate( true );
+      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
+      return ifThenElse( p.first, thenObj, elseObject );
+    }
     Object o = Expression.evaluate( conditionExpr, Boolean.class, true );
     if ( o == null
          || ( !( o instanceof Boolean ) && o.getClass() != boolean.class ) ) {
-      Debug.error( false,
+      Debug.error( true, false,
                    "Could not evaluate condition of if-then-else as true/false; got "
                           + o );
       return null;
@@ -3337,6 +3359,49 @@ public class Functions {
     if ( dist == null && n == null ) {
       try {
         n = Expression.evaluate( o, Number.class, false );
+      } catch ( Throwable e ) {
+        // ignore
+      }
+    }
+    // if ( n != null ) {
+    // new Pair< Number, TimeVaryingMap<?> >( n, tvm );
+    // }
+    //// if ( n == null ) {
+    //// }
+
+    if ( dist != null ) {
+      return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+    }
+    return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+  }
+
+  public static Pair< Object, TimeVaryingMap< ? > >
+        booleanOrTimelineOrDistribution( Object o ) {
+    Boolean n = tryToGetBooleanQuick( o );
+    TimeVaryingMap< ? > tvm = tryToGetTimelineQuick( o );
+    Distribution<?> dist = tryToGetDistributionQuick( o );
+    if ( tvm != null || n != null || dist != null ) {
+      if ( dist != null ) {
+        return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+      }
+      return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+    }
+    try {
+      dist = Expression.evaluate( o, Distribution.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    try {
+      tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    if ( dist == null && n == null && o instanceof String ) {
+      n = Utils.isTrue( o, true );
+    }
+    if ( dist == null && n == null ) {
+      try {
+        n = Expression.evaluate( o, Boolean.class, false );
       } catch ( Throwable e ) {
         // ignore
       }

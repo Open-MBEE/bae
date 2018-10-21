@@ -313,7 +313,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     StringBuffer sb = new StringBuffer();
     sb.append((sat? "Satisfied" : "Unsatisfied") + "\n");
     sb.append( "Solution:\n" );
-    sb.append(kSolutionString(0));
+    sb.append(kSolutionString(0, null));
     sb.append( "Requirements:\n" );
     sb.append( solutionRequirements() );
         
@@ -328,7 +328,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     JSONObject json = new JSONObject();
     Boolean sat = isSatisfied(true, null);
     json.put("satisfied", "" + sat.booleanValue());
-    String partialSolution = kSolutionString(0);
+    String partialSolution = kSolutionString(0, null);
     json.put("solution", partialSolution);
 
     JSONArray jarr = solutionRequirements();
@@ -354,7 +354,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
 
   public List<String> solutionRequirementList() {
-    List<String> reqs = JSONArrToReqs(kSolutionJSONArr());
+    List<String> reqs = JSONArrToReqs(kSolutionJSONArr(null));
     ArrayList<String> arr = new ArrayList<String>();
     for (String s : reqs) {
       arr.add( "req " + s );
@@ -363,8 +363,13 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
 
-  public JSONArray kSolutionJSONArr() {
+  public JSONArray kSolutionJSONArr( Set<ParameterListenerImpl> seen ) {
     JSONArray value = new JSONArray();
+
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return value;
+    seen = pair.second;
+
     Set< Parameter< ? > > allParams = getParameters( false, null );
     for ( Parameter< ? > p : allParams ) {
       JSONObject param = new JSONObject();
@@ -373,7 +378,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
             ( (ParameterListenerImpl)p.getValueNoPropagate() );
         param.put( "name", p.getName() );
         param.put( "type", "class" );
-        JSONArray val = pLI.kSolutionJSONArr();
+        JSONArray val = pLI.kSolutionJSONArr(seen);
         param.put( "value", val );
         
       } else {
@@ -413,7 +418,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return strings;
   }
 
-  public String kSolutionString( int indent ) {
+  //public String kSolutionString( int indent ) {
+  public String kSolutionString( int indent, Set<ParameterListenerImpl> seen ) {
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return "";
+    seen = pair.second;
 
     String indentString = "";
     for (int i = 0 ; i < indent; i++) {
@@ -427,7 +436,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
               ( (ParameterListenerImpl)p.getValueNoPropagate() );
           sb.append( indentString + p.getName() + " = " + pLI.getClass().getSimpleName()
                      + " {\n" );
-          sb.append(  pLI.kSolutionString( indent + 1 ) );
+          sb.append(  pLI.kSolutionString( indent + 1, seen ) );
           sb.append( indentString + "}\n" );
         } else {
           sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null) + "\n" );
