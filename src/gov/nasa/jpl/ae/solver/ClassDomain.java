@@ -230,8 +230,10 @@ public class ClassDomain< T > implements Domain< T > {
     return nullInDomain;
   }
 
-  public void setNullInDomain(boolean b) {
+  @Override
+  public boolean setNullInDomain(boolean b) {
     nullInDomain = b;
+    return true;
   }
 
 

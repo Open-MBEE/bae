@@ -1406,16 +1406,20 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     seen = pair.second;
     StringBuffer sb = new StringBuffer();
     sb.append( getClass().getName() + "::" );
-    // sb.append( getName() );
-    sb.append( getQualifiedName() );
+    if ( deep ) {
+        sb.append( getQualifiedName() );
+    } else {
+        sb.append( getName() );
+    }
     if ( withHash ) sb.append( "@" + hashCode() );
+    //if ( deep ) {
     sb.append( "(" );
     boolean first = true;
 
     if ( !Utils.isNullOrEmpty( getName() ) ) {
-      if ( first ) first = false;
-      else sb.append( ", " );
-      sb.append( "name=" + getName() );
+        if ( first ) first = false;
+        else sb.append( ", " );
+        sb.append( "name=" + getName() );
     }
 
     if ( first ) first = false;
@@ -1426,26 +1430,27 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     else sb.append( ", " );
     sb.append( "qualifiedId=" + getQualifiedId() );
 
-    Parameter< ? > firstParams[] = { startTime, duration, endTime }; // Could
-                                                                     // use
-                                                                     // Arrays.sort()
-                                                                     // .search()
+    Parameter<?> firstParams[] = { startTime, duration, endTime }; // Could
+    // use
+    // Arrays.sort()
+    // .search()
     List< Parameter< ? > > allParams =
         new ArrayList< Parameter< ? > >( Arrays.asList( firstParams ) );
-    Set< Parameter< ? > > restParams = getParameters( false, null );
+    Set<Parameter<?>> restParams = getParameters( false, null );
     restParams.removeAll( allParams );
     allParams.addAll( restParams );
     for ( Object p : allParams ) {
-      if ( first ) first = false;
-      else sb.append( ", " );
-      if ( p instanceof Parameter ) {
+        if ( first ) first = false;
+        else sb.append( ", " );
+        if ( p instanceof Parameter ) {
         sb.append( ( (Parameter< ? >)p ).toString( false, withHash, deep, seen,
-                                                   otherOptions ) );
-      } else {
-        sb.append( p.toString() );
-      }
+                                          otherOptions ) );
+        } else {
+            sb.append( p.toString() );
+        }
     }
     sb.append( ")" );
+    //}
     return sb.toString();
   }
 

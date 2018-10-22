@@ -30,16 +30,20 @@ tf2 = tf1 + df2
 public class DistributionHelper {
     // Anonymous class
 
-    public static boolean isDistribution(Object distribution) {
-        if (distribution == null) {
-            return false;
-        }
-        if ( distribution instanceof Distribution ) {
-            return true;
-        }
-        return distribution instanceof RealDistribution || distribution instanceof IntegerDistribution
-                        || distribution instanceof MultivariateRealDistribution
-                        || distribution instanceof EnumeratedDistribution;
+    public static boolean isDistribution(Object o) {
+        Distribution d = getDistribution( o );
+        return d != null;
+//        if (o == null) {
+//            return false;
+//        }
+//        if ( o instanceof Distribution ) {
+//            return true;
+//        }
+//        if (o instanceof RealDistribution || o instanceof IntegerDistribution
+//                        || o instanceof MultivariateRealDistribution
+//                        || o instanceof org.apache.commons.math3.distribution.EnumeratedDistribution ) {
+//            return true;
+//        }
     }
 
     /**
@@ -208,11 +212,14 @@ public class DistributionHelper {
 
     public static Distribution ifThenElse( Object condition, Object thenT, Object elseT ) {
         FunctionOfDistributions d = new FunctionOfDistributions<>();
+        Class<?> thenType = (Class<?>)ClassUtils.getType( thenT );
+        Class<?> elseType = (Class<?>)ClassUtils.getType( elseT );
+        Class type = ClassUtils.dominantTypeClass( thenType, elseType );
         DistributionFunctionCall call =
                 new DistributionFunctionCall( null,
                                               Functions.class, "ifthenelse",
                                               new Object[] {condition, thenT, elseT},
-                                              (Class<?>)ClassUtils.getType( thenT ) );
+                                              type );
         d.call = call;
         return d;
     }

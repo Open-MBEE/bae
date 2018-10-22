@@ -388,6 +388,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( Debug.isOn() ) assert !propagateChange || mayPropagate;
     if ( Debug.isOn() )assert mayChange;
     T castVal = null;
+//    if ( ( val instanceof Parameter && ( (Parameter)val ).isDeconstructed() ) ||
+//         ( val instanceof ParameterListenerImpl && ( (ParameterListenerImpl)val ).isDeconstructed() ) ) {
+//      Debug.outln( "Parameter.setValue(" + valString + ") failed for deconstructed value: " + this.toString( true, false, null ) );
+//      return;
+//    }
     try {
       try {
         // REVIEW - why did we disallow wrapping here, before?

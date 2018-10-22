@@ -436,7 +436,8 @@ public class ConstructorCall extends Call {
     if ( returnValue != null ) {
       // If it's a generated class, we just need to update dependencies, and we
       // can rely on the LazyUpdate interface for that.
-      if ( !isStale() || isParameterListenerImpl() ) {
+      if ( !hasSomethingDeconstructed() &&
+           (!isStale(false) || isParameterListenerImpl() ) ) {
         evaluationSucceeded = true;
         return returnValue;
       }
@@ -458,9 +459,50 @@ public class ConstructorCall extends Call {
     lastReturnValue = value;
   }
 
+  protected static boolean isDeconstructed( Object o ) {
+    if ( o == null ) return false;
+    if ( o instanceof Collection ) {
+      for ( Object oo : (Collection)o ) {
+        if ( isDeconstructed( oo ) ) {
+          return true;
+        }
+      }
+    }
+    if ( ( o instanceof ParameterListenerImpl
+           && ( (ParameterListenerImpl)o ).isDeconstructed() ) ||
+         ( o instanceof Parameter
+           && ( (Parameter)o ).isDeconstructed() ) ) {
+      return true;
+    }
+    return false;
+  }
+
+  protected boolean hasSomethingDeconstructed() {
+    if ( isDeconstructed( returnValue ) ) {
+      return true;
+    }
+    if ( isDeconstructed( evaluatedArguments ) ) {
+      return true;
+    }
+    if ( isDeconstructed( evaluatedObject ) ) {
+      return true;
+    }
+    if ( isDeconstructed( getParameters( false, null ) ) ) {
+      return true;
+    }
+    return false;
+  }
+
   @Override
   public boolean isStale() {
+    return isStale( true );
+  }
+  public boolean isStale(boolean checkDeconstructed) {
+
     if ( alwaysNotStale ) {
+      if ( checkDeconstructed && hasSomethingDeconstructed() ) {
+        return true;
+      }
       return false;
     }
     if ( stale ) {

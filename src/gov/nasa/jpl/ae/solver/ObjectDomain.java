@@ -252,6 +252,12 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
     return nullInDomain;
   }
 
+  @Override
+  public boolean setNullInDomain( boolean b ) {
+    nullInDomain = b;
+    return true;
+  }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.solver.Domain#getDefaultDomain()
    */

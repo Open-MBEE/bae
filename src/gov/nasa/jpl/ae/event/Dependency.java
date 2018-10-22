@@ -203,7 +203,7 @@ public class Dependency< T > extends HasIdImpl
     } else if ( expression == null ) {
       sat = false;
       if ( Debug.isOn() && !sat ) Debug.outln( "Dependency.isSatisfied(): expression is null: " );// + this );
-    } else if ( !expression.isGrounded(deep, null) ) {
+    } else if ( expression.form != Form.Value && !expression.isGrounded(deep, null) ) {
       sat = false;
       parameter.setStale( true );
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not grounded: " );// + this );

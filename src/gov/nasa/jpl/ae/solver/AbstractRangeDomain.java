@@ -1212,6 +1212,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   public boolean isNullInDomain() {
     return nullInDomain;
   }
+  @Override
   public boolean setNullInDomain( boolean b ) {
     nullInDomain = b;
     return true;

@@ -847,10 +847,16 @@ public class Functions {
       // T result = (T)p.second.ifThenElse( thenObj, elseObject );
       return result;
     }
-    if ( p != null && DistributionHelper.isDistribution( p.first ) ) {
+    // Handle distributions separately
+    Distribution d1 = DistributionHelper.getDistribution( conditionExpr );
+    Distribution d2 = DistributionHelper.getDistribution( thenExpr );
+    Distribution d3 = DistributionHelper.getDistribution( elseExpr );
+
+    if ( //p != null && DistributionHelper.isDistribution( p.first ) ||
+         d1 != null || d2 != null || d3 != null ) {
       Object thenObj = thenExpr.evaluate( true );
       Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
-      return ifThenElse( p.first, thenObj, elseObject );
+      return ifThenElse( d1 == null ? p.first : d1, thenObj, elseObject );
     }
     Object o = Expression.evaluate( conditionExpr, Boolean.class, true );
     if ( o == null
@@ -2704,6 +2710,17 @@ public class Functions {
           setStale( true );
         }
       }
+    }
+
+    @Override public String toString() {
+      return toString( true, false, null, true, null );
+    }
+
+    @Override
+    public synchronized String toString( boolean withHash, boolean deep,
+                                         Set<Object> seen, boolean argsShort,
+                                         Map<String, Object> otherOptions ) {
+      return super.toString( withHash, deep, seen, true, otherOptions );
     }
   }
 
@@ -6497,11 +6514,11 @@ public class Functions {
                  Expression< T > o2 ) throws IllegalAccessException,
                                       InvocationTargetException,
                                       InstantiationException {
-    // if ( o1 == o2 ) return true;
+    if ( o1 == o2 ) return true;
     // if ( o1 == null || o2 == null ) return false;
     T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
     T r2 = (T)( o2 == null ? null : o2.evaluate( false ) );
-    if ( r1 == r2 ) return true;
+    if ( Expression.valuesEqual( r1, r2 ) ) return true;
 //    if ( r1 == null || r2 == null ) return false;
     Pair< Object, TimeVaryingMap< ? > > p1 = objectOrTimeline( r1 );
     Pair< Object, TimeVaryingMap< ? > > p2 = objectOrTimeline( r2 );
@@ -6566,7 +6583,7 @@ public class Functions {
     if ( pair.first ) return null;
     seen = pair.second;
 
-    if ( DistributionHelper.isDistribution( o ) ) {
+    if ( o instanceof Distribution ) {
       return o;
     }
     if ( o instanceof Wraps ) { // This covers expressions, parameters, calls, and TimeVaryingMaps.

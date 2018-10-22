@@ -33,6 +33,9 @@ public interface Domain< T > extends Cloneable, HasId<Integer>, Wraps< T >, Eval
   public boolean isInfinite();
 
   public boolean isNullInDomain();
+  // TODO -- Change this to return void when not worried about models
+  // putting a constraint on this function.
+  public boolean setNullInDomain( boolean b );
 
   public Domain< T > getDefaultDomain();
   //public void setDefaultDomain( Domain< T > domain );

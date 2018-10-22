@@ -1161,6 +1161,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   @Override
   public synchronized String toString(boolean withHash, boolean deep, Set< Object > seen,
                                       Map< String, Object > otherOptions) {
+    return toString( withHash, deep, seen, false, otherOptions );
+  }
+  public synchronized String toString(boolean withHash, boolean deep, Set< Object > seen,
+                                      boolean argsShort, Map< String, Object > otherOptions) {
+    argsShort = true;
     Pair< Boolean, Set< Object > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) deep = false;
     seen = pair.second;
@@ -1208,27 +1213,41 @@ public abstract class Call extends HasIdImpl implements HasParameters,
           } else {
             sb.append(", ");
           }
-          //TimeVaryingMap tvm = Functions.tryToGetTimelineQuick( arg );
-          //if ( tvm != null ) {
-            sb.append(MoreToString.Helper.toString(arg, withHash, false, seen, otherOptions));
-          //} else {
-          //  sb.append(MoreToString.Helper.toString(arg, withHash, false, seen, otherOptions));
-          //}
+          if ( argsShort ) {
+            sb.append( MoreToString.Helper.toShortString( arg ) );
+          } else {
+            sb.append( MoreToString.Helper.toString( arg, withHash, false, seen,
+                                                     otherOptions ) );
+          }
         }
         sb.append(")");
       } else {
-        sb.append(MoreToString.Helper.toString(arguments, withHash, deep, seen,
-                otherOptions,
-                MoreToString.PARENTHESES, true));
+        if ( argsShort ) {
+          sb.append( MoreToString.Helper.toShortString( arguments ) );
+        } else {
+          sb.append( MoreToString.Helper
+                             .toString( arguments, withHash, deep, seen,
+                                        otherOptions, MoreToString.PARENTHESES,
+                                        true ) );
+        }
       }
-      if ( !Utils.isNullOrEmpty( evaluatedArguments ) ) {
-        sb.append( " = " );
-        sb.append( getMember().getName() );
-        sb.append( MoreToString.Helper.toString( evaluatedArguments, withHash,
-                                                 deep, seen, otherOptions ) );
-      }
-      if ( returnValue != null ) {
-        sb.append( " = " + MoreToString.Helper.toString(returnValue, withHash, false, seen, otherOptions));
+      if ( deep ) {
+        if ( !Utils.isNullOrEmpty( evaluatedArguments ) ) {
+          sb.append( " = " );
+          sb.append( getMember().getName() );
+          if ( argsShort ) {
+            sb.append( MoreToString.Helper.toShortString( evaluatedArguments ) );
+          } else {
+            sb.append( MoreToString.Helper
+                               .toString( evaluatedArguments, withHash, deep,
+                                          seen, otherOptions ) );
+          }
+        }
+        if ( returnValue != null ) {
+          sb.append( " = " + MoreToString.Helper
+                  .toString( returnValue, withHash, false, seen,
+                             otherOptions ) );
+        }
       }
     }
     return sb.toString();
@@ -1240,7 +1259,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( obj instanceof LazyUpdate && ((LazyUpdate)obj).isStale() ) return true;
     if ( obj instanceof Variable ) {
       Object v = ((Variable<?>)obj).getValue( false );
-      if ( possiblyStale( v ) ) return true;
+      if ( obj != v && possiblyStale( v ) ) return true;
     }
     return false;
   }
@@ -1277,6 +1296,18 @@ public abstract class Call extends HasIdImpl implements HasParameters,
           setStale( true );
           return true;
         }
+//        if ( arg instanceof Parameter ) {
+//          if ( ((Parameter)arg).isDeconstructed()) {
+//            setStale( true );
+//            return true;
+//          }
+//        }
+//        if ( arg instanceof ParameterListenerImpl ) {
+//          if ( ((ParameterListenerImpl)arg).isDeconstructed()) {
+//            setStale( true );
+//            return true;
+//          }
+//        }
       }
     }
 
@@ -1294,6 +1325,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         setStale( true );
         return true;
       }
+      // No need to do this -- the parameter would be stale
+//      if ( p.isDeconstructed()) {
+//        setStale( true );
+//        return true;
+//      }
     }
     if ( nestedCall != null ) {
       if ( nestedCall.isStale() ) {

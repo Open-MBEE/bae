@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.Map.Entry;
 
 import gov.nasa.jpl.ae.solver.*;
+import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.ae.util.LamportClock;
 import gov.nasa.jpl.ae.util.UsesClock;
 import junit.framework.Assert;
@@ -1200,6 +1201,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + allConstraints.size() + " constraints" );
     }
 
+    addNullToDomains( allConstraints, true );
+
     Consistency ac = null;
     if ( usingArcConsistency ) {
       // Restrict the domains of the variables using arc consistency on the
@@ -1284,6 +1287,109 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + satisfied );
     }
     return satisfied;
+  }
+
+  protected static HashSet<Integer> processedConstraintsAndParameters = new HashSet<>();
+
+  /**
+   * Infer when null is a valid value for a variable and, if so, add null to its domain.
+   *
+   * @param constraints
+   * @return whether a domain was changed
+   */
+  private boolean addNullToDomains( Collection<Constraint> constraints, boolean onlyIfNotGrounded ) {
+    // TODO -- add setNullInDomain() to Domain so that this method is much simpler.
+    boolean setSomething = false;
+    for ( Constraint c : constraints ) {
+//      if ( c instanceof Dependency || c instanceof ConstraintExpression ) {
+//        if ( processedConstraintsAndParameters.contains( c.getId() ) ) {
+//          continue;
+//        }
+//        processedConstraintsAndParameters.add( c.getId() );
+//      } else {
+//        continue;
+//      }
+////      if ( onlyIfNotGrounded && c instanceof Groundable && ( (Groundable)c ).isGrounded( false, null ) ) {
+////        System.out.println("++++++++++++++     already grounded: " + c);
+////        continue;
+////      }
+      if ( c instanceof Dependency ) {
+        Dependency dep = (Dependency)c;
+
+        Domain d = dep.getParameter() != null ? dep.getParameter().getDomain() : null;
+        if (d == null || d.isNullInDomain() ) {
+          if ( d == null ) {
+            System.out.println( "++++++++++++++     no domain for " + dep.getParameter() + " in Dependency: " + dep);
+          } else {
+            System.out.println( "++++++++++++++     null already in domain for " + dep.getParameter() + " in Dependency: " + dep);
+          }
+          continue;
+        }
+        Domain od = DomainHelper.getDomain( dep.expression );
+        if ( od != null && od.isNullInDomain() ) {
+          System.out.println("++++++++++++++     Adding null to domain of " + dep.getParameter() + ", for Dependency: " + dep);
+          d.setNullInDomain( true );
+        } else {
+          if ( od == null ) {
+            System.out.println( "++++++++++++++     no domain for expression " + dep.getExpression()  + " in Dependency: " + dep);
+          } else {
+            System.out.println( "++++++++++++++     null not in domain of expression " + dep.getExpression() + " in Dependency: " + dep);
+          }
+        }
+      } else if ( c instanceof ConstraintExpression ) {
+        ConstraintExpression cx = (ConstraintExpression)c;
+        List<Pair<Parameter<?>, Object>> deps =
+                cx.dependencyLikeVars( cx, false, true, false );
+        if ( deps != null )
+        for ( Pair<Parameter<?>, Object> p : deps ) {
+//            if ( onlyIfNotGrounded && p.first.isGrounded(false , null) ) {
+//              continue;
+//            }
+            Domain d = p.first.getDomain();
+            if ( d != null && !d.isNullInDomain() ) {// &&
+
+              //                 ( d instanceof ClassDomain ||
+//                   d instanceof ObjectDomain ||
+//                   d instanceof AbstractRangeDomain ||
+//                   d instanceof SingleValueDomain ||
+//                   d instanceof MultiDomain ) ) {
+                Domain od = DomainHelper.getDomain(p.second);
+                if ( od != null && od.isNullInDomain() ) {
+                    System.out.println("++++++++++++++     Adding null to domain of " + p.first + ", for constraint: " + c);
+                    setSomething = d.setNullInDomain(true);
+//                    setSomething = true;
+//                    if ( d instanceof ClassDomain ) {
+//                        ((ClassDomain)d).setNullInDomain(true);
+//                    } else if ( d instanceof ObjectDomain ) {
+//                        ((ObjectDomain)d).add(null);
+//                    } else if ( d instanceof SingleValueDomain ) {
+//                        ((SingleValueDomain)d).setNullInDomain( true );
+//                    } else if ( d instanceof MultiDomain ) {
+//                        ((MultiDomain)d).isNullInDomain();
+//                    } else if ( d instanceof AbstractRangeDomain ) {
+//                        ((AbstractRangeDomain)d).setNullInDomain( true );
+//                    } else {
+//                        System.err.println( "This domain is not one of the ones that can be specified to contain null." );
+//                    }
+                } else {
+                  if ( od == null ) {
+                    System.out.println( "++++++++++++++     no domain for " + p.second + " in constraint: " + c);
+                  } else {
+                    System.out.println( "++++++++++++++     null not in domain for " + p.second + " in constraint: " + c);
+                  }
+
+                }
+            } else {
+              if ( d == null ) {
+                System.out.println( "++++++++++++++     no domain for " + p.first + " in constraint: " + c);
+              } else {
+                System.out.println( "++++++++++++++     null already in domain for " + p.first + " in constraint: " + c);
+              }
+            }
+        }
+      }
+    }
+    return setSomething;
   }
 
   protected Boolean isSimpleVar( Variable< ? > key ) {
@@ -1804,6 +1910,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       if ( p == null ) continue;
       if ( p.isStale() ) return true;
     }
+    if ( isDeconstructed() ) return true;
     return false;
   }
 

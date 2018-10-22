@@ -37,6 +37,11 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
   public MultiDomain<T> defaultDomain = null;
 
   /**
+   * If set this overrides the include and exclude sets.
+   */
+  protected Boolean nullInDomain = null;
+
+  /**
    * A single set computed from subtracting/restricting the excluded set from
    * the included set and eliminating overlap among the domains in the included
    * set. There is no guarantee that the flattened set will be the same. It may
@@ -376,6 +381,10 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
 
   @Override
   public boolean contains( T t ) {
+    if ( t == null ) {
+      return nullInDomain;
+    }
+
     // initialize to true if there are no include constraints.
     boolean isIncluded = Utils.isNullOrEmpty( includeSet );
     
@@ -463,7 +472,16 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
   }
 
   @Override
+  public boolean setNullInDomain( boolean b ) {
+    nullInDomain = b;
+    return true;
+  }
+
+  @Override
   public boolean isNullInDomain() {
+    if ( this.nullInDomain != null ) {
+      return nullInDomain;
+    }
     boolean isIncluded = Utils.isNullOrEmpty( includeSet );
     
     if ( !isIncluded ) {

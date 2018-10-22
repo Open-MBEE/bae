@@ -158,6 +158,12 @@ public class SingleValueDomain< T > extends HasIdImpl implements Domain< T > {
     return value == null && nullInDomain;
   }
 
+  @Override
+  public boolean setNullInDomain(boolean b) {
+    nullInDomain = b;
+    return true;
+  }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.mbee.util.Wraps#getValue(boolean)
    */
