@@ -5,6 +5,7 @@ import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.*;
 import org.apache.commons.math3.distribution.*;
 
+import java.lang.reflect.Method;
 import java.util.*;
 
 import static gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality.EQ;
@@ -210,14 +211,26 @@ public class DistributionHelper {
         return null;
     }
 
+    protected static Method ifThenElseMethod = null;
+    protected static Method getIfThenElseMethod() {
+        if ( ifThenElseMethod != null ) return ifThenElseMethod;
+        try {
+        ifThenElseMethod =
+            Functions.class.getMethod( "ifThenElse",
+                                       new Class[] {Object.class, Object.class, Object.class} );
+        } catch ( NoSuchMethodException e ) {
+            e.printStackTrace();
+        }
+        return ifThenElseMethod;
+    }
+
     public static Distribution ifThenElse( Object condition, Object thenT, Object elseT ) {
         FunctionOfDistributions d = new FunctionOfDistributions<>();
         Class<?> thenType = (Class<?>)ClassUtils.getType( thenT );
         Class<?> elseType = (Class<?>)ClassUtils.getType( elseT );
         Class type = ClassUtils.dominantTypeClass( thenType, elseType );
         DistributionFunctionCall call =
-                new DistributionFunctionCall( null,
-                                              Functions.class, "ifthenelse",
+                new DistributionFunctionCall(null, getIfThenElseMethod(),
                                               new Object[] {condition, thenT, elseT},
                                               type );
         d.call = call;

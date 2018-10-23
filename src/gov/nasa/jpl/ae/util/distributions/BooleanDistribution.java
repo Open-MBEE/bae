@@ -53,4 +53,8 @@ public class BooleanDistribution extends AbstractDistribution<Boolean> {
     @Override public Double variance() {
         return d.getNumericalVariance();
     }
+
+    @Override public String toString() {
+        return this.getClass().getSimpleName() + "(" + d.getProbabilityOfSuccess() + ")";
+    }
 }

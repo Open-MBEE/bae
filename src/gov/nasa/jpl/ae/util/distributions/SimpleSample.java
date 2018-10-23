@@ -17,4 +17,7 @@ public class SimpleSample<T> implements Sample<T> {
         return weight;
     }
 
+    @Override public String toString() {
+        return this.getClass().getSimpleName() + "(" + value + ", " + weight + ")" ;
+    }
 }

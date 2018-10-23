@@ -595,8 +595,18 @@ public class Functions {
       // exactly one of {true, false}.
       if ( condo == null || condo.isEmpty()
            || ( condo.contains( true ) && condo.contains( false ) ) ) {
-        if ( ard2 == null ) return ard3;
-        if ( ard3 == null ) return ard2;
+        if ( ard2 == null ) {
+          if ( o2 == null && ard3 != null ) {
+            ard3.setNullInDomain( true );
+          }
+          return ard3;
+        }
+        if ( ard3 == null ) {
+          if ( o3 == null && ard2 != null ) {
+            ard2.setNullInDomain( true );
+          }
+          return ard2;
+        }
         MultiDomain< T > md = new MultiDomain< T >( (Class< T >)getType(),
                                                     (Set< Domain< T > >)Utils.newSet( (Domain< T >)ard2,
                                                                                       ard3 ),
@@ -781,27 +791,41 @@ public class Functions {
   }
 
   public static < T > Object ifThenElse( Object condition, T thenT, T elseT ) {
-    if ( condition == null ) return elseT;
+    if ( condition == null ) {
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning elseT = " + elseT);
+      return elseT;
+    }
 
     Pair< Object, TimeVaryingMap< ? > > p = booleanOrTimelineOrDistribution( condition );
     if ( p == null ) {
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning null");
       return null;
     }
     if ( p != null && p.first != null && !(p.first instanceof Distribution) ) {
       Boolean b = Utils.isTrue( p.first );
       if ( b != null ) {
-        if ( b ) return thenT;
+        if ( b ) {
+          //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning thenT = " + thenT);
+          return thenT;
+        }
+        //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning elseT = " + elseT);
         return elseT;
       }
     }
 
-    if ( p instanceof Distribution ) {
-      Distribution d = DistributionHelper.ifThenElse( condition, thenT, elseT );
+    Pair< Object, TimeVaryingMap< ? > > pThen = booleanOrTimelineOrDistribution( thenT );
+    Pair< Object, TimeVaryingMap< ? > > pElse = booleanOrTimelineOrDistribution( elseT );
+
+    Object argCond = p != null && p.first != null ? p.first : condition;
+    Object argThen = pThen != null && pThen.first != null ? pThen.first : thenT;
+    Object argElse = pElse != null && pElse.first != null ? pElse.first : elseT;
+
+    if ( argCond instanceof Distribution ||
+         argThen instanceof Distribution ||
+         argElse instanceof Distribution ) {
+      Distribution d = DistributionHelper.ifThenElse( argCond, argThen, argElse );
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning DistributionHelper.ifThenElse( argCond=" + argCond + ", argThen=" + argThen + ", argElse=" + argElse + ") = " + d);
       return d;
-//      if ( DistributionHelper.isDistribution( thenT ) ||
-//           DistributionHelper.isDistribution( elseT ) ) {
-//        // Make a function of distributions?  Wait!  That's what this is!!!
-//      }
     }
 
     TimeVaryingMap< ? > tvm = p.second;
@@ -814,6 +838,7 @@ public class Functions {
     // }
     // }
     Object t = tvm.ifThenElse( thenT, elseT );
+    //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning t = " + t);
     return t;
   }
 
@@ -2713,6 +2738,17 @@ public class Functions {
     }
 
     @Override public String toString() {
+      if ( getArguments().size() == 2 ) {
+        String objName = null;
+        if ( getArgument( 0 ) instanceof HasOwner ) {
+          objName = ((HasOwner)getArgument( 0 )).getQualifiedName( null );
+        } else if ( getArgument( 0 ) instanceof HasName ) {
+          objName = ((HasName)getArgument( 0 )).getName().toString();
+        } else {
+          objName = MoreToString.Helper.toShortString( getArgument( 0 ) );
+        }
+        return "GetMember(" + objName + ", " + getArgument( 1 ) + ")";
+      }
       return toString( true, false, null, true, null );
     }
 
@@ -2720,7 +2756,15 @@ public class Functions {
     public synchronized String toString( boolean withHash, boolean deep,
                                          Set<Object> seen, boolean argsShort,
                                          Map<String, Object> otherOptions ) {
-      return super.toString( withHash, deep, seen, true, otherOptions );
+      //return super.toString( withHash, deep, seen, true, otherOptions );
+      return toString();
+    }
+
+    @Override
+    public synchronized String toString( boolean withHash, boolean deep,
+                                         Set<Object> seen,
+                                         Map<String, Object> otherOptions ) {
+      return toString();
     }
   }
 
@@ -6544,7 +6588,7 @@ public class Functions {
       if (DistributionHelper.isDistribution(d1) || DistributionHelper.isDistribution(d2)) {
         //FIXME -- eqDistribution() doesn't work in most cases.
         //return eqDistribution(d1, d2);
-        Object e = eqDistribution(d1, d2);
+        Object e = eqDistribution(d1 == null ? r1 : d1, d2 == null ? r2 : d2);
         if ( e != null ) {
           return e;
         }

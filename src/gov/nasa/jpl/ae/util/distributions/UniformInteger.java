@@ -12,4 +12,8 @@ public class UniformInteger extends AbstractIntegerDistribution<UniformIntegerDi
         d = new UniformIntegerDistribution( Distribution.random, lower, upper);
     }
 
+    @Override public String toString() {
+        return this.getClass().getSimpleName() +
+               "(" + d.getSupportLowerBound() + ", " + d.getSupportUpperBound() + ")" ;
+    }
 }

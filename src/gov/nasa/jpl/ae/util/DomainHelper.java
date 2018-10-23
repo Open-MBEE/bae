@@ -225,7 +225,9 @@ public class DomainHelper {
   }
   
   public static <T> Domain<T> getDomain( T o ) {
-    if ( o == null ) return null;
+    if ( o == null ) {
+      return new SingleValueDomain<T>( (T)null );
+    }
     if ( o instanceof Domain ) return (Domain< T >)o;
     if ( o instanceof HasDomain ) {
       return (Domain<T>)((HasDomain)o).getDomain( false, null );

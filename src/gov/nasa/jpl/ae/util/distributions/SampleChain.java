@@ -70,20 +70,24 @@ public class SampleChain<T> implements Sample<T> {
     }
 
     @Override public T value() {
+        if ( lastSample == null ) return null;
         return lastSample.value();
     }
 
     @Override
     public double weight() {
         double w = 1.0;
-        for ( Sample s : samplesByVariable.values() ) {
-            if ( s instanceof SampleInContext ) {
-                SampleInContext sic = (SampleInContext)s;
-                if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
-                    continue;
+        if ( samplesByVariable != null ) {
+            for ( Sample s : samplesByVariable.values() ) {
+                if ( s == null ) continue;
+                if ( s instanceof SampleInContext ) {
+                    SampleInContext sic = (SampleInContext)s;
+                    if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
+                        continue;
+                    }
                 }
+                w *= s.weight();
             }
-            w *= s.weight();
         }
         return w;
     }
@@ -102,15 +106,18 @@ public class SampleChain<T> implements Sample<T> {
         StringBuilder sb = new StringBuilder();
         sb.append( "SampleChain" );
         ArrayList<String> samples = new ArrayList<>();
-        for ( Sample s : samplesByVariable.values() ) {
-            if ( s instanceof SampleInContext ) {
-                SampleInContext sic = (SampleInContext)s;
-                if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
-                    continue;
+        if ( samplesByVariable != null ) {
+            for ( Sample s : samplesByVariable.values() ) {
+                if ( s == null ) continue;
+                if ( s instanceof SampleInContext ) {
+                    SampleInContext sic = (SampleInContext)s;
+                    if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
+                        continue;
+                    }
+                    samples.add( "(" + sic.getOwner() + ", " + sic.value() + ", " + sic.weight() + ")" );
+                } else {
+                    samples.add( "(" + s.value() + ", " + s.weight() + ")" );
                 }
-                samples.add("(" + sic.getOwner() + ", " + sic.value() + ", " + sic.weight() + ")");
-            } else {
-                samples.add("(" + s.value() + ", " + s.weight() + ")");
             }
         }
         samples.add( "value=" + value() + ", weight=" + weight() );

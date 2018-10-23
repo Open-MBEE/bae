@@ -1301,19 +1301,33 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     // TODO -- add setNullInDomain() to Domain so that this method is much simpler.
     boolean setSomething = false;
     for ( Constraint c : constraints ) {
-//      if ( c instanceof Dependency || c instanceof ConstraintExpression ) {
-//        if ( processedConstraintsAndParameters.contains( c.getId() ) ) {
-//          continue;
-//        }
-//        processedConstraintsAndParameters.add( c.getId() );
-//      } else {
-//        continue;
-//      }
-////      if ( onlyIfNotGrounded && c instanceof Groundable && ( (Groundable)c ).isGrounded( false, null ) ) {
-////        System.out.println("++++++++++++++     already grounded: " + c);
-////        continue;
-////      }
-      if ( c instanceof Dependency ) {
+      //      if ( c instanceof Dependency || c instanceof ConstraintExpression ) {
+      //        if ( processedConstraintsAndParameters.contains( c.getId() ) ) {
+      //          continue;
+      //        }
+      //        processedConstraintsAndParameters.add( c.getId() );
+      //      } else {
+      //        continue;
+      //      }
+      ////      if ( onlyIfNotGrounded && c instanceof Groundable && ( (Groundable)c ).isGrounded( false, null ) ) {
+      ////        System.out.println("++++++++++++++     already grounded: " + c);
+      ////        continue;
+      ////      }
+      boolean didSet = addNullToDomains( c, onlyIfNotGrounded );
+      setSomething = setSomething || didSet;
+    }
+    return setSomething;
+  }
+  /**
+   * Infer when null is a valid value for a variable and, if so, add null to its domain.
+   *
+   * @param constraints
+   * @return whether a domain was changed
+   */
+  private boolean addNullToDomains( Constraint c, boolean onlyIfNotGrounded ) {
+    boolean setSomething = false;
+
+    if ( c instanceof Dependency ) {
         Dependency dep = (Dependency)c;
 
         Domain d = dep.getParameter() != null ? dep.getParameter().getDomain() : null;
@@ -1323,7 +1337,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
           } else {
             System.out.println( "++++++++++++++     null already in domain for " + dep.getParameter() + " in Dependency: " + dep);
           }
-          continue;
+          return setSomething;
         }
         Domain od = DomainHelper.getDomain( dep.expression );
         if ( od != null && od.isNullInDomain() ) {
@@ -1346,31 +1360,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 //              continue;
 //            }
             Domain d = p.first.getDomain();
-            if ( d != null && !d.isNullInDomain() ) {// &&
-
-              //                 ( d instanceof ClassDomain ||
-//                   d instanceof ObjectDomain ||
-//                   d instanceof AbstractRangeDomain ||
-//                   d instanceof SingleValueDomain ||
-//                   d instanceof MultiDomain ) ) {
+            if ( d != null && !d.isNullInDomain() ) {
                 Domain od = DomainHelper.getDomain(p.second);
                 if ( od != null && od.isNullInDomain() ) {
                     System.out.println("++++++++++++++     Adding null to domain of " + p.first + ", for constraint: " + c);
                     setSomething = d.setNullInDomain(true);
-//                    setSomething = true;
-//                    if ( d instanceof ClassDomain ) {
-//                        ((ClassDomain)d).setNullInDomain(true);
-//                    } else if ( d instanceof ObjectDomain ) {
-//                        ((ObjectDomain)d).add(null);
-//                    } else if ( d instanceof SingleValueDomain ) {
-//                        ((SingleValueDomain)d).setNullInDomain( true );
-//                    } else if ( d instanceof MultiDomain ) {
-//                        ((MultiDomain)d).isNullInDomain();
-//                    } else if ( d instanceof AbstractRangeDomain ) {
-//                        ((AbstractRangeDomain)d).setNullInDomain( true );
-//                    } else {
-//                        System.err.println( "This domain is not one of the ones that can be specified to contain null." );
-//                    }
                 } else {
                   if ( od == null ) {
                     System.out.println( "++++++++++++++     no domain for " + p.second + " in constraint: " + c);
@@ -1388,7 +1382,6 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
             }
         }
       }
-    }
     return setSomething;
   }
 

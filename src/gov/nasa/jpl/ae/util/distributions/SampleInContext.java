@@ -71,4 +71,10 @@ public class SampleInContext<T> extends SimpleSample<T> {
     public void setOwner( Object owner ) {
         this.owner = owner;
     }
+
+    @Override public String toString() {
+        return this.getClass().getSimpleName() + "(" + value + ", " + weight
+               + ", " + distribution + ", " + owner + ")";
+    }
+
 }

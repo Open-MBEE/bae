@@ -989,4 +989,8 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     @Override public Class<T> getType() {
         return type;
     }
+
+    @Override public String toString() {
+        return "FunctionOfDistributions(" + call + ")";
+    }
 }

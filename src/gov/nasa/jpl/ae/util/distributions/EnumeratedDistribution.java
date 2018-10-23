@@ -131,4 +131,9 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
         if ( totalWeight <= 0.0 ) return null;
         return v / totalWeight;
     }
+
+    @Override public String toString() {
+        return this.getClass().getSimpleName() + d.getPmf() ;
+    }
+
 }

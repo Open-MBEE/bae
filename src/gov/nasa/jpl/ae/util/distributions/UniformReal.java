@@ -9,4 +9,8 @@ public class UniformReal extends AbstractRealDistribution<UniformRealDistributio
         d = new UniformRealDistribution( Distribution.random, lower, upper);
     }
 
+    @Override public String toString() {
+        return this.getClass().getSimpleName() +
+               "(" + d.getSupportLowerBound() + ", " + d.getSupportUpperBound() + ")" ;
+    }
 }

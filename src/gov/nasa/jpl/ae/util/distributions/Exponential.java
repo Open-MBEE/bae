@@ -12,4 +12,8 @@ public class Exponential extends AbstractRealDistribution<ExponentialDistributio
     public Exponential( double mean ) {
         d = new ExponentialDistribution( Distribution.random, mean );
     }
+    @Override public String toString() {
+        return this.getClass().getSimpleName() + "(" + d.getMean() + ")" ;
+    }
+
 }

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.event;
 
+import gov.nasa.jpl.ae.solver.ClassDomain;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.ae.solver.Domain;
@@ -530,8 +531,7 @@ public class ConstructorCall extends Call {
    */
   @Override
   public Domain< ? > calculateDomain( boolean propagate, Set< HasDomain > seen ) {
-    //assert(false); // Must be overridden!
-    return null;
+    return new ClassDomain(getType(), getObject());
   }
 
   @Override
