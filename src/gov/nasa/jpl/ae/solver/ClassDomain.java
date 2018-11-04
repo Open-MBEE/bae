@@ -131,9 +131,10 @@ public class ClassDomain< T > implements Domain< T > {
 
   @Override
   public boolean contains(Object t) {
-    if ( getType().isInstance( t ) ) {
+    if ( type != null && getType().isInstance( t ) ) {
       return true;
     }
+    if ( t == null && isNullInDomain() ) return true;
     return false;
   }
 
@@ -150,6 +151,9 @@ public class ClassDomain< T > implements Domain< T > {
     // FIXME -- if no fields of the type have infinite domains, and the equals()
     // function is overridden such that equality is based on the fields,
     // then it is finite.
+    if ( type == null ) {
+      return nullInDomain ? 1 : 0;
+    }
     return Long.MAX_VALUE;
   }
 
@@ -157,7 +161,7 @@ public class ClassDomain< T > implements Domain< T > {
    * @return whether the domain contains no values (including null)
    */
   @Override public boolean isEmpty() {
-    return getType() == null;
+    return getType() == null && !nullInDomain;
   }
 
   /* (non-Javadoc)
@@ -219,7 +223,7 @@ public class ClassDomain< T > implements Domain< T > {
     // FIXME -- if no fields of the type have infinite domains, and the equals()
     // function is overridden such that equality is based on the fields,
     // then it is finite.
-    return true;
+    return getType() != null;
   }
 
   /* (non-Javadoc)
@@ -252,7 +256,15 @@ public class ClassDomain< T > implements Domain< T > {
    */
   @Override
   public boolean restrictToValue( T v ) {
-    if ( v == null ) return false;
+    if ( v == null ) {
+      if ( nullInDomain ) {
+        if ( getType() != null ) {
+          type = null;
+          return true;
+        }
+      }
+      return false;
+    }
     return restrictToValue( v.getClass() );
 //    boolean changed = false;
 //    if ( getType().isInstance( v ) && !v.getClass().equals( getType() ) ) {
@@ -273,12 +285,23 @@ public class ClassDomain< T > implements Domain< T > {
 
   @Override
   public < TT > boolean restrictTo( Domain< TT > domain ) {
-    return restrictToValue( domain.getType() );
+    if ( domain == null ) return false;
+    boolean changed = false;
+    if ( !domain.isNullInDomain() ) {
+      if ( isNullInDomain() ) {
+        changed = true;
+        setNullInDomain( false );
+      }
+    }
+    boolean c = restrictToValue( domain.getType() );
+    return c || changed;
   }
 
   @Override
   public boolean clearValues() {
     // REVIEW -- what should we do here?
+    type = null;
+    nullInDomain = false;
     return false;
   }
 
@@ -299,7 +322,12 @@ public class ClassDomain< T > implements Domain< T > {
   @Override
   public < TT > Domain< TT > subtract( Domain< TT > domain ) {
     // This might make sense if domain was a ClassDomain for a subclass of T
-    return null;
+    if ( domain != null ) {
+      if ( isNullInDomain() && domain.isNullInDomain() ) {
+        setNullInDomain( false );
+      }
+    }
+    return (Domain<TT>)this;
   }
 
   @Override

@@ -32,8 +32,13 @@ public class SingleValueDomain< T > extends HasIdImpl implements Domain< T > {
   }
 
   public SingleValueDomain( SingleValueDomain< T > singleValueDomain ) {
-    value = singleValueDomain.value;
-    nullInDomain = singleValueDomain.nullInDomain;
+    if ( singleValueDomain == null ) {
+      value = null;
+      nullInDomain = true;
+    } else {
+      value = singleValueDomain.value;
+      nullInDomain = singleValueDomain.nullInDomain;
+    }
   }
 
   public SingleValueDomain( T singleValue ) {

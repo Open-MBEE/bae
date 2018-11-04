@@ -5,6 +5,7 @@ import org.apache.commons.math3.distribution.RealDistribution;
 
 public class AbstractRealDistribution<D extends RealDistribution> extends AbstractDistribution<Double> {
     D d;
+    Distribution<Double> bias = null;
 
 //    public abstract Distribution<Double> plus( Distribution<?> otherDist );
 //    public abstract Distribution<Double> minus( Distribution<?> otherDist );
@@ -21,6 +22,9 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
     }
 
     @Override public Sample<Double> sample() {
+        if ( bias != null ) {
+            return sample(bias);
+        }
         Double ds = d.sample();
         double w = 1.0; //pdf( ds );
         //return new Pair(ds, w);

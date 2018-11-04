@@ -7,9 +7,7 @@ import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.BoolOp;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality;
 import gov.nasa.jpl.ae.solver.*;
-import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
-import gov.nasa.jpl.ae.util.distributions.Distribution;
-import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
+import gov.nasa.jpl.ae.util.distributions.*;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.Random;
@@ -569,25 +567,27 @@ public class Functions {
       Domain< ? > d1 = o1 == null ? null : DomainHelper.getDomain( o1 );
       Domain< ? > d2 = null;
       Domain< ? > d3 = null;
-      if (d1 != null) {
-        if (d1.magnitude() == 2) {
-          d2 = o2 == null ? null : DomainHelper.getDomain( o2 );
-          d3 = o3 == null ? null : DomainHelper.getDomain( o3 );
-        } else if (d1.magnitude() == 1) {
-          if (Utils.isTrue( d1.getValue( true ) )) {
-            d2 = o2 == null ? null : DomainHelper.getDomain( o2 );
-          } else {
-            d3 = o3 == null ? null : DomainHelper.getDomain( o3 );
-          }
+      if (d1 == null || d1.magnitude() == 2) {
+          d2 = o2 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o2 );
+          d3 = o3 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o3 );
+      } else if (d1 != null && d1.magnitude() == 1) {
+        if (Utils.isTrue( d1.getValue( true ) )) {
+          d2 = o2 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o2 );
+        } else {
+          d3 = o3 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o3 );
         }
       }
-      
-      AbstractRangeDomain< T > ard2 =
-          d2 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d2
-                                            : null;
-      AbstractRangeDomain< T > ard3 =
-          d3 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d3
-                                            : null;
+
+//      AbstractRangeDomain< T > ard2 =
+//          d2 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d2
+//                                            : null;
+//      AbstractRangeDomain< T > ard3 =
+//          d3 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d3
+//                                            : null;
       Domain< Boolean > condo =
           d1 instanceof Domain ? (Domain< Boolean >)d1 : null;
 
@@ -595,21 +595,21 @@ public class Functions {
       // exactly one of {true, false}.
       if ( condo == null || condo.isEmpty()
            || ( condo.contains( true ) && condo.contains( false ) ) ) {
-        if ( ard2 == null ) {
-          if ( o2 == null && ard3 != null ) {
-            ard3.setNullInDomain( true );
+        if ( d2 == null ) {
+          if ( o2 == null && d3 != null ) {
+            d3.setNullInDomain( true );
           }
-          return ard3;
+          return d3;
         }
-        if ( ard3 == null ) {
-          if ( o3 == null && ard2 != null ) {
-            ard2.setNullInDomain( true );
+        if ( d3 == null ) {
+          if ( o3 == null && d2 != null ) {
+            d2.setNullInDomain( true );
           }
-          return ard2;
+          return d2;
         }
         MultiDomain< T > md = new MultiDomain< T >( (Class< T >)getType(),
-                                                    (Set< Domain< T > >)Utils.newSet( (Domain< T >)ard2,
-                                                                                      ard3 ),
+                                                    (Set< Domain< T > >)Utils.newSet( (Domain< T >)d2,
+                                                                                      (Domain< T >)d3 ),
                                                     null );
         Set< Domain< T > > s = md.computeFlattenedSet();
         if ( s != null && s.size() == 1 ) {
@@ -619,9 +619,9 @@ public class Functions {
       }
 
       if ( condo.contains( true ) ) {
-        return ard2;
+        return d2;
       }
-      return ard3;
+      return d3;
     }
 
     @Override
@@ -3540,18 +3540,45 @@ public class Functions {
     Number n2 = null;
     TimeVaryingMap< ? > map1 = null;
     TimeVaryingMap< ? > map2 = null;
+    Distribution<?> d1 = null;
+    Distribution<?> d2 = null;
+
+    Object arg1 = null;
+    Object arg2 = null;
+
+    Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+    map1 = p1.second;
+    if ( p1.first instanceof Distribution ) {
+      d1 = (Distribution)p1.first;
+      arg1 = d1;
+    } else if ( p1.first instanceof Number ) {
+      n1 = (Number)p1.first;
+      arg1 = map1 == null ? n1 : map1;
+    }
+    if ( arg1 == null ) arg1 = o1;
+    Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+    map2 = p2.second;
+    if ( p2.first instanceof Distribution ) {
+      d2 = (Distribution)p2.first;
+      arg2 = d2;
+    } else if ( p2.first instanceof Number ) {
+      n2 = (Number)p2.first;
+      arg2 = map2 == null ? n2 : map2;
+    }
+    if ( arg2 == null) arg2 = o2;
+
 
     Object result = null;
-    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-    n1 = p1.first;
-    map1 = p1.second;
+//    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
+//    n1 = p1.first instanceof Number ? (Number)p1.first : null;
+//    map1 = p1.second;
 
     if ( map1 != null ) {
       result = (V1)times( map1, o2 );
     } else {
-      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-      n2 = p2.first;
-      map2 = p2.second;
+//      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
+//      n2 = p2.first;
+//      map2 = p2.second;
 
       if ( map2 != null ) {
         result = (V1)times( o1, map2 );
@@ -3616,8 +3643,10 @@ public class Functions {
         result = (Integer)gov.nasa.jpl.ae.util.Math.times( n1.intValue(),
                                                            n2.intValue() );
       }
-      if ( result == null ) return null;
-      if ( o1.getClass().equals( result.getClass() ) ) return (V1)result;
+    }
+
+    if ( d1 != null || d2 != null ) {
+      result = DistributionHelper.times( arg1, arg2 );
     }
 
     try {
@@ -4387,6 +4416,7 @@ public class Functions {
   }
 
   public static Double p(Expression<Boolean> exp) {
+    System.out.println("calling p(" + exp + ")");
     if ( exp == null ) return null;
     return p((Object)exp);
 //    switch (exp.form) {
@@ -4416,10 +4446,19 @@ public class Functions {
 //  }
 
   public static Double p( Object o ) {
+    //try {
+    System.out.println("calling p(" + o + ")");
       if ( o instanceof Distribution ) {
           Distribution d = (Distribution)o;
           if ( Boolean.class.isAssignableFrom( d.getType() ) ) {
+              System.out.println("Getting the probability of " + d);
               Double p = d.probability( true );
+              if ( d instanceof FunctionOfDistributions ) {
+                ((FunctionOfDistributions)d).getSamples().toFile("samples_" + System.currentTimeMillis() + ".csv");
+              } else if ( d instanceof SampleDistribution ) {
+                ((SampleDistribution)d).toFile("samples_" + System.currentTimeMillis() + ".csv");
+              }
+              System.out.println("Got probability " + p + " for " + d);
               if ( p != null && p >= 0.0 ) return p;
           }
       };
@@ -4429,7 +4468,7 @@ public class Functions {
               return p(r);
           }
       } catch ( Throwable t ) {
-        //t.printStackTrace();
+        t.printStackTrace();
       }
       try {
           Object r = Expression.evaluate( o, Boolean.class, false, false );
@@ -4454,6 +4493,8 @@ public class Functions {
 //          return p(((Expression)o).getExpression());  // TODO -- check inf recursion!
 //      }
       return null;
+      //} finally {
+      //}
   }
 
 
@@ -4680,10 +4721,21 @@ public class Functions {
             return new BooleanDomain( false, true );
           } else if ( Debug.isOn()) System.out.println( "false" );
           return new BooleanDomain( false, false );
+        } else if ( d1 != null && d2 != null ) {
+            if ( d1 != null && !d1.isEmpty() && d2 != null && !d2.isEmpty() ) {
+            Domain d3 = d1.clone();
+            d3.restrictTo( d2 );
+            if (!d3.isEmpty()) {
+              if ( d1.magnitude() == 1 && d2.magnitude() == 1 ) {
+                return new BooleanDomain( true, true );
+              }
+              return new BooleanDomain( false, true );
+            }
+            return new BooleanDomain( false, false );
+          }
         }
-        // TODO else case
       }
-      return null;
+      return BooleanDomain.defaultDomain;
     }
 
     /*

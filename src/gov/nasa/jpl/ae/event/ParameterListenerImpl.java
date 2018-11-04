@@ -1298,7 +1298,6 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    * @return whether a domain was changed
    */
   private boolean addNullToDomains( Collection<Constraint> constraints, boolean onlyIfNotGrounded ) {
-    // TODO -- add setNullInDomain() to Domain so that this method is much simpler.
     boolean setSomething = false;
     for ( Constraint c : constraints ) {
       //      if ( c instanceof Dependency || c instanceof ConstraintExpression ) {

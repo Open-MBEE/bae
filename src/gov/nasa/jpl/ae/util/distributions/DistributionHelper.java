@@ -339,6 +339,62 @@ public class DistributionHelper {
         if ( d1 == null || d2 == null ) return null;
         return plus( d1, negative(d2) );
     }
+
+    /**
+     * Compute the product of two independent random variables according to their distributions.
+     * <p>
+     * Z = X * Y
+     * </p>
+     *
+     * @param d1
+     * @param d2
+     * @return
+     */
+    public static Distribution times(Distribution d1, Distribution d2) {
+        if ( d1 == null || d2 == null ) return null;
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "times",
+                                              new Object[] {d1, d2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+    public static Object times( Distribution d1, Object o2 ) {
+        if ( o2 instanceof Distribution ) {
+            return times( d1, (Distribution<?>)o2);
+        }
+        if ( o2 == null ) return null;
+        if ( d1 instanceof Normal && o2 instanceof Number ) {
+            Normal n1 = (Normal)d1;
+            Number n2 = (Number)o2;
+            Normal s = new Normal( n1.d.getMean() * n2.doubleValue(),
+                                   n1.d.getStandardDeviation() *
+                                   Math.abs(n2.doubleValue()));
+            return s;
+        }
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "times",
+                                              new Object[] {d1, o2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+    public static Object times( Object o1, Object o2 ) {
+        if ( o1 instanceof Distribution ) {
+            return times( (Distribution<?>)o1, o2);
+        }
+        if ( o2 instanceof Distribution ) {
+            return times( (Distribution<?>)o2, o1);
+        }
+        return null;  // TODO -- error
+    }
+
     public static BooleanDistribution compare( Distribution<?> d1,
                                                Distribution<?> d2,
                                                TimeVaryingMap.Inequality i ) {
@@ -440,7 +496,9 @@ public class DistributionHelper {
                         (totalWeight + p.weight());
             combinedValue = cd;
         } else {
-            Debug.error( "Can't combine value " + p.value() + " of type " + p.value().getClass().getSimpleName() );
+            String value = p == null ? null : "" + p.value();
+            String n = value == null || p.value() == null ? null : p.value().getClass().getSimpleName();
+            Debug.error( "Can't combine value " + value + " of type " + n );
             // TODO -- FIXME!!! -- what about samples from a discrete set? Strings?
         }
         totalWeight += p.weight();

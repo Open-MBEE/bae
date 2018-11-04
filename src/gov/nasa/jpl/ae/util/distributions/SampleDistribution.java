@@ -1,6 +1,8 @@
 package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.FileUtils;
+import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Random;
 
 import java.util.ArrayList;
@@ -8,6 +10,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class SampleDistribution<T> extends AbstractDistribution<T> {
+
+    public boolean recordCombinedValues = true;
+    public ArrayList<Pair<Double, Sample>> combinedValues = new ArrayList<>();
 
     static class SampleSet extends ArrayList<Sample> {
         Double totalWeight = 0.0;
@@ -81,7 +86,11 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
 
     public boolean add( Sample<T> s ) {
         if ( samples == null ) samples = new SampleMap<>();
-        return samples.add( s.value(), s );
+        boolean result = samples.add( s.value(), s );
+        if ( recordCombinedValues ) {
+            combinedValues.add( new Pair( samples.combinedValue, s ) );
+        }
+        return result;
     }
 
     public boolean isEmpty() {
@@ -107,6 +116,9 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
     }
 
     @Override public Number mean() {
+        if ( samples == null ) {
+            return null;
+        }
         return samples.combinedValue;
     }
 
@@ -180,6 +192,17 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
 
     @Override public Class<T> getType() {
         return type;
+    }
+
+    public void toFile( String fileName ) {
+        StringBuilder sb =new StringBuilder();
+        if ( recordCombinedValues ) {
+            for ( Pair<Double, Sample> p : combinedValues ) {
+                sb.append( "" + p.first + "\n" );
+            }
+            FileUtils.stringToFile(sb.toString(), fileName);
+            System.out.println("wrote " + combinedValues.size() + " values to " + fileName);
+        }
     }
 
 }

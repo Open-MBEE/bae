@@ -10,6 +10,7 @@ import org.apache.commons.math3.exception.NotPositiveException;
 import org.apache.commons.math3.util.Pair;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,14 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
 //                   NotFiniteNumberException, NotANumberException {
 //        d = new org.apache.commons.math3.distribution.EnumeratedDistribution(Distribution.random, pmf);
 //    }
+    public EnumeratedDistribution(final T t)
+        throws NotPositiveException, MathArithmeticException,
+               NotFiniteNumberException, NotANumberException {
+        List<Pair<T,Double>> pmf = new ArrayList(
+            Collections.singleton( new Pair( t, 100.0 ) ) );
+        d = new org.apache.commons.math3.distribution.EnumeratedDistribution(
+            Distribution.random, pmf);
+    }
     public EnumeratedDistribution(final List<Pair<T, Double>> pmf)
             throws NotPositiveException, MathArithmeticException,
                    NotFiniteNumberException, NotANumberException {

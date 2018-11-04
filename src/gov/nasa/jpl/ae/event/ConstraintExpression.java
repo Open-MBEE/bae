@@ -4,6 +4,7 @@ import gov.nasa.jpl.ae.event.Functions.SuggestiveFunctionCall;
 import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
+import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
@@ -323,7 +324,7 @@ public class ConstraintExpression extends Expression< Boolean >
 
       // Get the 'else' expression.
       if ( ce.getArguments().size() > 2 ) {
-        Object elseObj = ce.getArgument( 1 );
+        Object elseObj = ce.getArgument( 2 );
         elseExpression = elseObj instanceof Expression ? (Expression)elseObj :
                          new Expression( elseObj );
         if ( elseExpression != null && condDomain != null && condDomain.contains( false ) && ( mustBeTrue || mustBeFalse ) ) {
@@ -573,7 +574,7 @@ public class ConstraintExpression extends Expression< Boolean >
     }
 
     // Now try choosing new values for the variables to meet this constraint.
-    if ( Parameter.allowPickValue && !isSatisfied(deep, seen) ) {
+    if ( Parameter.allowPickValue && !DistributionHelper.isDistribution(this) && !isSatisfied( deep, seen) ) {
       Set< Variable< ? > > vars = new LinkedHashSet<Variable<?>>(getVariables());
       if ( Debug.isOn() ) Debug.outln("ConstraintExpression.isSatisfied()   Picking values for " + vars + " in " + this);
 

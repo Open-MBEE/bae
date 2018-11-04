@@ -11,6 +11,32 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
+
+    public int maxSamplesDefault = 700;
+    public Integer _maxSamples = null;
+
+    public boolean setMaxSamples( int maxSamples ) {
+        this._maxSamples = maxSamples;
+        System.out.println(". . . . . . . . . . . . . . . . . . . setting max samples to " + maxSamples);
+        return true;
+    }
+
+    public int getMaxSamples() {
+        if ( _maxSamples == null ) {
+            if ( call instanceof Functions.GetMember || (call.getMember() != null && call.getMember().getName().equals( "getMember" ))) {
+                if ( call.returnValue != null && call.returnValue instanceof FunctionOfDistributions ) {
+                    //getArguments() != null && call.getArguments().size() >= 1
+                    int s = ( (FunctionOfDistributions)call.returnValue )
+                            .getMaxSamples();
+                    if ( s >= 0 ) {
+                        return s;
+                    }
+                }
+            }
+            return -1;
+        }
+        return _maxSamples;
+    }
     /**
      * The function call or constructor that produces this distribution
      */
@@ -109,7 +135,8 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         int matchCount = 0;
         int totalSamples = 0;
         int totalFailedSamples = 0;
-        while ( !this.samplingConverged && totalSamples < 10000 && totalFailedSamples < 4 ) {
+        System.out.println( "xxxxxxxxx   Sampling " + this );
+        while ( !this.samplingConverged && totalSamples < getMaxSamples() && totalFailedSamples < 4 ) {
             Sample<T> s = null;
             try {
                 s = sample();
@@ -122,6 +149,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                 continue;
             }
             T v = s.value();
+            boolean isBool = Boolean.class.isInstance( v );
             ++totalSamples;
             if ( totalSamples <= 10 || totalSamples % 10000 == 0) {
                 System.out.println( totalSamples + " samples with combined value " + this.combinedValue );
@@ -134,7 +162,10 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                 matchCount = 0;
             }
             lastCombinedValue = this.combinedValue;
-            if ( matchCount >= 4 ) {
+            if ( matchCount >= (isBool ?
+                                (combinedValue == 0.0 ||
+                                 combinedValue == 1.0 ? 1000000 : 2)
+                                       : 4) ) {
                 System.out.println( "~~~~~~~~   Sampling converged!!" );
                 this.samplingConverged = true;
             }
@@ -985,6 +1016,28 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         }
         return 0;
     }
+
+    public Call getCall() {
+        return call;
+    }
+
+    public Distribution getApproximation() {
+        return approximation;
+    }
+
+    public Expression<Double> getError() {
+        return error;
+    }
+
+    public SampleDistribution<T> getSamples() {
+        return samples;
+    }
+
+    public Double getCombinedValue() {
+        return combinedValue;
+    }
+
+
 
     @Override public Class<T> getType() {
         return type;
