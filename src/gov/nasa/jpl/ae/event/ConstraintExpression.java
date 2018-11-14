@@ -155,8 +155,10 @@ public class ConstraintExpression extends Expression< Boolean >
     try {
       value = Expression
               .evaluateDeep( p.second, dependentVar.getType(), true, false );
-      if ( !( p.second instanceof Call ) || ( (Call)p.second )
-              .didEvaluationSucceed() ) succ = true;
+      if ( !( p.second instanceof Call ) || ( ( (Call)p.second )
+              .didEvaluationSucceed() && (value != null || ((Call)p.second).returnValue == null ) ) ) {
+        succ = true;
+      }
     } catch ( IllegalAccessException e ) {
       e.printStackTrace();
     } catch ( InvocationTargetException e ) {

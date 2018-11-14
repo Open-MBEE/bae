@@ -170,7 +170,7 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
 
     @Override public Sample<T> sample( Distribution<T> bias ) {
         // TODO
-        return null;
+        return sample();
     }
 
     @Override public double cumulativeProbability( T t ) {

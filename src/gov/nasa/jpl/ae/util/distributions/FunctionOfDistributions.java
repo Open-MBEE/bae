@@ -33,7 +33,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                     }
                 }
             }
-            return -1;
+            return maxSamplesDefault;
         }
         return _maxSamples;
     }
@@ -135,8 +135,9 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         int matchCount = 0;
         int totalSamples = 0;
         int totalFailedSamples = 0;
+        int maxSamples = getMaxSamples();
         System.out.println( "xxxxxxxxx   Sampling " + this );
-        while ( !this.samplingConverged && totalSamples < getMaxSamples() && totalFailedSamples < 4 ) {
+        while ( !this.samplingConverged && totalSamples < maxSamples && totalFailedSamples < 4 ) {
             Sample<T> s = null;
             try {
                 s = sample();

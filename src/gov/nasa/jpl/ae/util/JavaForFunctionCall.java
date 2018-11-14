@@ -255,14 +255,14 @@ public class JavaForFunctionCall {
 
   public boolean isADistributionCall() {
     if ( hasUnexpectedDistributionObject() ) {
-      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
       return true;
     }
     if ( hasUnexpectedDistributionArgs() ) {
-      System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
       return true;
     }
-    System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+    //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
     return false;
   }
 
