@@ -1807,13 +1807,13 @@ public class Functions {
    */
   public static class Mod< T, R > extends Binary< T, R > {
     public Mod( Expression< T > o1, Expression< T > o2 ) {
-      super( o1, o2, "subtract", "pickValueForward", "pickValueReverse" );
+      super( o1, o2, "mod", "pickValueForward", "pickValueReverse" );
       // functionCall.
       setMonotonic( true );
     }
 
     public Mod( Object o1, Object c ) {
-      super( o1, c, "subtract", "pickValueForward", "pickValueReverse" );
+      super( o1, c, "mod", "pickValueForward", "pickValueReverse" );
       // functionCall.
       setMonotonic( true );
     }
