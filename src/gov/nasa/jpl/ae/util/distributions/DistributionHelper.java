@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.util.distributions;
 
+import com.google.errorprone.annotations.Var;
 import gov.nasa.jpl.ae.event.*;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.*;
@@ -633,9 +634,20 @@ public class DistributionHelper {
 
     public static Variable getRandomVar( Object object ) {
         Variable v = null;
-        try {
-            v = Expression.evaluate( object, Variable.class, true, false );
-        } catch (Throwable t) {
+        if ( object == null ) return null;
+        if ( object instanceof Variable ) {
+            v = (Variable)object;
+        } else if ( object instanceof Distribution ) {
+            Object owner = ( (Distribution)object ).getOwner();
+            if ( owner instanceof Variable ) {
+                v = (Variable)owner;
+            }
+        }
+        if ( v == null ) {
+            try {
+                v = Expression.evaluate( object, Variable.class, true, false );
+            } catch ( Throwable t ) {
+            }
         }
         if ( isVarRandom( v ) ) {
             return v;

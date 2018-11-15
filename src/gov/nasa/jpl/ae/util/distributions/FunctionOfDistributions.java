@@ -150,7 +150,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                 continue;
             }
             T v = s.value();
-            boolean isBool = Boolean.class.isInstance( v );
+            boolean isBool = Boolean.class.equals( getType() ) || Boolean.class.isInstance( v );
             ++totalSamples;
             if ( totalSamples <= 10 || totalSamples % 10000 == 0) {
                 System.out.println( totalSamples + " samples with combined value " + this.combinedValue );
@@ -163,13 +163,13 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
                 matchCount = 0;
             }
             lastCombinedValue = this.combinedValue;
-            if ( matchCount >= (isBool ?
-                                (combinedValue == 0.0 ||
-                                 combinedValue == 1.0 ? 1000000 : 2)
-                                       : 4) ) {
-                System.out.println( "~~~~~~~~   Sampling converged!!" );
-                this.samplingConverged = true;
-            }
+//            if ( matchCount >= (isBool ?
+//                                (combinedValue == 0.0 ||
+//                                 combinedValue == 1.0 ? 1000000 : 10)
+//                                       : 10) ) {
+//                System.out.println( "~~~~~~~~   Sampling converged!!" );
+//                this.samplingConverged = true;
+//            }
         }
 
         if (this.combinedValue == null ) {
@@ -603,15 +603,27 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
 
     }
 */
-    protected static Sample sample(Object o, SampleChain sampleChain) {
+
+    /**
+     * Return a sample of the given {@link Object}, {@code o}, and after adding the sample to the given
+     * SampleChain.  If {@code o} is a distribution that is already in the {@link SampleChain}
+     * (indicating that it has already been sampled), return the existing {@link Sample} instead
+     * of generating a new one.
+     *
+     * @param o the {@link Object} to be sampled
+     * @param sampleChain the chain to which the {@link Sample} is added
+     * @return the Sample of o
+     */
+    protected static <T1,T2> Sample<T2> sample(Object o, SampleChain<T1> sampleChain) {
         if ( o == null || sampleChain == null ) {
             return null;
         }
         Variable v = DistributionHelper.getRandomVar( o );
         if ( v != null ) {
             // Check to see if we already have a sample.
-            if ( sampleChain.samplesByVariable.get( v ) != null ) {
-                return null;
+            Sample<T2> chainSample = sampleChain.samplesByVariable.get( v );
+            if ( chainSample != null ) {
+                return chainSample;
             }
         }
         Distribution d = DistributionHelper.getDistribution( o );
@@ -621,6 +633,11 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
             }
             return null;
         }
+        Sample<T2> chainSample = sampleChain.samplesByDistribution.get(d);
+        if ( chainSample != null ) {
+            return chainSample;
+        }
+
         Sample os = null;
         if ( d instanceof FunctionOfDistributions ) {
             os = ( (FunctionOfDistributions)d ).sample( sampleChain );

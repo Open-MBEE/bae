@@ -1331,23 +1331,23 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
         Domain d = dep.getParameter() != null ? dep.getParameter().getDomain() : null;
         if (d == null || d.isNullInDomain() ) {
-          if ( d == null ) {
-            System.out.println( "++++++++++++++     no domain for " + dep.getParameter() + " in Dependency: " + dep);
-          } else {
-            System.out.println( "++++++++++++++     null already in domain for " + dep.getParameter() + " in Dependency: " + dep);
-          }
+//          if ( d == null ) {
+//            System.out.println( "++++++++++++++     no domain for " + dep.getParameter() + " in Dependency: " + dep);
+//          } else {
+//            System.out.println( "++++++++++++++     null already in domain for " + dep.getParameter() + " in Dependency: " + dep);
+//          }
           return setSomething;
         }
         Domain od = DomainHelper.getDomain( dep.expression );
         if ( od != null && od.isNullInDomain() ) {
-          System.out.println("++++++++++++++     Adding null to domain of " + dep.getParameter() + ", for Dependency: " + dep);
+          //System.out.println("++++++++++++++     Adding null to domain of " + dep.getParameter() + ", for Dependency: " + dep);
           d.setNullInDomain( true );
         } else {
-          if ( od == null ) {
-            System.out.println( "++++++++++++++     no domain for expression " + dep.getExpression()  + " in Dependency: " + dep);
-          } else {
-            System.out.println( "++++++++++++++     null not in domain of expression " + dep.getExpression() + " in Dependency: " + dep);
-          }
+//          if ( od == null ) {
+//            System.out.println( "++++++++++++++     no domain for expression " + dep.getExpression()  + " in Dependency: " + dep);
+//          } else {
+//            System.out.println( "++++++++++++++     null not in domain of expression " + dep.getExpression() + " in Dependency: " + dep);
+//          }
         }
       } else if ( c instanceof ConstraintExpression ) {
         ConstraintExpression cx = (ConstraintExpression)c;
@@ -1362,22 +1362,22 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
             if ( d != null && !d.isNullInDomain() ) {
                 Domain od = DomainHelper.getDomain(p.second);
                 if ( od != null && od.isNullInDomain() ) {
-                    System.out.println("++++++++++++++     Adding null to domain of " + p.first + ", for constraint: " + c);
+//                    System.out.println("++++++++++++++     Adding null to domain of " + p.first + ", for constraint: " + c);
                     setSomething = d.setNullInDomain(true);
                 } else {
-                  if ( od == null ) {
-                    System.out.println( "++++++++++++++     no domain for " + p.second + " in constraint: " + c);
-                  } else {
-                    System.out.println( "++++++++++++++     null not in domain for " + p.second + " in constraint: " + c);
-                  }
+//                  if ( od == null ) {
+//                    System.out.println( "++++++++++++++     no domain for " + p.second + " in constraint: " + c);
+//                  } else {
+//                    System.out.println( "++++++++++++++     null not in domain for " + p.second + " in constraint: " + c);
+//                  }
 
                 }
             } else {
-              if ( d == null ) {
-                System.out.println( "++++++++++++++     no domain for " + p.first + " in constraint: " + c);
-              } else {
-                System.out.println( "++++++++++++++     null already in domain for " + p.first + " in constraint: " + c);
-              }
+//              if ( d == null ) {
+//                System.out.println( "++++++++++++++     no domain for " + p.first + " in constraint: " + c);
+//              } else {
+//                System.out.println( "++++++++++++++     null already in domain for " + p.first + " in constraint: " + c);
+//              }
             }
         }
       }

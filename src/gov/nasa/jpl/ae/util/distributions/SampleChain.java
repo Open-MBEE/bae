@@ -3,6 +3,7 @@ package gov.nasa.jpl.ae.util.distributions;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.MoreToString;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.util.*;
 
@@ -88,6 +89,22 @@ public class SampleChain<T> implements Sample<T> {
                 }
                 w *= s.weight();
             }
+        }
+        double w2 = 1.0;
+        if ( samplesByDistribution != null ) {
+            for ( Sample s : samplesByDistribution.values() ) {
+                if ( s == null ) continue;
+                if ( s instanceof SampleInContext ) {
+                    SampleInContext sic = (SampleInContext)s;
+                    if ( sic.getDistribution() instanceof FunctionOfDistributions ) {
+                        continue;
+                    }
+                }
+                w2 *= s.weight();
+            }
+        }
+        if ( !Utils.valuesEqual(w, w2) ) {
+            Debug.error( true, false, "ERROR! SampleChain variable weight (" + w + ") does not match distribution weight (" + w2 + ")!" );
         }
         return w;
     }

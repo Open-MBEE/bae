@@ -34,8 +34,11 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
         }
 
         public boolean add(V t, Sample<V> s) {
-            combinedValue = combineSample(combinedValue, totalWeight, s);
-            totalWeight += s.weight();
+            Double combinedVal = combineSample(combinedValue, totalWeight, s);
+            if ( combinedVal != null ) {
+                combinedValue = combinedVal;
+                totalWeight += s.weight();
+            }
             SampleSet ss = get(t);
             if ( ss == null ) ss = new SampleSet();
             boolean r = ss.add(s);
@@ -58,16 +61,22 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
     }
 
     public static Double combineSample(Double combinedValue,
-                                          double totalWeight, Sample sample) {
+                                       double totalWeight, Sample sample) {
+        double v;
+
         if ( sample.value() instanceof Number ) {
-            double v = ((Number)sample.value()).doubleValue();
-            if ( combinedValue == null ) {
-                combinedValue = v;
-            } else {
-                combinedValue =
-                        ( combinedValue * totalWeight + v * sample.weight() ) /
-                        ( totalWeight + sample.weight() );
-            }
+            v = ((Number)sample.value()).doubleValue();
+        } else if ( sample.value() instanceof Boolean ) {
+            v = ((Boolean)sample.value()) ? 1.0 : 0.0;
+        } else {
+            return null;
+        }
+        if ( combinedValue == null ) {
+            combinedValue = v;
+        } else {
+            combinedValue =
+                    ( combinedValue * totalWeight + v * sample.weight() ) /
+                    ( totalWeight + sample.weight() );
         }
         return combinedValue;
     }
