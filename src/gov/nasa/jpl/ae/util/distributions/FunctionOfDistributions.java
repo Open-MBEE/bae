@@ -12,12 +12,25 @@ import java.util.*;
 
 public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
 
-    public int maxSamplesDefault = 700;
+    public final static int maxSamplesDefault = 7000;
     public Integer _maxSamples = null;
 
     public boolean setMaxSamples( int maxSamples ) {
-        this._maxSamples = maxSamples;
-        System.out.println(". . . . . . . . . . . . . . . . . . . setting max samples to " + maxSamples);
+        if ( this._maxSamples == null || this._maxSamples != maxSamples ) {
+            this._maxSamples = maxSamples;
+//            if ( this.getCall() != null ) {
+//                this.getCall().setStale( true );
+//            }
+//            if ( getOwner() instanceof LazyUpdate ) {
+//                ((LazyUpdate)getOwner()).setStale( true );
+//            }
+            if ( getOwner() instanceof Parameter ) {
+                ((Parameter)getOwner()).update();
+            }
+            System.out.println(
+                    ". . . . . . . . . . . . . . . . . . . setting max samples to "
+                    + maxSamples );
+        }
         return true;
     }
 
@@ -133,7 +146,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     public double sampleLoop() {
         Double lastCombinedValue = null;
         int matchCount = 0;
-        int totalSamples = 0;
+        long totalSamples = this.getSamples() == null ? 0 : this.getSamples().size();
         int totalFailedSamples = 0;
         int maxSamples = getMaxSamples();
         System.out.println( "xxxxxxxxx   Sampling " + this );
@@ -698,55 +711,68 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         // argument of some other function call that needs a real number argument
         // as opposed to a distribution.
 
-        // Sample the object and arguments.
-        Sample s = sample( call.getObject(), sampleChain );
-        Object eObj = null;
-        if ( s != null ) {
-            eObj = s.value();
-        } else {
-            try {
-                eObj = call.evaluateObject( true );
-            } catch ( Throwable e ) {
-            }
-        }
-        Object[] evalArgs = new Object[ call.getArguments().size() ];
-        Class[] params = call.getParameterTypes();
-        int i = 0;
-        for ( Object arg : call.getArguments() ) {
-            s = sample( arg, sampleChain );
+        boolean origStale = call.isStale();
+        Object origReturnValue = call.returnValue;
+        long origLastUpdated = call.lastUpdated;
+
+        try {
+
+            // Sample the object and arguments.
+            Sample s = sample( call.getObject(), sampleChain );
+            Object eObj = null;
             if ( s != null ) {
-                evalArgs[i] = s.value();
+                eObj = s.value();
             } else {
                 try {
-                    Class p = params[i < params.length ? i : params.length-1];
-                    evalArgs[i] = call.evaluateArg( arg, p, true );
+                    eObj = call.evaluateObject( true );
                 } catch ( Throwable e ) {
                 }
             }
-            ++i;
-        }
+            Object[] evalArgs = new Object[ call.getArguments().size() ];
+            Class[] params = call.getParameterTypes();
+            int i = 0;
+            for ( Object arg : call.getArguments() ) {
+                s = sample( arg, sampleChain );
+                if ( s != null ) {
+                    evalArgs[ i ] = s.value();
+                } else {
+                    try {
+                        Class p = params[ i < params.length ? i :
+                                          params.length - 1 ];
+                        evalArgs[ i ] = call.evaluateArg( arg, p, true );
+                    } catch ( Throwable e ) {
+                    }
+                }
+                ++i;
+            }
 
-        // Invoke the call with the sampled arguments.
-        Object v = null;
-        try {
-            call.setStale( true );
-            v = call.invoke( eObj, evalArgs );
-            // Set the call stale to avoid reusing the cached result since these
-            // are not its normal arguments
-            call.setStale( true );
-        } catch (Throwable t) {
-            t.printStackTrace();
+            // Invoke the call with the sampled arguments.
+            Object v = null;
+            try {
+                call.setStale( true );
+                v = call.invoke( eObj, evalArgs );
+                // Set the call stale to avoid reusing the cached result since these
+                // are not its normal arguments
+                call.setStale( true );
+            } catch ( Throwable t ) {
+                t.printStackTrace();
+            }
+            if ( call.didEvaluationSucceed() ) {
+                //v = call.returnValue;
+                double w = sampleChain.weight();
+                Distribution d = this;
+                Object owner = this;
+                SampleInContext sic = new SampleInContext( v, w, d, owner );
+                sampleChain.add( sic );
+                return sic;
+            }
+            return null;
+        } finally {
+            // return call to original state
+            call.setStale( origStale );
+            call.returnValue = origReturnValue;
+            call.lastUpdated = origLastUpdated;
         }
-        if ( call.didEvaluationSucceed() ) {
-            //v = call.returnValue;
-            double w = sampleChain.weight();
-            Distribution d = this;
-            Object owner = this;
-            SampleInContext sic = new SampleInContext( v, w, d, owner );
-            sampleChain.add( sic );
-            return sic;
-        }
-        return null;
     }
 
     /**

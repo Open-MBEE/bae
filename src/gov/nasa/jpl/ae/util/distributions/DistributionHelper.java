@@ -257,7 +257,8 @@ public class DistributionHelper {
      * @param d2
      * @return
      */
-    public static Distribution plus(Distribution d1, Distribution d2) {
+    public static Distribution plus( //Object arg1, Object arg2,
+                                     Distribution d1, Distribution d2) {
         if ( d1 instanceof Normal && d2 instanceof Normal ) {
             Normal n1 = (Normal)d1;
             Normal n2 = (Normal)d2;
@@ -277,9 +278,11 @@ public class DistributionHelper {
         return d;
     }
 
-    public static Object plus( Distribution d1, Object o2 ) {
+    public static Object plus( //Object arg1, Object arg2,
+                               Distribution d1, Object o2 ) {
         if ( o2 instanceof Distribution ) {
-            return plus( d1, (Distribution<?>)o2);
+            return plus( //arg1, arg2,
+                         d1, (Distribution<?>)o2);
         }
         if ( o2 == null ) return null;
         if ( d1 instanceof Normal && o2 instanceof Number ) {
@@ -324,21 +327,29 @@ public class DistributionHelper {
 
     }
 */
-    public static Object plus( Object o1, Object o2 ) {
-        if ( o1 instanceof Distribution ) {
-            return plus( (Distribution<?>)o1, o2);
+    public static Object plus( //Object arg1, Object arg2,
+                               Object value1, Object value2 ) {
+        if ( value1 instanceof Distribution ) {
+            return plus( //arg1, arg2,
+                         (Distribution<?>)value1, value2);
         }
-        if ( o2 instanceof Distribution ) {
-            return plus( (Distribution<?>)o2, o1);
+        if ( value2 instanceof Distribution ) {
+            return plus( //arg2, arg1,
+                         (Distribution<?>)value2, value1);
         }
         return null;  // TODO -- error
     }
 
 
 
-    public static Distribution minus(Distribution d1, Distribution d2) {
+//    public static Distribution minus(Distribution d1, Distribution d2) {
+//        return minus( null, null, d1, d2 );
+//    }
+    public static Distribution minus(//Object arg1, Object arg2,
+                                     Distribution d1, Distribution d2) {
         if ( d1 == null || d2 == null ) return null;
-        return plus( d1, negative(d2) );
+        return plus( //arg1, arg2,
+                     d1, negative(d2) );
     }
 
     /**
@@ -395,6 +406,88 @@ public class DistributionHelper {
         }
         return null;  // TODO -- error
     }
+
+
+    /**
+     * Compute the quotient of two independent random variables according to their distributions.
+     * <p>
+     * Z = X / Y
+     * </p>
+     * <p>
+     * TODO<br>
+     * The ratio of two Normal distributions each with mean, zero, is the Cauchy distribution.
+     * If not zero, there is a long formula for a Gaussian ration distribution.  There are formulas
+     * for ratios of other distributions and an integral for the general case.
+     *
+     * @param d1
+     * @param d2
+     * @return
+     */
+    public static Distribution divide(Distribution d1, Distribution d2) {
+        if ( d1 == null || d2 == null ) return null;
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "divide",
+                                              new Object[] {d1, d2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+    public static Object divide( Distribution d1, Object o2 ) {
+        if ( o2 instanceof Distribution ) {
+            return divide( d1, (Distribution<?>)o2);
+        }
+        if ( o2 == null ) return null;
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "divide",
+                                              new Object[] {d1, o2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+    public static Object divide( Object o1, Distribution d2 ) {
+        if ( o1 == null || d2 == null ) return null;
+        if ( o1 instanceof Distribution ) {
+            return divide( (Distribution<?>)o1, d2);
+        }
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "divide",
+                                              new Object[] {o1, d2},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
+
+    public static Object divide( Object o1, Object o2 ) {
+        if ( o1 instanceof Distribution ) {
+            return divide( (Distribution<?>)o1, o2);
+        }
+        if ( o2 instanceof Distribution ) {
+            return divide( (Distribution<?>)o2, o1);
+        }
+        return null;  // TODO -- error
+    }
+
+    public static Distribution floor(Distribution d1) {
+        if ( d1 == null ) return null;
+        FunctionOfDistributions d = new FunctionOfDistributions<>();
+        DistributionFunctionCall call =
+                new DistributionFunctionCall( null,
+                                              Functions.class, "floor",
+                                              new Object[] {d1},
+                                              d1.getType() );
+        d.call = call;
+        return d;
+    }
+
 
     public static BooleanDistribution compare( Distribution<?> d1,
                                                Distribution<?> d2,
@@ -668,5 +761,4 @@ public class DistributionHelper {
     public static void main(String args[]) {
         test();
     }
-
 }

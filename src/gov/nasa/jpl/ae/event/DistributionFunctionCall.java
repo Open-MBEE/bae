@@ -84,14 +84,14 @@ public class DistributionFunctionCall extends FunctionCall {
                                           Object[] evaluatedArgs ) {
         boolean regularCall = true;
         if ( evaluatedObject instanceof Distribution ) {
-            if ( objectHasTypeErrors( evaluatedObject ) ) {
+            if ( super.objectHasTypeErrors( evaluatedObject ) ) {
                 regularCall = false;
             }
         }
         if ( regularCall && evaluatedArgs != null ) {
             for ( Object a : evaluatedArgs ) {
                 if ( a instanceof Distribution ) {
-                    regularCall = !hasTypeErrors( evaluatedArgs );
+                    regularCall = !super.hasTypeErrors( evaluatedArgs );
                     break;
                 }
             }
@@ -157,6 +157,80 @@ public class DistributionFunctionCall extends FunctionCall {
 
         Distribution d = evaluateAsDistribution( object, true, null);
         if (d != null) o = d;
+
+        if ( o == null && t != null ) {
+            if ( e1 != null ) throw e1;
+            if ( e2 != null ) throw e2;
+            if ( e3 != null ) throw e3;
+            if ( e4 != null ) throw e4;
+        }
+        return o;
+    }
+
+    @Override
+    public Boolean hasTypeErrors( Object[] evaluatedArgs ) {
+        return false;
+        // TODO Auto-generated method stub
+        //return super.hasTypeErrors( evaluatedArgs );
+    }
+
+    @Override
+    public synchronized Boolean hasTypeErrors() {
+        return false;
+        // TODO Auto-generated method stub
+        //return super.hasTypeErrors();
+    }
+
+    @Override
+    public Object[] evaluateArgs( boolean propagate ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        if ( getMember() == null ) return null;
+        Class< ? >[] paramTypes = getParameterTypes();
+        return evaluateArgs( propagate, paramTypes, arguments, isVarArgs(), false );
+    }
+
+
+    @Override
+    public Object evaluateArg( Object unevaluatedArg, Class< ? > c,
+                               boolean propagate ) throws ClassCastException,
+                                                          IllegalAccessException,
+                                                          InvocationTargetException,
+                                                          InstantiationException {
+        Throwable t = null;
+        ClassCastException e1 = null;
+        IllegalAccessException e2 = null;
+        InvocationTargetException e3 = null;
+        InstantiationException e4 = null;
+        Object o = null;
+
+        try {
+            if ( c == null || !Distribution.class.isAssignableFrom( c ) ) {
+                Distribution< ? > d = Functions.tryToGetDistributionQuick( unevaluatedArg );
+                if ( d != null ) {
+                    o = d;
+                }
+            }
+            if ( o == null ) {
+                o = super.evaluateArg( unevaluatedArg, c, propagate );
+            }
+        } catch ( ClassCastException e ) {
+            e1 = e;
+            t = e;
+        } catch ( IllegalAccessException e ) {
+            e2 = e;
+            t = e;
+        } catch ( InvocationTargetException e ) {
+            e3 = e;
+            t = e;
+        } catch ( InstantiationException e ) {
+            e4 = e;
+            t = e;
+        }
+
+        if ( o == null && !Expression.valuesEqual( unevaluatedArg, null ) ) {
+            o = unevaluatedArg;
+        }
+        Distribution<?> map = evaluateAsDistribution( o, true, null );
+        if ( map != null ) o = map;
 
         if ( o == null && t != null ) {
             if ( e1 != null ) throw e1;

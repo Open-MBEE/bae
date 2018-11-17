@@ -5,6 +5,7 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.util.LamportClock;
 import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 
@@ -93,6 +94,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return getMember().getDeclaringClass();
   }
 
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
   @Override public long getLastUpdated() {
     return lastUpdated;
   }

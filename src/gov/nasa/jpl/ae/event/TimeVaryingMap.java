@@ -87,6 +87,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   protected static boolean notDeconstructing = true;
 
   protected long lastUpdated = LamportClock.tick();
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
   @Override public long getLastUpdated() {
     return lastUpdated;
   }
@@ -2159,6 +2162,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return (Parameter< Long >)tp;
   }
 
+  public TimeVaryingMap<V> floor()
+          throws IllegalAccessException, InstantiationException,
+                 InvocationTargetException {
+    if ( isEmpty() ) return this.clone();
+    return floor( firstKey(), null );
+  }
+
+
   /**
    * @param n the number by which this map is multiplied
    * @return this map after multiplying each value by {@code n}
@@ -2303,7 +2314,31 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return this;
   }
 
-  
+  public <VV> TimeVaryingMap< VV > floor( Parameter< Long > fromKey,
+                                          Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
+    TimeVaryingMap< VV > newTvm = (TimeVaryingMap<VV>)clone();
+    newTvm.setName( getName() + "_floor" );
+
+    newTvm.floorInPlace( fromKey, toKey );
+
+    return newTvm;
+  }
+
+  public void floorInPlace(Parameter< Long > fromKey,
+                           Parameter< Long > toKey) {
+    Map< Parameter< Long >, V > map = null;
+    if ( toKey == null ) {
+      toKey = lastKey();
+      map = subMap( fromKey, true, toKey, true );
+    } else {
+      boolean same = toKey.equals(fromKey);  // include the key if same
+      map = subMap( fromKey, true, toKey, same );
+    }
+    for ( Map.Entry< Parameter< Long >, V > e : map.entrySet() ) {
+      e.setValue( (V)Functions.floor( e.getValue() ) );
+    }
+  }
+
   /**
    * @param n the number by which the map is multiplied
    * @param fromKey the first key whose value is multiplied by {@code n}

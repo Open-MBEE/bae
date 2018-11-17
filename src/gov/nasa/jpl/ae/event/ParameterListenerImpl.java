@@ -2500,6 +2500,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return set;
   }
 
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
   @Override public long getLastUpdated() {
     return getLastUpdated( null );
   }

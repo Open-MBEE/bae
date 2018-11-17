@@ -1777,6 +1777,73 @@ public class Functions {
     return sd;
   }
 
+  public static class Floor<T> extends Unary<T, T> {
+    protected static final String floor = "floor";
+
+    public Floor( Variable<T> o ) {
+      super( o, floor );
+    }
+
+    public Floor( Expression<T> o1 ) {
+      super( o1, floor );
+    }
+
+    public Floor( Object o1 ) {
+      super( o1, floor );
+    }
+
+    public Floor( Unary m ) {
+      super( m );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( returnValue == null ) return null;
+      AbstractRangeDomain<T> d = DomainHelper.createSubDomainAbove( returnValue, true, false );
+      T ub = null;
+      try {
+        ub = plus( d.getLowerBound(), 1 );
+      } catch ( Throwable e ) {
+      }
+      if ( ub != null ) {
+        d.setUpperBound( ub );
+        d.excludeUpperBound();
+        return new Identity( new Expression(d) );
+      }
+      Debug.error(true, false, "ERROR!  Floor.inverseSingleValue(" + returnValue + ") failed!" );
+      return null;
+    }
+
+  }
+
+  public static <T> Object floor( Object e ) {
+    Pair<Object, TimeVaryingMap<?>> p = numberOrTimelineOrDistribution( e );
+    if ( p == null ) {
+      return null;
+    }
+    if ( p.second != null ) {
+        try {
+            return (T)p.second.floor();
+        } catch ( Throwable e1 ) {
+            e1.printStackTrace();
+        }
+        return null;
+    }
+    if ( p.first instanceof Number ) {
+        double floored = Math.floor( ((Number)p.first).doubleValue() );
+        Pair<Boolean, ? extends Object> flooredPair =
+              ClassUtils.coerce( floored, p.first.getClass(), false );
+        if ( flooredPair != null && flooredPair.first != null && flooredPair.first ) {
+          return flooredPair.second;
+        }
+    } else if ( p.first instanceof Distribution ) {
+//        Debug.error(true, false, "ERROR! floor() for Distribution is not yet implemented!");
+        return DistributionHelper.floor( (Distribution)p.first );
+    }
+    Debug.error(true, false, "ERROR! floor(" + p.first + ") has argument of unexpected type, " + p.first.getClass().getSimpleName());
+    return e;
+  }
+
   // A potentially simpler implementation of mod.
   public static class Mod2< T, R > extends Sub< T, R > {
     public Mod2( Expression< T > o1, Expression< T > o2 ) {
@@ -1893,7 +1960,7 @@ public class Functions {
                                                            IllegalAccessException,
                                                            InvocationTargetException,
                                                            InstantiationException {
-    return minus( o1, times(o2, divide( o1, o2 ) ) );
+    return minus( o1, times(o2, floor( divide( o1, o2 ) ) ) );
   }
 
 
@@ -2908,7 +2975,8 @@ public class Functions {
         }
       }
       if ( d1 != null || d2 != null ) {
-        result = DistributionHelper.plus( arg1, arg2 );
+        result = DistributionHelper.plus( //arg1, arg2,
+                                          o1, o2 );
       }
         // else {
       // TimeVaryingMap<?> map = null;
@@ -3673,50 +3741,47 @@ public class Functions {
                                                      throws IllegalAccessException,
                                                      InvocationTargetException,
                                                      InstantiationException {
-    Object result = null;
+    if ( o1 == null || o2 == null ) return null;
     Number n1 = null;
     Number n2 = null;
     TimeVaryingMap< ? > map1 = null;
     TimeVaryingMap< ? > map2 = null;
+    Distribution<?> d1 = null;
+    Distribution<?> d2 = null;
 
-    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-    n1 = p1.first;
+    Object arg1 = null;
+    Object arg2 = null;
+
+    Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
     map1 = p1.second;
+    if ( p1.first instanceof Distribution ) {
+      d1 = (Distribution)p1.first;
+      arg1 = d1;
+    } else if ( p1.first instanceof Number ) {
+      n1 = (Number)p1.first;
+      arg1 = map1 == null ? n1 : map1;
+    }
+    if ( arg1 == null ) arg1 = o1;
+    Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+    map2 = p2.second;
+    if ( p2.first instanceof Distribution ) {
+      d2 = (Distribution)p2.first;
+      arg2 = d2;
+    } else if ( p2.first instanceof Number ) {
+      n2 = (Number)p2.first;
+      arg2 = map2 == null ? n2 : map2;
+    }
+    if ( arg2 == null) arg2 = o2;
 
+    Object result = null;
     if ( map1 != null ) {
       result = (V1)divide( map1, o2 );
     } else {
-      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-      n2 = p2.first;
-      map2 = p2.second;
-
       if ( map2 != null ) {
         result = (V1)divide( o1, map2 );
       }
     }
-    // TimeVaryingMap<?> map = null;
-    // try {
-    // map = Expression.evaluate( o1, TimeVaryingMap.class, false );
-    // } catch ( ClassCastException e ) {
-    // //ignore
-    // }
-    // if ( map != null ) result = divide( map, o2 );
-    // else {
-    // try {
-    // map = Expression.evaluate( o2, TimeVaryingMap.class, false );
-    // } catch ( ClassCastException e ) {
-    // //ignore
-    // }
-    // if ( map != null ) result = divide( o1, map );
-    // else {
-    // Number n1 = null;
-    // Number n2 = null;
-    // try {
-    // n1 = Expression.evaluate( o1, Number.class, false );
-    // n2 = Expression.evaluate( o2, Number.class, false );
-    // } catch ( Throwable e ) {
-    // // ignore
-    // }
+
     if ( n1 != null && n2 != null ) {
       if ( Infinity.isEqual( n1 ) ) {
         try {
@@ -3785,6 +3850,11 @@ public class Functions {
                                                                n2.intValue() );
       }
     }
+
+    if ( d1 != null || d2 != null ) {
+      result = DistributionHelper.divide( arg1, arg2 );
+    }
+
     // }
     // }
     try {
@@ -4367,6 +4437,7 @@ public class Functions {
 
 
   public static class P extends Unary<Boolean, Boolean> {
+    //Integer maxSamples = null;//FunctionOfDistributions.maxSamplesDefault;
 
     public P( Variable<Boolean> o ) {
       super( o, "p" );
@@ -4382,6 +4453,45 @@ public class Functions {
 
     public P( P m ) {
       super( m );
+    }
+
+//    public P( Variable<Boolean> o, Object maxSamples ) {
+//      super( o, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( Expression<Boolean> o1, Object maxSamples )  {
+//      super( o1, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( Object o1, Object maxSamples ) {
+//      super( o1, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( P m, Object maxSamples ) {
+//      super( m );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+
+    protected void init( Object maxSamples ) {
+      if ( maxSamples == null ) return;
+      if ( getArguments() != null && getArguments().size() > 0 && getArgument( 0 ) != null ) {
+        FunctionOfDistributions fod = null;
+        try {
+          fod = Expression.evaluate(getArgument(0), FunctionOfDistributions.class, true);
+          Long maxS = Expression.evaluate(maxSamples, Long.class, true);
+          if ( fod != null && maxS != null ) {
+            fod.setMaxSamples( maxS.intValue() );
+          }
+        } catch ( Throwable e ) {
+        }
+      }
     }
 
     @Override
@@ -4450,7 +4560,7 @@ public class Functions {
     System.out.println("calling p(" + o + ")");
       if ( o instanceof Distribution ) {
           Distribution d = (Distribution)o;
-          if ( Boolean.class.isAssignableFrom( d.getType() ) ) {
+          if ( d.getType() != null &&  Boolean.class.isAssignableFrom( d.getType() ) ) {
               System.out.println("Getting the probability of " + d);
               Double p = d.probability( true );
               if ( d instanceof FunctionOfDistributions ) {
