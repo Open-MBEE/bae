@@ -1,16 +1,21 @@
 package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.ae.event.*;
+import gov.nasa.jpl.ae.solver.Domain;
+import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.Variable;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.Utils;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
+import gov.nasa.jpl.mbee.util.*;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
-public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
+public class FunctionOfDistributions<T> extends AbstractDistribution<T>
+        implements HasParameters, ParameterListener, HasDomain, Groundable,
+                   UsesClock {
 
     public final static int maxSamplesDefault = 7000;
     public Integer _maxSamples = null;
@@ -97,7 +102,7 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
      * Whether to store samples, as opposed to just keeping a running average in
      * the combinedValue
      */
-    boolean recordingSamples = true;
+    boolean recordingSamples = false;
     /**
      * Whether to update the combinedValue; this must be true if recordingSamples is false.
      */
@@ -115,17 +120,51 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
 
     public Class<T> type = null;
 
+    protected long lastUpdated = LamportClock.tick();
+
+
     public FunctionOfDistributions() {
         Debug.breakpoint();
     }
 
+    @Override
+    public int compareTo( Object obj ) {
+        if ( this == obj ) return 0;
+        if ( !( obj instanceof FunctionOfDistributions ) ) {
+            return super.compareTo( obj );
+        }
+        FunctionOfDistributions o = (FunctionOfDistributions)obj;
+        if ( call == o.call ) return 0;
+        if ( call == null ) return -1;
+        if ( o.call == null ) return 1;
+        int c = call.compareStructure( o.call );
+        return c;
+    }
+
     @Override public double probability( T t ) {
+        return probability(t, null);
+    }
+
+    public double probability( T t, T unsampledSupportRangeDefault ) {
         double p = -1.0; // default bad value
 
         Distribution d = getDistribution( true );
 
         if ( d != null ) {
             p = d.probability( t );
+            if ( p <= 0.0 && this.combinedValue != null && this.combinedValue > 0.0 ) {
+                p = this.combinedValue;
+            }
+            if ( unsampledSupportRangeDefault != null && d instanceof SampleDistribution ) {
+                Double q = ((SampleDistribution)d).biasSupportFactor();
+                if ( q != null ) {
+                    double unsampledP =
+                            Utils.valuesLooselyEqual( unsampledSupportRangeDefault,
+                                                      t, true, false )
+                            ? 1.0 : 0.0;
+                    p = p * q + unsampledP * ( 1.0 - q );
+                }
+            }
         }
 //
 //        // go for analytic
@@ -143,14 +182,45 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         return p;
     }
 
+    public static long sampleBatchSize(long numSamplesGoal, long numSoFar) {
+        if ( numSamplesGoal - numSoFar < numSoFar ) {
+            return numSoFar;
+        }
+        if ( numSoFar == 0 ) {
+            long firstSampleBatchSize = numSamplesGoal / 32;
+            return firstSampleBatchSize;
+        }
+        return numSoFar * 2;
+    }
+
+    protected File combinedValuesFile = null;
+    protected File sampleValuesFile = null;
+    protected boolean writeCombined = true;
+    protected boolean writeSamples = true;
+
+    //protected long samplesTaken = 0;
+    protected long totalSamples = 0;
+
     public double sampleLoop() {
         Double lastCombinedValue = null;
         int matchCount = 0;
-        long totalSamples = this.getSamples() == null ? 0 : this.getSamples().size();
+        //long totalSamples = this.getSamples() == null ? 0 : this.getSamples().size();
+
+        if ( writeCombined && combinedValuesFile == null ) {
+            // HERE!! -- TODO
+            //combinedValuesFile =
+        }
+
         int totalFailedSamples = 0;
         int maxSamples = getMaxSamples();
+        if ( getSamples() == null ) this.samples = new SampleDistribution<>();
+        getSamples().recordCombinedValues = true;
+        getSamples().recordingSamples = false;
         System.out.println( "xxxxxxxxx   Sampling " + this );
-        while ( !this.samplingConverged && totalSamples < maxSamples && totalFailedSamples < 4 ) {
+        long batchSize = sampleBatchSize(maxSamples, totalSamples);
+        long batchLimit = totalSamples + batchSize;
+        while ( !this.samplingConverged && totalSamples < batchLimit &&
+                totalSamples < maxSamples && totalFailedSamples < 4 ) {
             Sample<T> s = null;
             try {
                 s = sample();
@@ -184,6 +254,12 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
 //                this.samplingConverged = true;
 //            }
         }
+
+        // If batch did not complete the set, then make sure this gets called again.
+        if ( totalSamples < maxSamples && getOwner() instanceof Parameter ) {
+            ((Parameter)getOwner()).update();
+        }
+
 
         if (this.combinedValue == null ) {
             System.out.println( "~~~~~~~~   No combined value!  " +
@@ -272,6 +348,17 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
         return null;
     }
 
+    @Override public Double supportLowerBound() {
+        Distribution d = getDistribution( false );
+        if ( d == this || d == null ) {
+            return null;
+        }
+        return d.supportLowerBound();
+    }
+    @Override public Double supportUpperBound() {
+        return null;
+    }
+
     /**
      * Sample this distribution and record and/or combine the samples according
      * the recordSamples and combiningSamples flags.
@@ -311,10 +398,10 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     public Sample<T> sample(SampleChain sampleChain) {
         Sample<T> p = tryToSample(sampleChain);
         if ( p == null ) return null;
-        if ( recordingSamples ) {
+        //if ( recordingSamples ) {
             if ( samples == null ) samples = new SampleDistribution<T>();
             samples.add( p );
-        }
+        //}
         if ( combiningSamples ) {
             Double n = DistributionHelper.combineValues( getType(), p,
                                                          combinedValue, totalWeight );
@@ -1088,6 +1175,356 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T> {
     }
 
     @Override public String toString() {
-        return "FunctionOfDistributions(" + call + ")";
+        String o = "";
+        if ( getOwner() instanceof HasName ) {
+            o = "" + ((HasName)getOwner()).getName();
+        }
+        return o + ":FunctionOfDistributions(" + call +
+               (bias == null ? "" : ", " + bias) + ")";
     }
+
+    /**
+     * @param deep whether the check is made recursively if the object is composed of
+     *             other Groundable objects.
+     * @param seen a set of Groundable objects that have already been checked to
+     *             avoid resursing deeper into an infinite loop.
+     * @return whether this object is assigned a specific value and, if deep,
+     * whether all contained objects are also grounded.
+     */
+    @Override public boolean isGrounded( boolean deep, Set<Groundable> seen ) {
+        if ( call == null )
+            return false;
+        if ( !call.isGrounded( deep, seen ) )
+            return false;
+        if ( bias == null )
+            return true;
+        if ( bias instanceof Groundable ) {
+            return ( (Groundable)bias ).isGrounded( deep, seen );
+        }
+        return true;
+    }
+
+    /**
+     * @param deep
+     * @param seen
+     * @return whether the object and, if deep, its contained Grounadable objects
+     * were successfully grounded. A subsequent call to isGrounded()
+     * should return the same value.
+     */
+    @Override public boolean ground( boolean deep, Set<Groundable> seen ) {
+        boolean didSomething = call != null && call.ground( deep, seen );
+        if ( bias instanceof Groundable ) {
+            boolean ds = ( (Groundable)bias ).ground( deep, seen );
+            didSomething = didSomething || ds;
+        }
+        return didSomething;
+    }
+
+    /**
+     * Propagate this parameter's change to other objects. This may involve
+     * updating dependencies, re-elaboration of events, and maybe constraint
+     * satisfaction.
+     *
+     * @param parameter the parameter whose value has changed
+     * @param seen
+     */
+    @Override public void handleValueChangeEvent( Parameter<?> parameter,
+                                                  Set<HasParameters> seen ) {
+        if ( call != null ) {
+            call.handleValueChangeEvent( parameter, seen );
+        }
+        // TODO -- bias
+    }
+
+    /**
+     * Propagate this change to the parameter's domain to other objects. This may
+     * involve updating domains of related parameters or their values.
+     *
+     * @param parameter the parameter whose domain has changed
+     * @param seen
+     */
+    @Override public void handleDomainChangeEvent( Parameter<?> parameter,
+                                                   Set<HasParameters> seen ) {
+        if ( call != null ) {
+            call.handleDomainChangeEvent( parameter, seen );
+        }
+        // TODO -- bias
+    }
+
+    /**
+     * Set to stale anything that references the parameter whose value just
+     * changed.
+     * <p>
+     * Lazy updating is added so that maps keyed with parameters (like
+     * TimeVaryingMap) have a chance to pull out entries before they are
+     * corrupted.
+     *
+     * @param changedParameter the parameter whose value is about to change
+     * @param seen
+     */
+    @Override public void setStaleAnyReferencesTo(
+            Parameter<?> changedParameter, Set<HasParameters> seen ) {
+        if ( call != null ) {
+            call.setStaleAnyReferencesTo( changedParameter, seen );
+        }
+        // TODO -- bias
+    }
+
+    /**
+     * Remove any references to the parameter.
+     *
+     * @param parameter the parameter that is being detached
+     */
+    @Override public void detach( Parameter<?> parameter ) {
+        if ( call != null ) {
+            call.detach( parameter );
+        }
+        // TODO -- bias
+    }
+
+    /**
+     * Update this parameter's value or domain so that it does not depend on stale
+     * information.
+     *
+     * @param parameter the parameter to refresh
+     * @param seen
+     * @return whether or not the parameter was refreshed successfully
+     */
+    @Override public boolean refresh( Parameter<?> parameter,
+                                      Set<ParameterListener> seen ) {
+        return call != null && call.refresh( parameter, seen );
+        // TODO -- bias
+    }
+
+    /**
+     * Pick a new value for the {@link Variable}, possibly to help resolve constraints.
+     *
+     * @param variable the variable for which to pick a parameter
+     * @return whether a new value was picked
+     */
+    @Override public <T> boolean pickParameterValue( Variable<T> variable ) {
+        return call != null && call.pickParameterValue( variable );
+        // TODO -- bias
+    }
+
+    /**
+     * Get the name of this object.
+     *
+     * @return a name
+     */
+    @Override public String getName() {
+        return call == null ? "" : call.getName();
+    }
+
+    /**
+     * Adjust the value assigned to a variable to make sure it is in in the
+     * domain.
+     *
+     * @param v    the variable whose value is to be assigned
+     * @param o    the object to translate
+     * @param type the variable's type
+     * @return the new value to use instead of the object passed in
+     */
+    @Override public <T> T translate( Variable<T> v, Object o, Class<?> type ) {
+        return call == null ? null : call.translate( v, o, type );
+        // TODO -- bias
+    }
+
+    /**
+     * Find the variables on which the input variable depends.
+     *
+     * @param variable the dependent variable
+     * @return a list of variables
+     */
+    @Override public List<Variable<?>> getVariablesOnWhichDepends( Variable<?> variable ) {
+        return call == null ? null : call.getVariablesOnWhichDepends(variable);
+        // TODO -- bias
+    }
+
+    @Override public Set<Parameter<?>> getParameters( boolean deep,
+                                                      Set<HasParameters> seen ) {
+        return call == null ? null : call.getParameters(deep, seen);
+        // TODO -- bias
+    }
+
+    @Override public Set<Parameter<?>> getFreeParameters( boolean deep,
+                                                          Set<HasParameters> seen ) {
+        return call == null ? null : call.getFreeParameters(deep, seen);
+        // TODO -- bias
+    }
+
+    @Override
+    public void setFreeParameters( Set<Parameter<?>> freeParams, boolean deep,
+                                   Set<HasParameters> seen ) {
+        if ( call != null ) {
+            call.setFreeParameters( freeParams, deep, seen );
+        }
+        // TODO -- bias
+    }
+
+    @Override public boolean isFreeParameter( Parameter<?> p, boolean deep,
+                                              Set<HasParameters> seen ) {
+        return call != null && call.isFreeParameter( p, deep, seen );
+        // TODO -- bias
+    }
+
+    @Override public boolean hasParameter( Parameter<?> parameter, boolean deep,
+                                           Set<HasParameters> seen ) {
+        return call != null && call.hasParameter( parameter, deep, seen );
+        // TODO -- bias
+    }
+
+    @Override public Parameter<?> getParameter( String name ) {
+        return call == null ? null : call.getParameter(name);
+        // TODO -- bias
+    }
+
+    @Override
+    public boolean substitute( Parameter<?> p1, Parameter<?> p2, boolean deep,
+                               Set<HasParameters> seen ) {
+        return call != null && call.substitute( p1, p2, deep, seen );
+        // TODO -- bias
+    }
+
+    @Override
+    public boolean substitute( Parameter<?> p1, Object exp, boolean deep,
+                               Set<HasParameters> seen ) {
+        return call != null && call.substitute( p1, exp, deep, seen );
+        // TODO -- bias
+    }
+
+    @Override public void deconstruct() {
+        if ( call != null ) {
+            call.deconstruct();
+        }
+        // TODO -- bias
+    }
+
+    @Override public void addReference() {
+        if ( call != null ) {
+            call.addReference();
+        }
+        // TODO -- bias
+    }
+
+    @Override public void subtractReference() {
+        if ( call != null ) {
+            call.subtractReference();
+        }
+        // TODO -- bias
+    }
+
+    @Override public boolean isStale() {
+        return call != null && call.isStale();
+        // TODO -- bias?
+    }
+
+    @Override public void setStale( boolean staleness ) {
+        if ( call != null ) {
+            call.setStale( staleness );
+        }
+        // TODO -- bias?
+    }
+
+    @Override public void setStale( boolean staleness, boolean deep,
+                                    Set<LazyUpdate> seen ) {
+        if ( call != null ) {
+            call.setStale( staleness, deep, seen );
+        }
+        // TODO -- bias?
+    }
+
+    /**
+     * Return the possible values that the object may have.
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override public Domain<?> getDomain( boolean propagate,
+                                          Set<HasDomain> seen ) {
+        return call == null ? null : call.getDomain( propagate, seen );
+    }
+
+    /**
+     * Make the the domain of this object the largest subset of its current domain
+     * that is contained by the input domain, even if that is an empty domain. For
+     * example, if this is a function f(x,y) = x+y and the sum is restricted to
+     * [0,3], then the domains of x and y should be restricted such that their sum
+     * is within [0,3]. In this case, we are technically restricting the range of
+     * f even though we say "domain." The domain of a variable is not the same as
+     * the domain of a function. Think of the function as a variable that has a
+     * domain, so the range of the function is the domain of the variable
+     * representing it.
+     *
+     * @param domain
+     * @param propagate
+     * @param seen
+     * @return the resulting domain and whether any restriction was made to any
+     * variable or expression as a result of this call.
+     */
+    @Override public <T> Pair<Domain<T>, Boolean> restrictDomain(
+            Domain<T> domain, boolean propagate, Set<HasDomain> seen ) {
+        return call == null ? null : call.restrictDomain( domain, propagate, seen );
+    }
+
+    @Override public long update() {
+        return lastUpdated = LamportClock.tick();
+    }
+    @Override public long getLastUpdated() {
+        return lastUpdated;
+    }
+    @Override public long getLastUpdated(Set<UsesClock> seen) {
+        return lastUpdated;
+    }
+
+    /**
+     * Write object recursively based on passed options.
+     *
+     * @param withHash whether to include "@" + hasCode() in the returned String.
+     * @param deep     whether to include member/child detail and call their
+     *                 MoreToString.toString() (typically) with the same options.
+     * @param seen     whether the object has already been written with deep=true, in
+     *                 which case it will set deep=false to end the recursion.
+     * @return the string representation of the object.
+     */
+    @Override public String toString( boolean withHash, boolean deep,
+                                      Set<Object> seen ) {
+        if ( call == null ) {
+            return this.getClass().getSimpleName() + (withHash ? "@" + getId() : "");
+        }
+        return call.toString( withHash, deep, seen );
+        // TODO -- bias
+    }
+
+    /**
+     * Write object recursively based on passed options.
+     *
+     * @param withHash     whether to include "@" + hasCode() in the returned String.
+     * @param deep         whether to include member/child detail and call their
+     *                     MoreToString.toString() (typically) with the same options.
+     * @param seen         whether the object has already been written with deep=true, in
+     *                     which case it will set deep=false to end the recursion.
+     * @param otherOptions other class or context-specific options with names and values.
+     * @return the string representation of the object.
+     */
+    @Override public String toString( boolean withHash, boolean deep,
+                                      Set<Object> seen,
+                                      Map<String, Object> otherOptions ) {
+        if ( call == null ) {
+            return this.getClass().getSimpleName() + (withHash ? "@" + getId() : "");
+        }
+        return call.toString( withHash, deep, seen, otherOptions );
+        // TODO -- bias
+    }
+
+    /**
+     * @return a single name or value
+     */
+    @Override public String toShortString() {
+        return call == null ? this.getClass().getSimpleName() :
+               call.toShortString();
+        // TODO -- bias
+    }
+
 }
