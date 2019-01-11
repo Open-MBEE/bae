@@ -98,6 +98,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return lastUpdated = LamportClock.tick();
   }
   @Override public long getLastUpdated() {
+    if ( returnValue instanceof UsesClock && ( (UsesClock)returnValue ).getLastUpdated() > lastUpdated ) {
+      lastUpdated = ( (UsesClock)returnValue ).getLastUpdated();
+    }
     return lastUpdated;
   }
   @Override public long getLastUpdated(Set<UsesClock> seen) {
@@ -387,7 +390,40 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( compare != 0 ) return compare;
     return compare;
   }
-  
+
+  public int compareStructure(Call o) {
+    if ( this == o ) return 0;
+    if ( o == null ) return -1;
+    if ( getId() == o.getId() ) return 0;
+    int compare = 0;
+    compare = CompareUtils.compare( getMember(), o.getMember(), true );
+    if ( compare != 0 ) return compare;
+    compare = CompareUtils.compare( getParameterTypes(), o.getParameterTypes(), true );
+    if ( compare != 0 ) return compare;
+    //    compare = Utils.compareTo( getReturnType(), o.getReturnType(), true );
+    //    if ( compare != 0 ) return compare;
+    compare = CompareUtils.compare( getClass().getName(), o.getClass().getName() );
+    if ( compare != 0 ) return compare;
+    // TODO -- would like to skip this since it changes.
+    if ( Debug.isOn() ) Debug.errln( "Call.compareTo comparing value information." );
+    compare = CompareUtils.compare( arguments, o.arguments, true );
+    if ( compare != 0 ) return compare;
+    if (!isStatic()) {
+      compare = CompareUtils.compare(object, o.object, true);
+      if (compare != 0) return compare;
+    }
+    return compare;
+  }
+
+  @Override public boolean equals( Object obj ) {
+    if ( this == obj ) return true;
+    if ( obj == null ) return false;
+    if ( ! (obj instanceof  Call) ) return false;
+    Call o = (Call)obj;
+    int c = compareStructure( o );
+    return c == 0;
+  }
+
   public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
     if ( returnValue != null && !isStale() ) {
         evaluationSucceeded = true;
@@ -525,7 +561,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
       if ( evaluationSucceeded ) {
         setReturnValue( newValue );
-        lastUpdated = tick();
+        update();
 
         // No longer stale after invoked with updated arguments and result is cached.
         setStale( false );
@@ -1318,6 +1354,22 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     boolean argsStale = areArgsStale();
     if ( argsStale ) {
       return true;
+    }
+
+    // check clock for arguments.
+    if ( arguments != null ) {
+      for ( Object arg : arguments ) {
+        if ( arg instanceof LazyUpdate ) {
+          if ( ( (LazyUpdate)arg ).isStale() ) {
+            setStale( true );
+            return true;
+          }
+        }
+        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+          setStale( true );
+          return true;
+        }
+      }
     }
 
     for ( Parameter< ? > p : getParameters( false, null ) ) {
