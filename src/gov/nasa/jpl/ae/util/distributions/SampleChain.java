@@ -141,4 +141,23 @@ public class SampleChain<T> implements Sample<T> {
         sb.append( MoreToString.Helper.toString( samples ) );
         return sb.toString();
     }
+
+    public Double biasFactor() {
+//        for ( Variable v : samplesByVariable.keySet() ) {
+//            if ( v.getValue( false ) instanceof Distribution ) {
+//            }
+//        }
+        double factor = 1.0;
+        for ( Distribution d : samplesByDistribution.keySet() ) {
+            if ( d instanceof FunctionOfDistributions ) {
+                // skip -- we just want leaf distributions
+            } else if ( d instanceof  AbstractDistribution ) {
+                Double f = ( (AbstractDistribution)d ).biasSupportFactor();
+                if ( f != null ) {
+                    factor *= f;
+                }
+            }
+        }
+        return factor;
+    }
 }

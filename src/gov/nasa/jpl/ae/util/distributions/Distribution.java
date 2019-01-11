@@ -9,7 +9,7 @@ import org.apache.commons.math3.random.JDKRandomGenerator;
 /**
  * Created by dank on 6/29/17.
  */
-public interface Distribution<T> extends HasOwner {
+public interface Distribution<T> extends HasOwner {  // TODO -- implements Domain or HasDomain
 
     public static JDKRandomGenerator random = new JDKRandomGenerator( (int)Random.getSeed() );
 
@@ -21,6 +21,9 @@ public interface Distribution<T> extends HasOwner {
     Class<T> getType();
     Number mean();
     Double variance();
+    Double supportLowerBound();
+    Double supportUpperBound();
+    Double biasSupportFactor( Distribution<T> bias );
     // TODO -- add these below and maybe
     // T expectedValue();
     //double cdf(T t);

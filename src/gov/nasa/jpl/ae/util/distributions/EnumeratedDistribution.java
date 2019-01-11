@@ -2,6 +2,7 @@ package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Utils;
 import org.apache.commons.math3.exception.MathArithmeticException;
 import org.apache.commons.math3.exception.NotANumberException;
@@ -9,10 +10,7 @@ import org.apache.commons.math3.exception.NotFiniteNumberException;
 import org.apache.commons.math3.exception.NotPositiveException;
 import org.apache.commons.math3.util.Pair;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
     org.apache.commons.math3.distribution.EnumeratedDistribution<T> d = null;
@@ -44,8 +42,21 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
                 Distribution.random, mapToPairList(pmf));
     }
 
+    @Override public int compareTo( Object o ) {
+        int c = super.compareTo( o );
+        if ( c != 0 ) return c;
+        if ( o instanceof EnumeratedDistribution ) {
+            //opmf = o.d.getPmf()
+            c = CompareUtils.compare( d.getPmf(), ((EnumeratedDistribution)o).d.getPmf() );
+            return c;
+        }
+        Debug.error( true, false,
+                     "WARNING! Not able to compare EnumeratedDistributions, " +
+                     this + " and " + o );
+        return 0;
+    }
 
-    protected <K, V> List< Pair<K, V> > mapToPairList(Map<K,V> map) {
+    protected <K, V> List< Pair<K, V> > mapToPairList( Map<K,V> map) {
         ArrayList<Pair<K, V>> r = new ArrayList<Pair<K, V>>();
         for ( Map.Entry e : map.entrySet() ) {
             Object k = e.getKey();
@@ -141,8 +152,60 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
         return v / totalWeight;
     }
 
+    public Double supportBound(boolean lower) {
+        T t = null;
+        for ( Pair<T,Double> p : d.getPmf() ) {
+            if ( t == null ) {
+                t = p.getFirst();
+            } else {
+                int comp = CompareUtils.compare( p.getFirst(), t );
+                if ( (lower && comp < 0) || (!lower && comp > 0) ) {
+                    t = p.getFirst();
+                }
+            }
+        }
+        gov.nasa.jpl.mbee.util.Pair<Boolean, Double> pair =
+                ClassUtils.coerce( t, Double.class, false );
+        if ( pair != null && pair.first != null && pair.first ) {
+            return pair.second;
+        }
+        return null;
+    }
+    @Override public Double supportLowerBound() {
+        return supportBound( true );
+    }
+
+    @Override public Double supportUpperBound() {
+        return supportBound( false );
+    }
+
+    @Override public Double biasSupportFactor( Distribution<T> bias ) {
+        double sum = 0.0;
+        HashSet<T> set = null;
+        if ( bias  == null ) return 1.0;
+        if ( bias instanceof EnumeratedDistribution ) {
+            set = new HashSet<>();
+            for ( Pair<T,Double> p  : ((EnumeratedDistribution<T>)bias).d.getPmf() ) {
+                set.add( p.getFirst() );
+            }
+        }
+
+        for ( Pair<T,Double> p : d.getPmf() ) {
+            if ( set != null && set.contains( p.getFirst() ) ||
+                 ( CompareUtils.compare( p.getFirst(), bias.supportLowerBound() ) >= 0 &&
+                   CompareUtils.compare( p.getFirst(), bias.supportUpperBound() ) <= 0 ) ) {
+                sum += p.getSecond();
+            }
+        }
+        return sum;
+    }
+
     @Override public String toString() {
-        return this.getClass().getSimpleName() + d.getPmf() ;
+        if ( bias != null ) {
+            return this.getClass().getSimpleName() + "(" + d.getPmf() +
+                   (bias == null ? "" : ", " + bias) + ")";
+        }
+        return this.getClass().getSimpleName() + d.getPmf();
     }
 
 }

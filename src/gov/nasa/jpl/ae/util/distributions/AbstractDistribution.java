@@ -2,17 +2,17 @@ package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.ae.event.HasOwner;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.HasId;
-import gov.nasa.jpl.mbee.util.HasName;
+import gov.nasa.jpl.mbee.util.*;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 
-import java.util.Set;
+import java.util.*;
 
 public abstract class AbstractDistribution<T>
         extends HasIdImpl
         implements Distribution<T>, Comparable {
     Object owner;
+    Distribution<T> bias = null;
+    Map<String, Object> parameters = null;
 
     //    public abstract Distribution<Double> plus( Distribution<?> otherDist );
     //    public abstract Distribution<Double> minus( Distribution<?> otherDist );
@@ -108,9 +108,123 @@ public abstract class AbstractDistribution<T>
      *                              from being compared to this object.
      */
     @Override public int compareTo( Object o ) {
+        if ( this == o ) return 0;
+        if ( o == null ) return 1;
+        if ( this.getClass().equals( o.getClass() ) ) {
+            int c = CompareUtils.compare(parameters, ((AbstractDistribution)o).parameters);
+            if ( c != 0 ) return c;
+            c = CompareUtils.compare(bias, ((AbstractDistribution)o).bias);
+            return c;
+        }
         if ( o instanceof HasId ) {
-            return Integer.compare( getId(), ( (AbstractDistribution)o ).getId() );
+            return Integer.compare( getId(), ( (HasId<Integer>)o ).getId() );
         }
         return CompareUtils.compare( this, o, false, false );
     }
+
+    @Override public boolean equals( Object obj ) {
+        int c = compareTo(obj);
+        return c == 0;
+    }
+
+    public static boolean cachingSupport = false;
+    public static Map< Integer, Map< Integer, Double > >
+            supportFactorCache = new HashMap<>();
+    public static Map< Integer, Map< Integer, List< Pair< Double,Double > > > >
+            supportSubtractCache = new HashMap<>();
+
+    /**
+     * Compute a factor to correct for biased sampling over a subset of the possible
+     * values.  If using d2 as a bias for sampling d1, and the possible values for
+     * d2 are different from those of d1, return the probability that a sample from
+     * d1 would be in the support range of d2.
+     * @param d1
+     * @param d2
+     * @return
+     */
+    public static double supportFactor(Distribution d1, Distribution d2) {
+        if ( d1 == null || d2 == null ) return 1.0;
+        Double fc = null;
+        if ( cachingSupport ) {
+            fc = Utils.get( supportFactorCache, d1.hashCode(), d2.hashCode() );
+            if ( fc != null ) return fc;
+        }
+        // Subtract the value range of d2 from that of d1 to find the ranges of
+        // values in d1 that are not values of d2.
+        List<Pair<Double, Double>> ranges = supportSubtract( d1, d2 );
+        // Find the probabilty that a sample of d1 is not in the range of values
+        // for d2 by using the CDF of d1 to sum the probabilities of being in ranges
+        // that were just computed.
+        if ( ranges == null ) return 1.0;
+        double sum = 0.0;
+        for ( Pair<Double, Double> p : ranges ) {
+            sum += d1.cumulativeProbability( p.second ) - d1.cumulativeProbability( p.first );
+        }
+        // Now subtract that probability from 1 to get the probability of a d1
+        // sample being in the range of d2's possible values.
+        double f = 1.0 - sum;
+        String ownerName = d1.getOwner() == null ? "" : d1.getQualifiedName( null );
+        System.out.println("supportFactor(" + ownerName + "=" + d1 + ", " + d2 +
+                           ") = cumulative probability of being in " + ranges +
+                           ", which is " + f);
+        if ( cachingSupport ) {
+            Utils.put( supportFactorCache, d1.hashCode(), d2.hashCode(), f );
+        }
+        return f;
+    }
+    public static List< Pair< Double,Double > > supportSubtract(Distribution d1, Distribution d2) {
+        if ( d1 == null || d2 == null ) return null;
+        if ( cachingSupport ) {
+            List<Pair<Double, Double>> cachedRanges =
+                    Utils.get( supportSubtractCache, d1.hashCode(), d2.hashCode() );
+            if ( cachedRanges != null ) {
+                return cachedRanges;
+            }
+        }
+        ArrayList< Pair< Double,Double > > ranges = new ArrayList<>();
+        Double lb1 = d1.supportLowerBound();
+        Double lb2 = d2.supportLowerBound();
+        Double ub1 = d1.supportUpperBound();
+        Double ub2 = d2.supportUpperBound();
+        // make sure they overlap first
+        if ( ub2 < lb1 || lb2 > ub2 ) {
+            if ( cachingSupport ) {
+                Utils.put( supportSubtractCache, d1.hashCode(), d2.hashCode(),
+                           ranges );
+            }
+            return ranges;
+        }
+        if ( lb1 < lb2 ) {
+            ranges.add( new Pair<>( lb1, lb2 ) );
+        }
+        if ( ub1 > ub2 ) {
+            ranges.add( new Pair<>( ub2, ub1 ) );
+        }
+        if ( cachingSupport ) {
+            Utils.put( supportSubtractCache, d1.hashCode(), d2.hashCode(),
+                       ranges );
+        }
+        return ranges;
+    }
+
+    @Override public Sample<T> sample( Distribution<T> bias ) {
+        if ( bias == null ) return null;
+        Sample<T> s = bias.sample();
+        double w = pdf( s.value() ) / bias.pdf( s.value() );
+        // This is not the right place to use the support factor.
+//        double supportFactor = supportFactor( this, bias );
+//        w *= supportFactor;
+        return new SimpleSample<T>( s.value(), w );
+    }
+
+    public Double biasSupportFactor() {
+        Double f = biasSupportFactor( bias );
+        return f;
+    }
+
+    @Override public Double biasSupportFactor( Distribution<T> bias ) {
+        Double f = supportFactor( this, bias );
+        return f;
+    }
+
 }

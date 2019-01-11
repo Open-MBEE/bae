@@ -1,12 +1,13 @@
 package gov.nasa.jpl.ae.util.distributions;
 
 import gov.nasa.jpl.mbee.util.Pair;
+import gov.nasa.jpl.mbee.util.Utils;
 import org.apache.commons.math3.distribution.RealDistribution;
+
+import java.util.List;
 
 public class AbstractRealDistribution<D extends RealDistribution> extends AbstractDistribution<Double> {
     D d;
-    Distribution<Double> bias = null;
-
 //    public abstract Distribution<Double> plus( Distribution<?> otherDist );
 //    public abstract Distribution<Double> minus( Distribution<?> otherDist );
 //    public abstract Distribution<Double> times( Distribution<?> otherDist );ß
@@ -31,11 +32,17 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
         return new SimpleSample<>( ds, 1.0 );
     }
 
-    @Override public Sample<Double> sample( Distribution<Double> bias ) {
-        Sample<Double> s = bias.sample();
-        double w = pdf( s.value() ) / bias.pdf( s.value() );
-        return new SimpleSample<>( s.value(), w );
-    }
+//    @Override public Sample<Double> sample( Distribution<Double> bias ) {
+//        if ( bias == null ) return null;
+//        Sample<Double> s = bias.sample();
+//        double w = pdf( s.value() ) / bias.pdf( s.value() );
+////        List<Pair<Double, Double>> ranges = supportSubtract( this, bias );
+////        if ( !Utils.isNullOrEmpty(ranges ) ) {
+//        double supportFactor = supportFactor( this, bias );
+//        w *= supportFactor;
+////        }
+//        return new SimpleSample<>( s.value(), w );
+//    }
 
     @Override public double cumulativeProbability( Double t ) {
         return d.cumulativeProbability( (Double)t );
@@ -51,6 +58,14 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
 
     @Override public Double variance() {
         return d.getNumericalVariance();
+    }
+
+    @Override public Double supportLowerBound() {
+        return d.getSupportLowerBound();
+    }
+
+    @Override public Double supportUpperBound() {
+        return d.getSupportUpperBound();
     }
 
 }

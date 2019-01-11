@@ -2,6 +2,8 @@ package gov.nasa.jpl.ae.util.distributions;
 
 import org.apache.commons.math3.distribution.BinomialDistribution;
 
+import java.util.TreeMap;
+
 /**
  * Created by dank on 6/29/17.
  */
@@ -11,6 +13,8 @@ public class BooleanDistribution extends AbstractDistribution<Boolean> {
 
     public BooleanDistribution(double p) {
         d = new BinomialDistribution( Distribution.random, 1, p);
+        parameters = new TreeMap<>();
+        parameters.put("p", p);
     }
 
     public double probability() {
@@ -54,7 +58,16 @@ public class BooleanDistribution extends AbstractDistribution<Boolean> {
         return d.getNumericalVariance();
     }
 
+    @Override public Double supportLowerBound() {
+        return 0.0;
+    }
+
+    @Override public Double supportUpperBound() {
+        return 1.0;
+    }
+
     @Override public String toString() {
-        return this.getClass().getSimpleName() + "(" + d.getProbabilityOfSuccess() + ")";
+        return this.getClass().getSimpleName() + "(" + d.getProbabilityOfSuccess() +
+               (bias == null ? "" : ", " + bias) + ")";
     }
 }

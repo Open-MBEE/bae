@@ -1,9 +1,6 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.FileUtils;
-import gov.nasa.jpl.mbee.util.Pair;
-import gov.nasa.jpl.mbee.util.Random;
+import gov.nasa.jpl.mbee.util.*;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -11,7 +8,8 @@ import java.util.TreeMap;
 
 public class SampleDistribution<T> extends AbstractDistribution<T> {
 
-    public boolean recordCombinedValues = true;
+    public boolean recordCombinedValues = false;
+    public boolean recordingSamples = false;
     public ArrayList<Pair<Double, Sample>> combinedValues = new ArrayList<>();
 
     static class SampleSet extends ArrayList<Sample> {
@@ -28,22 +26,29 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
     static class SampleMap<V> extends TreeMap< V, SampleSet > {
         Double totalWeight = 0.0;
         Double combinedValue = null;
+        public boolean recordingSamples = false;
+        Sample lastSample = null;
 
         SampleMap() {
             super(CompareUtils.GenericComparator.instance());
         }
 
         public boolean add(V t, Sample<V> s) {
+            if ( s == null ) return false;
             Double combinedVal = combineSample(combinedValue, totalWeight, s);
             if ( combinedVal != null ) {
                 combinedValue = combinedVal;
                 totalWeight += s.weight();
             }
-            SampleSet ss = get(t);
-            if ( ss == null ) ss = new SampleSet();
-            boolean r = ss.add(s);
-            put(t, ss);
-            return r;
+            lastSample = s;
+            if ( recordingSamples ) {
+                SampleSet ss = get( t );
+                if ( ss == null ) ss = new SampleSet();
+                boolean r = ss.add( s );
+                put( t, ss );
+                return r;
+            }
+            return true;
         }
         double weight(V v) {
             SampleSet ss = get(v);
@@ -94,7 +99,10 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
     protected Class<T> type = null;
 
     public boolean add( Sample<T> s ) {
-        if ( samples == null ) samples = new SampleMap<>();
+        if ( samples == null ) {
+            samples = new SampleMap<>();
+            samples.recordingSamples = recordingSamples;
+        }
         boolean result = samples.add( s.value(), s );
         if ( recordCombinedValues ) {
             combinedValues.add( new Pair( samples.combinedValue, s ) );
@@ -158,6 +166,93 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
         return variance;
     }
 
+    protected Double supportBound(Sample v, boolean lower) {
+        if ( v instanceof SampleChain ) {
+            Sample last = ( (SampleChain)v ).lastSample;
+            if ( last != v ) {
+                return supportBound( last, lower );
+            }
+        }
+        if ( v instanceof SampleInContext ) {
+            SampleInContext sic = (SampleInContext)v;
+            if ( sic.getDistribution() != null ) {
+                if ( lower ) {
+                    return sic.getDistribution().supportLowerBound();
+                } else {
+                    return sic.getDistribution().supportUpperBound();
+                }
+            }
+        }
+        return null;
+    }
+
+    public Double supportBound(boolean lower) {
+        T t = null;
+        if ( samples != null ) {
+            for ( Map.Entry<T, SampleSet> e : samples.entrySet() ) {
+                SampleSet s = e.getValue();
+                if ( !Utils.isNullOrEmpty( s ) ) {
+                    for ( Sample v : s ) {
+                        Double b = supportBound( v, lower );
+                        if ( b != null ) {
+                            return b;
+                        }
+                    }
+                }
+                if ( t == null ) {
+                    t = e.getKey();
+                } else {
+                    int c = CompareUtils.compare( t, e.getKey() );
+                    if ( (lower && c > 0 ) || (!lower && c < 0 ) ) {
+                        t = e.getKey();
+                    }
+                }
+            }
+        }
+        Pair<Boolean, Double> p = ClassUtils.coerce( t, Double.class, false );
+        if ( p != null && p.first != null && p.first ) {
+            return p.second;
+        } else {
+            System.err.println( "WARNING!  Wasted time unsuccessfully trying to get bound from SampleDistribution! " + this );
+        }
+        return null;
+    }
+
+    @Override public Double supportLowerBound() {
+        return supportBound( true );
+    }
+    @Override public Double supportUpperBound() {
+        return supportBound( false );
+    }
+
+    @Override public Double biasSupportFactor() {
+        if ( bias != null ) {
+            return super.biasSupportFactor();
+        }
+        // Find a SampleChain and get its bias factor
+        SampleChain sc = null;
+        if ( samples != null && samples.lastSample instanceof SampleChain ) {
+            sc = (SampleChain)samples.lastSample;
+            Double f = sc.biasFactor();
+            if ( f != null ) {
+                return f;
+            }
+        }
+        if ( samples != null && samples.values() != null ) {
+            for ( SampleSet set : samples.values() ) {
+                for ( Sample s : set ) {
+                    if ( s instanceof SampleChain ) {
+                        Double f = ( (SampleChain)s ).biasFactor();
+                        if ( f != null ) {
+                            return f;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Sample from the samples
      * @return a sample from the samples
@@ -175,11 +270,6 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
             }
         }
         return null;
-    }
-
-    @Override public Sample<T> sample( Distribution<T> bias ) {
-        // TODO
-        return sample();
     }
 
     @Override public double cumulativeProbability( T t ) {

@@ -38,12 +38,6 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
         return new SimpleSample<>( x, w );
     }
 
-    @Override public Sample<Integer> sample( Distribution<Integer> bias ) {
-        Sample<Integer> s = bias.sample();
-        double w = pdf( s.value() ) / bias.pdf( s.value() );
-        return new SimpleSample<>( s.value(), w );
-    }
-
     @Override public double cumulativeProbability( Integer t ) {
         return d.cumulativeProbability( (Integer)t );
     }
@@ -60,25 +54,36 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
 //
 //    }
 
-    /**
-     * Get the name preceded by parent names, separated by '.'
-     *
-     * @param seen a list of objects that have already been visited and that are to
-     *             be used to avoid infinite recursion
-     * @return
-     */
-    @Override public String getQualifiedName( Set<Object> seen ) {
-        return null;
+//    /**
+//     * Get the name preceded by parent names, separated by '.'
+//     *
+//     * @param seen a list of objects that have already been visited and that are to
+//     *             be used to avoid infinite recursion
+//     * @return
+//     */
+//    @Override public String getQualifiedName( Set<Object> seen ) {
+//        return null;
+//    }
+//
+//    /**
+//     * Get the ID preceded by parent IDs, separated by '.'
+//     *
+//     * @param seen a list of objects that have already been visited and that are to
+//     *             be used to avoid infinite recursion
+//     * @return
+//     */
+//    @Override public String getQualifiedId( Set<Object> seen ) {
+//        return null;
+//    }
+
+    @Override public Double supportLowerBound() {
+        Integer b = d.getSupportLowerBound();
+        return b.doubleValue();
     }
 
-    /**
-     * Get the ID preceded by parent IDs, separated by '.'
-     *
-     * @param seen a list of objects that have already been visited and that are to
-     *             be used to avoid infinite recursion
-     * @return
-     */
-    @Override public String getQualifiedId( Set<Object> seen ) {
-        return null;
+    @Override public Double supportUpperBound() {
+        Integer b = d.getSupportUpperBound();
+        return b.doubleValue();
     }
+
 }

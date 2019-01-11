@@ -436,16 +436,20 @@ public class DistributionHelper {
     }
 
     public static Object divide( Distribution d1, Object o2 ) {
+        if ( d1 == null || o2 == null ) return null;
         if ( o2 instanceof Distribution ) {
             return divide( d1, (Distribution<?>)o2);
         }
-        if ( o2 == null ) return null;
+        Class<?> dType = d1.getType();
+        Class<?> oType = (Class<?>)ClassUtils.getType( o2 );
+        Class type = ClassUtils.dominantTypeClass( dType, oType );
+
         FunctionOfDistributions d = new FunctionOfDistributions<>();
         DistributionFunctionCall call =
                 new DistributionFunctionCall( null,
                                               Functions.class, "divide",
                                               new Object[] {d1, o2},
-                                              d1.getType() );
+                                              type );
         d.call = call;
         return d;
     }
@@ -455,12 +459,16 @@ public class DistributionHelper {
         if ( o1 instanceof Distribution ) {
             return divide( (Distribution<?>)o1, d2);
         }
+        Class<?> oType = (Class<?>)ClassUtils.getType( o1 );
+        Class<?> dType = d2.getType();
+        Class type = ClassUtils.dominantTypeClass( oType, dType );
+
         FunctionOfDistributions d = new FunctionOfDistributions<>();
         DistributionFunctionCall call =
                 new DistributionFunctionCall( null,
                                               Functions.class, "divide",
                                               new Object[] {o1, d2},
-                                              d1.getType() );
+                                              type );
         d.call = call;
         return d;
     }
@@ -471,7 +479,7 @@ public class DistributionHelper {
             return divide( (Distribution<?>)o1, o2);
         }
         if ( o2 instanceof Distribution ) {
-            return divide( (Distribution<?>)o2, o1);
+            return divide( o1, (Distribution<?>)o2);
         }
         return null;  // TODO -- error
     }
