@@ -59,7 +59,7 @@ public class ConstructorCall extends Call {
                           Class<?> returnType ) {
     this.constructor = constructor; // the constructor must be static
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   /**
@@ -72,7 +72,7 @@ public class ConstructorCall extends Call {
     thisClass = cls;
     this.returnType = returnType;
     setConstructor( ClassUtils.getConstructorForArgTypes( cls, (Class<?>[])null ) );
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   /**
@@ -84,7 +84,7 @@ public class ConstructorCall extends Call {
     this.object = object;
     this.returnType = returnType;
     setConstructor( constructor );
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   public ConstructorCall( Object object, Class<?> cls,
@@ -105,7 +105,7 @@ public class ConstructorCall extends Call {
     setConstructor( constructor );
     this.arguments = arguments;
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -123,7 +123,7 @@ public class ConstructorCall extends Call {
     this.arguments = arguments;
     this.constructor = getConstructor();
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -196,7 +196,7 @@ public class ConstructorCall extends Call {
       }
     }
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -219,7 +219,7 @@ public class ConstructorCall extends Call {
     }
     this.constructor = getConstructor();
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -516,13 +516,14 @@ public class ConstructorCall extends Call {
     if ( isParameterListenerImpl() ) {
       return false;
     }
+    return super.isStale();
 
-    boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
-    if ( argsStale ) {
-      return true;
-    }
-
-    return false;
+//    boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
+//    if ( argsStale ) {
+//      return true;
+//    }
+//
+//    return false;
   }
 
 
