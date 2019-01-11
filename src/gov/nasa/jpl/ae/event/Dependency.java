@@ -200,17 +200,17 @@ public class Dependency< T > extends HasIdImpl
       sat = false;
       parameter.setStale( true );
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): parameter not grounded: " );// + this );
-    } else if ( expression == null ) {
+    } else if ( false && expression == null ) {
       sat = false;
       if ( Debug.isOn() && !sat ) Debug.outln( "Dependency.isSatisfied(): expression is null: " );// + this );
-    } else if ( expression.form != Form.Value && !expression.isGrounded(deep, null) ) {
+    } else if ( expression != null && expression.form != Form.Value && !expression.isGrounded(deep, null) ) {
       sat = false;
       parameter.setStale( true );
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not grounded: " );// + this );
     } else if ( false && deep && !parameter.isSatisfied(deep, null) ) {
       sat = false;
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): parameter not satisfied: " );// + this );
-    } else if ( false && deep && !expression.isSatisfied(deep, null) ) {
+    } else if ( false && deep && expression != null && !expression.isSatisfied(deep, null) ) {
       sat = false;
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not satisfied: " );// + this );
     } else {
