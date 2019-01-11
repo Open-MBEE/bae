@@ -1849,13 +1849,13 @@ public class Functions {
     public Mod2( Expression< T > o1, Expression< T > o2 ) {
       super( o1, new Expression<T>( new Times(o2, new Divide(o1, o2))));
       // functionCall.
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Mod2( Object o1, Object c ) {
       super( o1, (Object)new Expression(new Times(c, new Divide(o1, c))));
       // functionCall.
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Mod2( Functions.Mod2< T, R > m ) {
@@ -1868,7 +1868,7 @@ public class Functions {
 }
 
   /**
-   * o1 % o2
+   * Mod(x,y) = x - y * floor( x / y )
    * @param <T>
    * @param <R>
    */
@@ -1876,13 +1876,13 @@ public class Functions {
     public Mod( Expression< T > o1, Expression< T > o2 ) {
       super( o1, o2, "mod", "pickValueForward", "pickValueReverse" );
       // functionCall.
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Mod( Object o1, Object c ) {
       super( o1, c, "mod", "pickValueForward", "pickValueReverse" );
       // functionCall.
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Mod( Functions.Mod< T, R > m ) {
@@ -1891,6 +1891,46 @@ public class Functions {
 
     public Mod< T, R > clone() {
       return new Mod< T, R >( this );
+    }
+
+    /**
+     * mod(x,y) = x - y * floor( x / y )
+     * <p>
+     *     For positive valued x, the result of mod(x,y) ranges in
+     *     [0, min(x.domain.ub, abs(y).domain.ub)] - {abs(y).domain.ub}.
+     * </p>
+     * <p>
+     *     If x is always negative, then
+     *     [max(x.domain.lb, -abs(y).domain.ub), 0] - {-(abs(y).domain.ub)}.
+     * </p>
+     * <p>
+     *     If x can be positive or negative,
+     *     [max(x.domain.lb, -abs(y).domain.ub), min(x.domian.ub, abs(y).domain.ub)] - {-(abs(y).domain.ub), abs(y).domain.ub}.
+     * </p>
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      Domain< ? > d = DomainHelper.combineDomains( arguments, this, true );
+      return d;
+        /*
+      if ( arguments != null && arguments.size() == 2 ) {
+        Object arg1 = arguments.get( 0 );
+        Object arg2 = arguments.get( 1 );
+
+        //Domain d1 = DomainHelper.getDomain( arg1 );
+        //Domain d2 = DomainHelper.getDomain( arg2 );
+        ComparableDomain<Object> cd1 = DomainHelper.getComparableDomain( arg1 );
+        ComparableDomain<Object> cd2 = DomainHelper.getComparableDomain( arg2 );
+        if ( cd1 != null && cd2 != null ) {
+
+        }
+      }
+      return super.calculateDomain( propagate, seen );
+        */
     }
 
     @Override
@@ -1916,19 +1956,19 @@ public class Functions {
   }
 
   /**
-   * o1 % o2
+   * Remainder(x,y) = Mod(x,y) = x - y * floor( x / y )
    * @param <T>
    * @param <R>
    */
   public static class Remainder< T, R > extends Mod< T, R > {
     public Remainder( Expression< T > o1, Expression< T > o2 ) {
       super( o1, o2 );
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Remainder( Object o1, Object c ) {
       super( o1, c );
-      setMonotonic( true );
+      setMonotonic( false );
     }
 
     public Remainder( Functions.Remainder< T, R > m ) {
@@ -1941,6 +1981,18 @@ public class Functions {
 
 }
 
+  /**
+   * mod(o1,o2) = o1 % o2 = o1 - o2 * floor( o1 / o2 )
+   *
+   * @param o1
+   * @param o2
+   * @param <T>
+   * @param <TT>
+   * @return
+   * @throws IllegalAccessException
+   * @throws InvocationTargetException
+   * @throws InstantiationException
+   */
   public static < T, TT > T
   mod( Expression< T > o1,
             Expression< TT > o2 ) throws IllegalAccessException,
@@ -1956,6 +2008,19 @@ public class Functions {
     return mod( r1, r2 );
   }
 
+  /**
+   * mod(o1,o2) = o1 % o2 = o1 - o2 * floor( o1 / o2 )
+   *
+   * @param o1
+   * @param o2
+   * @param <V1>
+   * @param <V2>
+   * @return
+   * @throws ClassCastException
+   * @throws IllegalAccessException
+   * @throws InvocationTargetException
+   * @throws InstantiationException
+   */
   public static < V1, V2 > V1 mod( V1 o1, V2 o2 ) throws ClassCastException,
                                                            IllegalAccessException,
                                                            InvocationTargetException,
@@ -4436,26 +4501,40 @@ public class Functions {
   }
 
 
-  public static class P extends Unary<Boolean, Boolean> {
+  public static class P extends Binary<Boolean, Boolean> {
     //Integer maxSamples = null;//FunctionOfDistributions.maxSamplesDefault;
 
     public P( Variable<Boolean> o ) {
-      super( o, "p" );
+      super( o, null, "p" );
     }
 
     public P( Expression<Boolean> o1 ) {
-      super( o1, "p" );
+      super( o1, null, "p" );
     }
 
     public P( Object o1 ) {
-      super( o1, "p" );
+      super( o1, null, "p" );
     }
 
     public P( P m ) {
       super( m );
     }
 
-//    public P( Variable<Boolean> o, Object maxSamples ) {
+
+    public P( Variable<Boolean> o, Object unsampledDefault ) {
+      super( o, unsampledDefault, "p" );
+    }
+
+    public P( Expression<Boolean> o1, Object unsampledDefault ) {
+      super( o1, forceExpression( unsampledDefault ), "p" );
+    }
+
+    public P( Object o1, Object unsampledDefault ) {
+      super( o1, unsampledDefault, "p" );
+    }
+
+
+      //    public P( Variable<Boolean> o, Object maxSamples ) {
 //      super( o, "p" );
 //      //this.maxSamples = maxSamples;
 //      init( maxSamples );
@@ -4479,20 +4558,20 @@ public class Functions {
 //      init( maxSamples );
 //    }
 
-    protected void init( Object maxSamples ) {
-      if ( maxSamples == null ) return;
-      if ( getArguments() != null && getArguments().size() > 0 && getArgument( 0 ) != null ) {
-        FunctionOfDistributions fod = null;
-        try {
-          fod = Expression.evaluate(getArgument(0), FunctionOfDistributions.class, true);
-          Long maxS = Expression.evaluate(maxSamples, Long.class, true);
-          if ( fod != null && maxS != null ) {
-            fod.setMaxSamples( maxS.intValue() );
-          }
-        } catch ( Throwable e ) {
-        }
-      }
-    }
+//    protected void init( Object maxSamples ) {
+//      if ( maxSamples == null ) return;
+//      if ( getArguments() != null && getArguments().size() > 0 && getArgument( 0 ) != null ) {
+//        FunctionOfDistributions fod = null;
+//        try {
+//          fod = Expression.evaluate(getArgument(0), FunctionOfDistributions.class, true);
+//          Long maxS = Expression.evaluate(maxSamples, Long.class, true);
+//          if ( fod != null && maxS != null ) {
+//            fod.setMaxSamples( maxS.intValue() );
+//          }
+//        } catch ( Throwable e ) {
+//        }
+//      }
+//    }
 
     @Override
     public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
@@ -4526,9 +4605,15 @@ public class Functions {
   }
 
   public static Double p(Expression<Boolean> exp) {
+      return p(exp, null);
+  }
+  public static Double p(Expression<Boolean> exp, Expression<Boolean> unsampledDefault) {
+    return p(exp, (Object)unsampledDefault);
+  }
+  public static Double p(Expression<Boolean> exp, Object unsampledDefault) {
     System.out.println("calling p(" + exp + ")");
     if ( exp == null ) return null;
-    return p((Object)exp);
+    return p((Object)exp, unsampledDefault);
 //    switch (exp.form) {
 //        case Value:
 //            return p((Object)exp.expression);
@@ -4556,13 +4641,21 @@ public class Functions {
 //  }
 
   public static Double p( Object o ) {
+    return p(o, null);
+  }
+  public static Double p( Object o, Object unsampledDefault ) {
     //try {
     System.out.println("calling p(" + o + ")");
       if ( o instanceof Distribution ) {
           Distribution d = (Distribution)o;
           if ( d.getType() != null &&  Boolean.class.isAssignableFrom( d.getType() ) ) {
               System.out.println("Getting the probability of " + d);
-              Double p = d.probability( true );
+              Double p = null;
+              if ( d instanceof FunctionOfDistributions ) {
+                  p = ((FunctionOfDistributions)d).probability( true, unsampledDefault );
+              } else {
+                  p = d.probability( true );
+              }
               if ( d instanceof FunctionOfDistributions ) {
                 ((FunctionOfDistributions)d).getSamples().toFile("samples_" + System.currentTimeMillis() + ".csv");
               } else if ( d instanceof SampleDistribution ) {
@@ -4575,7 +4668,7 @@ public class Functions {
       try {
           Object r = Expression.evaluate( o, Distribution.class, false, false );
           if ( r != null && r != o && r instanceof Distribution ) {
-              return p(r);
+              return p(r, unsampledDefault);
           }
       } catch ( Throwable t ) {
         t.printStackTrace();
@@ -5106,8 +5199,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.less( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.greaterEquals( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.less( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greaterEquals( rd1, rd2 )) ) return BooleanDomain.falseDomain;
         // Object lb1 = rd1.getLowerBound();
         // Object ub1 = rd1.getUpperBound();
         // Object lb2 = rd2.getLowerBound();
@@ -5292,8 +5385,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.lessEquals( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.greater( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.lessEquals( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greater( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
@@ -5508,8 +5601,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.greater( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.lessEquals( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greater( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.lessEquals( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
@@ -5681,8 +5774,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.greaterEquals( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.less( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greaterEquals( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.less( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
