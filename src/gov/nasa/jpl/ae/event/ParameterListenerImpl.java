@@ -1707,6 +1707,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     // REVIEW -- Should we be passing in a set of parameters? Find review/todo
     // note on staleness table.
 
+    // do this even if using LamportClock
+    TimeVaryingMap.handleValueChangeEventForTimeVarying( parameter, seen );
+
     // Alert affected dependencies.
     List<Dependency<?>> deps = Utils.scramble(getDependencies());
     for ( Dependency< ? > d : deps ) {

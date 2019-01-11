@@ -454,7 +454,7 @@ public class Timepoint extends LongParameter implements TimeVariable {
     horizonDuration = duration;
     System.out.println("Horizon duration set to " + horizonDuration + " " + units );
     TimeDomain.horizonDomain.setUpperBound( horizonDuration );
-    if ( horizonTimepoint != null ) horizonTimepoint.value = null;
+    if ( horizonTimepoint != null ) horizonTimepoint.setValue(duration);
     if ( getHorizonTimepoint() != null ) {
       horizon = getHorizonTimepoint().getDate();
     } else {

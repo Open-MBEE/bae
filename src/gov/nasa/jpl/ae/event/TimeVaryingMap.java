@@ -388,12 +388,27 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if (pUsers != null) {
       // copy the pUsers set into a list, iterate over the list (since we *might* change the pUsers set
       for (TimeVaryingMap<?> tvm : new LinkedList<>( pUsers )) {
-        tvm.setStaleAnyReferencesTo( tryCastTimepoint( param ), seen );
+        tvm.setStaleAnyReferencesTo( tryCastTimepoint( param, true ), seen );
       }
     }
   }
-  
-  public static void reset() {
+
+  public static void handleValueChangeEventForTimeVarying( Parameter< ? > parameter,
+                                                           Set< HasParameters > seen ) {
+    Pair< Boolean, Set< HasParameters > > p = Utils.seen( staticSeenGuard, true, seen );
+    if (p.first) return;
+    seen = p.second;
+
+    Set<TimeVaryingMap<?>> pUsers = parameterUsers.get( parameter );
+    if (pUsers != null) {
+      // copy the pUsers set into a list, iterate over the list (since we *might* change the pUsers set
+      for (TimeVaryingMap<?> tvm : new LinkedList<>( pUsers )) {
+        tvm.handleValueChangeEvent( tryCastTimepoint( parameter, true ), seen );
+      }
+    }
+  }
+
+    public static void reset() {
     parameterUsers.clear();
   }
   
@@ -583,11 +598,21 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @param obj object to cast from
    * @return obj cast to V or {@code null} if the cast fails
    */
-  @SuppressWarnings( "unchecked" )
   public static Parameter< Long> tryCastTimepoint( Object obj ) {
+    return tryCastTimepoint( obj, false );
+  }
+  /**
+   * @param obj object to cast from
+   * @return obj cast to V or {@code null} if the cast fails
+   */
+  @SuppressWarnings( "unchecked" )
+  public static Parameter< Long> tryCastTimepoint( Object obj, boolean nullValueOk ) {
     if ( obj instanceof Parameter ) {
       Parameter<?> p = (Parameter< ? >)obj;
       Object val = p.getValueNoPropagate();
+      if ( val == null && nullValueOk ) {
+        return (Parameter< Long >)obj;
+      }
       if ( val instanceof Long ) {
         return (Parameter< Long >)obj;
       } else if (val instanceof Integer) {
@@ -1461,7 +1486,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @return True if this TimeVaryingMap, in its current state, should do so
    */
   protected boolean shouldAddToParamUsers() {
-    return owner instanceof Parameter;
+    return owner == null || owner instanceof Parameter || owner == ParameterListener.instance;
   }
   
   /**
@@ -1674,7 +1699,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( changedParameter == null ) return;
     if ( containsKey( changedParameter ) ) {
       if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + "): does contain" );
-      floatEffects( tryCastTimepoint( changedParameter ) );
+      floatEffects( tryCastTimepoint( changedParameter, true ) );
     } else {
       if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + "): does not contain" );
     }

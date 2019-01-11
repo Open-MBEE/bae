@@ -109,6 +109,7 @@ public interface ParameterListener extends HasParameters, HasName< String > {
     @Override
     public void setStaleAnyReferencesTo( Parameter<?> changedParameter,
                                          Set<HasParameters> seen ) {
+      TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
     }
     @Override public void detach( Parameter<?> parameter ) {
     }
