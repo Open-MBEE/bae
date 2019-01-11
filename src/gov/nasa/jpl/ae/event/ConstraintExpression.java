@@ -8,6 +8,7 @@ import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
@@ -416,6 +417,61 @@ public class ConstraintExpression extends Expression< Boolean >
 
   }
 
+  /**
+   * Use this instead of Expression.evaluate() to avoid evaluating
+   * a Call.
+   * @param o
+   * @return
+   */
+  protected static <A> Parameter<?> tryToGetParameterQuick(Object o) {
+    if ( o == null ) return null;
+    if ( o instanceof Parameter) {
+      return (Parameter<?>)o;
+    }
+    if ( o instanceof Collection ) {
+      Collection<?> c = (Collection<?>)o;
+      if ( c.size() == 1 ) {
+        Object wo = c.iterator().next();
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o.getClass().isArray() ) {
+      if ( Array.getLength(o) == 1 ) {
+        Object wo = Array.get(o, 0);
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Call ) {
+      Object rv = ((Call)o).returnValue;
+      if ( rv != null && rv != o ) {
+        Parameter p = tryToGetParameterQuick( rv );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Expression ) {
+      Object wo = ((Expression)o).expression;
+      if ( o != wo ) {
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Wraps ) {
+      Object wo = ( (Wraps)o ).getValue( false );
+      if ( wo == o ) return null;
+      Parameter p = tryToGetParameterQuick( wo );
+      if ( p != null ) {
+        return p;
+      }
+    }
+    return null;
+  }
+
   protected List<Pair<Parameter<?>, Object>>
         dependencyLikeVarsForEquals(Expression e, boolean justFirst, //boolean potential,
                                     boolean mustBeTrue, boolean mustBeFalse) {
@@ -435,10 +491,14 @@ public class ConstraintExpression extends Expression< Boolean >
       return null;
     }
     for ( int i = 0; i < args.size(); ++i ) {
+      Object arg = args.get(i);
       try {
         Parameter<?> p = null;
         try {
-          p = Expression.evaluate(args.get(i), Parameter.class, false);
+          p = tryToGetParameterQuick( arg );
+          if ( p == null ) {
+            p = Expression.evaluate( arg, Parameter.class, false );
+          }
         } catch (Throwable t) {
           // ignore
         }
