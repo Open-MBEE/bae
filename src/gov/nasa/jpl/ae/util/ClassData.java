@@ -121,10 +121,23 @@ ClassData {
   protected String packageName = null;
   
   /**
-   * Map: longName -> parameter name -> Param
+   * Map: class long name -> parameter name -> Param
    */
   protected Map< String, Map< String, Param > > paramTable =
       new TreeMap< String, Map< String, Param > >();
+
+  // TODO -- Need to handle local variables of function declarations
+  // TODO -- Consider creating a subclass of ParameterListenerImpl for each of these
+  // TODO -- instead of an actual function.
+
+  /**
+   * This map contains the parameters in the signatures of function declarations.
+   * The map is used to determine the scope of variables referenced in function
+   * declarations.
+   * Map: function long name -> function declaration object -> parameter name -> Param
+   */
+  protected Map< String, Map< Object, Map< String, Param > > > functionParamTable =
+          new TreeMap<>();
 
   /**
    * Parameters may be created for evaluation at parse time.
@@ -789,44 +802,61 @@ ClassData {
     return lookupMemberByName( className, paramName, lookOutsideClassData, true );
   }
 
-  public Param lookupMemberByName( String className, String paramName,
+  public Param lookupMemberByName( String scope, String paramName,
                                       boolean lookOutsideClassData,
                                       boolean complainIfNotFound ) {
     if ( Debug.errorOnNull( complainIfNotFound, complainIfNotFound,
-                            "Passing null in lookupMemberByName(" + className
-                            + ", " + paramName + ")", className, paramName ) ) {
+                            "Passing null in lookupMemberByName(" + scope
+                            + ", " + paramName + ")", scope, paramName ) ) {
       return null;
     }
-    if ( className.equals( "this" ) ) {
-      className = currentClass;
+    if ( scope.equals( "this" ) ) {
+      scope = currentClass;
     }
-    // Check if the className is known.
-    Map< String, Param > params = paramTable.get( className );
-    // If the name is not in the table, make sure it's the scoped name.
-    //String classNameWithScope = null;
-    String classNameWithScope = getClassNameWithScope( className );
-    if ( params == null ) {
-      //classNameWithScope = getClassNameWithScope( className );
-      if ( classNameWithScope != null
-           || ( !lookOutsideClassData && complainIfNotFound && !Debug.errorOnNull( false,
-                                                                             "Error! Could not find a class definition for "
-                                                                                 + className
-                                                                                 + " when looking for member "
-                                                                                 + paramName
-                                                                                 + ".",
-                                                                             classNameWithScope ) ) ) {
-        // if ( Utils.isNullOrEmpty( classNameWithScope ) ) {
-        params = paramTable.get( classNameWithScope );
-      }
+
+    ArrayList< Map< String, Param > > functionParamMaps = new ArrayList<>();
+    Map< String, Param > params = null;
+    // Check if the scope is a function parameter
+    Map<Object, Map<String, Param>> functionDeclMap =
+            functionParamTable.get( scope );
+    if ( !Utils.isNullOrEmpty( functionDeclMap ) ) {
+      functionParamMaps.addAll( functionDeclMap.values() );
     }
     Param p = null;
-    if ( params != null ) {
+    for ( Map<String, Param> fpMap : functionParamMaps ) {
+      p = fpMap.get( paramName );
+      // FIXME -- How do we know we got the right one -- there may be others
+      // in other functions.
+      if ( p != null ) {
+        break;
+      }
+    }
+
+    String classNameWithScope = getClassNameWithScope( scope );
+    if ( p == null ) {
+      // Check if the className is known.
+      params = paramTable.get( scope );
+
+      // If the name is not in the table, make sure it's the scoped name.
+      if ( functionParamMaps.isEmpty() && params == null && !Utils
+              .valuesEqual( classNameWithScope, scope ) ) {
+        if ( classNameWithScope != null || ( !lookOutsideClassData
+                                             && complainIfNotFound && !Debug
+                .errorOnNull( false,
+                              "Error! Could not find a class definition for "
+                              + scope + " when looking for member " + paramName
+                              + ".", classNameWithScope ) ) ) {
+          params = paramTable.get( classNameWithScope );
+        }
+      }
+    }
+    if ( p == null && params != null ) {
       p = params.get( paramName );
     }
 
     // if not in table look in superclasses
     if ( p == null ) {
-      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
+      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(scope);
       if ( clsDecl != null ) {
         List<ClassOrInterfaceType> superclasses =
                 clsDecl.getExtends();
@@ -842,8 +872,8 @@ ClassData {
     }
 
     // If not in the table and an inner class/super class, check enclosing class's scope.
-    if ( p == null && isInnerClass( className ) ) {
-      String enclosingClassName = getEnclosingClassName( className );
+    if ( p == null && isInnerClass( scope ) ) {
+      String enclosingClassName = getEnclosingClassName( scope );
       if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
         p =
             lookupMemberByName( enclosingClassName, paramName, lookOutsideClassData,
@@ -851,7 +881,7 @@ ClassData {
       }
     }
     Class< ? > classForName = null;
-    String classMaybeWithScope = classNameWithScope == null ? className : classNameWithScope;
+    String classMaybeWithScope = classNameWithScope == null ? scope : classNameWithScope;
     if ( p == null && lookOutsideClassData ) {
       //if ( Utils.isNullOrEmpty( classNameWithScope ) ) {
       //  classNameWithScope = getClassNameWithScope( className );
@@ -869,10 +899,10 @@ ClassData {
     }
 
     if ( Debug.isOn() ) Debug.outln( "lookupMemberByName( className="
-                                     + className + ", paramName=" + paramName
+                                     + scope + ", paramName=" + paramName
                                      + ") returning " + p );
     if ( p == null && complainIfNotFound ) {
-      Debug.errorOnNull( false, "lookupMemberByName(" + className + ", "
+      Debug.errorOnNull( false, "lookupMemberByName(" + scope + ", "
                                 + paramName
                                 + "): no parameter found\n  paramTable =\n"
                                 + paramTable + "\n  enclosingClasses =\n"
@@ -1364,6 +1394,13 @@ ClassData {
    */
   public void setPackageName( String packageName ) {
     this.packageName = packageName;
+  }
+
+  /**
+   * @return the paramTable
+   */
+  public Map< String, Map<Object, Map< String, Param > > > getFunctionParamTable() {
+    return functionParamTable;
   }
 
   /**
