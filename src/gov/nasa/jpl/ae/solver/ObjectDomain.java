@@ -142,7 +142,7 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
   @Override
   public boolean contains(Object t) {
     if (isEmpty()) {
-      return isNullInDomain();
+      return isNullInDomain();  // FIXME -- shouldn't we add "&& t == null?"
     }
     return super.contains( t );
   }
@@ -250,6 +250,12 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
   @Override
   public boolean isNullInDomain() {
     return nullInDomain;
+  }
+
+  @Override
+  public boolean setNullInDomain( boolean b ) {
+    nullInDomain = b;
+    return true;
   }
 
   /* (non-Javadoc)

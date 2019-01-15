@@ -80,10 +80,15 @@ public class LongDomain extends AbstractFiniteRangeDomain< Long > {
     double r2 = Random.global.nextDouble();
     double middle = getMiddleValue();
     double half = getUpperBound() - middle;
+    long r = 0;
+    // Have to use max and min since middle is not exactly in the middle
+    // REVIEW -- does this skew the distribution?
     if ( r1 < 0.5 ) {
-      return (long)(middle - r2 * half);
+      r = max(getLowerBound(), (long)(middle - r2 * half));
+    } else {
+      r = min(getUpperBound(), (long)( middle + r2 * half ));
     }
-    return (long)(middle + r2 * half);
+    return r;
 	}
 
   /* (non-Javadoc)

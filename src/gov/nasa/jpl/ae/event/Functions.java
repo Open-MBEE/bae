@@ -7,9 +7,7 @@ import gov.nasa.jpl.ae.event.Expression.Form;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.BoolOp;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.Inequality;
 import gov.nasa.jpl.ae.solver.*;
-import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
-import gov.nasa.jpl.ae.util.distributions.Distribution;
-import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
+import gov.nasa.jpl.ae.util.distributions.*;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.Random;
@@ -32,6 +30,8 @@ import java.util.*;
 public class Functions {
 
   // private static boolean complainAboutBadExpressions = true;
+  private static Method newListMethod =
+          ClassUtils.getMethodsForName( Utils.class, "newList" )[ 0 ];
 
   private static Expression forceExpression( Object o ) {
     if ( o instanceof Expression ) return (Expression< ? >)o;
@@ -119,7 +119,7 @@ public class Functions {
      * number of arguments, g = f.inverse(r, ai) is a FunctionCall where ai must
      * be an argument to f. g.evaluate() returns a Domain representing the set
      * of values that ai may be assigned such that f.evaluate() == r.
-     * 
+     *
      * @param returnValue
      * @param arg
      *          the single argument with respect to which the inverse is
@@ -130,16 +130,16 @@ public class Functions {
      *         a bijection</b> (one-to-one and the domain and range are the
      *         same), in which case the inverse may not be a single value. For
      *         example, if f(x)=x^2, then the inverse is {sqrt(x), -sqrt(x)}.
-     * 
+     *
      */
     public FunctionCall inverse( Object returnValue, Object arg ) { // Variable<?>
                                                                     // variable
                                                                     // ) {
       FunctionCall singleValueFcn = inverseSingleValue( returnValue, arg );
       if ( singleValueFcn == null ) return null;
+//      return singleValueFcn;
       return new FunctionCall( null,
-                               ClassUtils.getMethodsForName( Utils.class,
-                                                             "newList" )[ 0 ],
+                               newListMethod,
                                new Object[] { singleValueFcn },
                                (Class< ? >)null );
     }
@@ -309,10 +309,10 @@ public class Functions {
       Object cObj = null;
       if ( inverse instanceof HasDomain ) {
         Domain<?> d = inverse.getDomain(false, null);
-        if ( d == null && inverse.getMethod() != null && inverse.getMethod().getName().contains("newList") ) {
+        if ( d == null && newListMethod.equals( inverse.getMethod() ) ) {
           d = DomainHelper.combineDomains(inverse.getArguments(), null, false);
         }
-        boolean flatten = (inverse.getMethod().getName().contains("newList") && d != null && !d.isEmpty());
+        boolean flatten = (newListMethod.equals( inverse.getMethod() ) && d != null && !d.isEmpty());
         List<Object> values = DomainHelper.getRepresentativeValues(d, null, flatten);
         if ( values != null && values.size() > 0 ) {
           listOfInverseResults.addAll(values);
@@ -567,25 +567,27 @@ public class Functions {
       Domain< ? > d1 = o1 == null ? null : DomainHelper.getDomain( o1 );
       Domain< ? > d2 = null;
       Domain< ? > d3 = null;
-      if (d1 != null) {
-        if (d1.magnitude() == 2) {
-          d2 = o2 == null ? null : DomainHelper.getDomain( o2 );
-          d3 = o3 == null ? null : DomainHelper.getDomain( o3 );
-        } else if (d1.magnitude() == 1) {
-          if (Utils.isTrue( d1.getValue( true ) )) {
-            d2 = o2 == null ? null : DomainHelper.getDomain( o2 );
-          } else {
-            d3 = o3 == null ? null : DomainHelper.getDomain( o3 );
-          }
+      if (d1 == null || d1.magnitude() == 2) {
+          d2 = o2 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o2 );
+          d3 = o3 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o3 );
+      } else if (d1 != null && d1.magnitude() == 1) {
+        if (Utils.isTrue( d1.getValue( true ) )) {
+          d2 = o2 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o2 );
+        } else {
+          d3 = o3 == null ? new SingleValueDomain<>( null ) :
+               DomainHelper.getDomain( o3 );
         }
       }
-      
-      AbstractRangeDomain< T > ard2 =
-          d2 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d2
-                                            : null;
-      AbstractRangeDomain< T > ard3 =
-          d3 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d3
-                                            : null;
+
+//      AbstractRangeDomain< T > ard2 =
+//          d2 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d2
+//                                            : null;
+//      AbstractRangeDomain< T > ard3 =
+//          d3 instanceof AbstractRangeDomain ? (AbstractRangeDomain< T >)d3
+//                                            : null;
       Domain< Boolean > condo =
           d1 instanceof Domain ? (Domain< Boolean >)d1 : null;
 
@@ -593,11 +595,21 @@ public class Functions {
       // exactly one of {true, false}.
       if ( condo == null || condo.isEmpty()
            || ( condo.contains( true ) && condo.contains( false ) ) ) {
-        if ( ard2 == null ) return ard3;
-        if ( ard3 == null ) return ard2;
+        if ( d2 == null ) {
+          if ( o2 == null && d3 != null ) {
+            d3.setNullInDomain( true );
+          }
+          return d3;
+        }
+        if ( d3 == null ) {
+          if ( o3 == null && d2 != null ) {
+            d2.setNullInDomain( true );
+          }
+          return d2;
+        }
         MultiDomain< T > md = new MultiDomain< T >( (Class< T >)getType(),
-                                                    (Set< Domain< T > >)Utils.newSet( (Domain< T >)ard2,
-                                                                                      ard3 ),
+                                                    (Set< Domain< T > >)Utils.newSet( (Domain< T >)d2,
+                                                                                      (Domain< T >)d3 ),
                                                     null );
         Set< Domain< T > > s = md.computeFlattenedSet();
         if ( s != null && s.size() == 1 ) {
@@ -607,9 +619,9 @@ public class Functions {
       }
 
       if ( condo.contains( true ) ) {
-        return ard2;
+        return d2;
       }
-      return ard3;
+      return d3;
     }
 
     @Override
@@ -779,12 +791,43 @@ public class Functions {
   }
 
   public static < T > Object ifThenElse( Object condition, T thenT, T elseT ) {
-    if ( condition == null ) return elseT;
-    Pair< Boolean, TimeVaryingMap< ? > > p = booleanOrTimeline( condition );
-    if ( p != null && p.first != null ) {
-      if ( p.first.booleanValue() ) return thenT;
+    if ( condition == null ) {
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning elseT = " + elseT);
       return elseT;
     }
+
+    Pair< Object, TimeVaryingMap< ? > > p = booleanOrTimelineOrDistribution( condition );
+    if ( p == null ) {
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning null");
+      return null;
+    }
+    if ( p != null && p.first != null && !(p.first instanceof Distribution) ) {
+      Boolean b = Utils.isTrue( p.first );
+      if ( b != null ) {
+        if ( b ) {
+          //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning thenT = " + thenT);
+          return thenT;
+        }
+        //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning elseT = " + elseT);
+        return elseT;
+      }
+    }
+
+    Pair< Object, TimeVaryingMap< ? > > pThen = booleanOrTimelineOrDistribution( thenT );
+    Pair< Object, TimeVaryingMap< ? > > pElse = booleanOrTimelineOrDistribution( elseT );
+
+    Object argCond = p != null && p.first != null ? p.first : condition;
+    Object argThen = pThen != null && pThen.first != null ? pThen.first : thenT;
+    Object argElse = pElse != null && pElse.first != null ? pElse.first : elseT;
+
+    if ( argCond instanceof Distribution ||
+         argThen instanceof Distribution ||
+         argElse instanceof Distribution ) {
+      Distribution d = DistributionHelper.ifThenElse( argCond, argThen, argElse );
+      //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning DistributionHelper.ifThenElse( argCond=" + argCond + ", argThen=" + argThen + ", argElse=" + argElse + ") = " + d);
+      return d;
+    }
+
     TimeVaryingMap< ? > tvm = p.second;
     if ( tvm == null ) return elseT;
     // if (tvm.size() == 1) {
@@ -795,6 +838,7 @@ public class Functions {
     // }
     // }
     Object t = tvm.ifThenElse( thenT, elseT );
+    //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning t = " + t);
     return t;
   }
 
@@ -817,8 +861,8 @@ public class Functions {
                                                 InvocationTargetException,
                                                 InstantiationException {
     if ( conditionExpr == null && elseExpr == null ) return null;
-    Pair< Boolean, TimeVaryingMap< ? > > p =
-        booleanOrTimeline( conditionExpr.expression );
+    Pair< Object, TimeVaryingMap< ? > > p =
+        booleanOrTimelineOrDistribution( conditionExpr.expression );
     if ( p != null && p.second != null ) {
       Object thenObj = thenExpr.evaluate( true );
       Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
@@ -828,10 +872,21 @@ public class Functions {
       // T result = (T)p.second.ifThenElse( thenObj, elseObject );
       return result;
     }
+    // Handle distributions separately
+    Distribution d1 = DistributionHelper.getDistribution( conditionExpr );
+    Distribution d2 = DistributionHelper.getDistribution( thenExpr );
+    Distribution d3 = DistributionHelper.getDistribution( elseExpr );
+
+    if ( //p != null && DistributionHelper.isDistribution( p.first ) ||
+         d1 != null || d2 != null || d3 != null ) {
+      Object thenObj = thenExpr.evaluate( true );
+      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
+      return ifThenElse( d1 == null ? p.first : d1, thenObj, elseObject );
+    }
     Object o = Expression.evaluate( conditionExpr, Boolean.class, true );
     if ( o == null
          || ( !( o instanceof Boolean ) && o.getClass() != boolean.class ) ) {
-      Debug.error( false,
+      Debug.error( true, false,
                    "Could not evaluate condition of if-then-else as true/false; got "
                           + o );
       return null;
@@ -1119,10 +1174,38 @@ public class Functions {
     public // < T1 extends Comparable< ? super T1 > >
     FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
       if ( arguments == null || arguments.size() != 2 ) return null;
-      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
-                                                    : arguments.get( 1 ) );
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
       if ( returnValue == null || otherArg == null ) return null; // arg can be
                                                                   // null!
+      Object deepReturnValue = returnValue;
+      Object deepArg = arg;
+      Object deepOtherArg = otherArg;
+      
+      try {
+        deepReturnValue = Expression.evaluateDeep( returnValue, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      try {
+        deepArg = Expression.evaluateDeep( arg, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      try {
+        deepOtherArg = Expression.evaluateDeep( otherArg, null, false, false );
+      } catch ( Throwable e ) {
+        // fail quietly, revert to using the unevaluated form
+      }
+      
+      if (deepReturnValue instanceof String || deepArg instanceof String || deepOtherArg instanceof String) {
+        if (isFirstArg) {
+          return new MinusSuffix( returnValue, otherArg );
+        } else {
+          return new MinusPrefix( returnValue, otherArg );
+        }
+      }
+      
       return new Minus< T, T >( returnValue, otherArg );
     }
     
@@ -1201,6 +1284,751 @@ public class Functions {
       setMonotonic( true );
     }
   }
+  
+  public static class MinusSuffix extends Binary< String, String > {
+    public MinusSuffix( Expression<String> o1, Expression<String> o2 ) {
+      super( o1, o2, "subtractSuffix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusSuffix( Object o1, Object c ) {
+      super( o1, c, "subtractSuffix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusSuffix( Functions.MinusSuffix m ) {
+      super( m );
+    }
+
+    public MinusSuffix clone() {
+      return new MinusSuffix( this );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 ) :
+                          arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+      // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+      // null!
+      if ( firstArg ) {
+        return new Sum<String, String>( returnValue, otherArg );
+      }
+      return new MinusPrefix( otherArg, returnValue );
+    }
+
+    /**
+     * Return the possible results of minusSuffix(x,y) for any x in the domain of
+     * the first argument and any y in the domain of the second.  If there is only
+     * one value in each domain, return minusSuffix(x,y).  For Suffix of x, px,
+     * <p>
+     * If the second argument's domain is multivalued, then we look for the domain min
+     * value ("" for StringDomain), the domain max value ("ÿÿÿÿÿÿÿÿ"), and px,
+     * a Suffix of the first argument.  If it is a range domain ["" px], then the
+     * outputs of minusSuffix(x,"") is x and  is ""; thus return
+     * ["" minusSuffix(x,px)]. If the second argument is the range domain [px "ÿÿÿÿÿÿÿÿ"] then
+     * return [minusSuffix(x,px) x].  if [px1, px2] return [minusSuffix(x,px2) minuSuffix(x,px1)].
+     * Otherwise, return ["" x], representing all possible removed Suffixes.
+     * <p>
+     * domain(minusSuffix([x x], ["" px])) = [minusSuffix(x,px), x]
+     * domain(minusSuffix([x x], [px1 px2])) = [minusSuffix(x,px2) minusSuffix(x,px1)]
+     * domain(minusSuffix([x x], [px y])) = [minusSuffix(x,px) x]
+     * <p>
+     * If the first argument's domain is [x1 x2], then we can repeat the logic
+     * above for each of x1 and x2. and have two domains.  One option is to create
+     * a multidomain.  Otherwise, how do we combine them?  Let's see . . .
+     * <p>
+     * The first domain may range within ["", minusSuffix(x1, px1_1),
+     * minusSuffix(x1,px1_2), x1 a].  If x1 is a substring of x2,
+     * <p>
+     * domain(minusSuffix([x1 x2], y)) = [domain(minusSuffix(x1, y)).
+     * <p>
+     * <p>
+     * <p>
+     * If the first argument's domain is multivaleud and not the second, then
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return Functions.calculateStringDomain(this, propagate, seen);
+    }
+
+  }
+
+  public static class MinusPrefix extends Binary< String, String > {
+    public MinusPrefix( Expression< String > o1, Expression< String > o2 ) {
+      super( o1, o2, "subtractPrefix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusPrefix( Object o1, Object c ) {
+      super( o1, c, "subtractPrefix", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( true );
+    }
+
+    public MinusPrefix( Functions.MinusPrefix m ) {
+      super( m );
+    }
+
+    public MinusPrefix clone() {
+      return new MinusPrefix( this );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
+                                                    : arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+      // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+      // null!
+      if ( firstArg ) {
+        return new Sum< String, String >( returnValue, otherArg );
+      }
+      return new MinusSuffix( otherArg, returnValue );
+    }
+
+    /**
+     * Return the possible results of minusPrefix(x,y) for any x in the domain of
+     * the first argument and any y in the domain of the second.  If there is only
+     * one value in each domain, return minusPrefix(x,y).  For prefix of x, px,
+     * <p>
+     * If the second argument's domain is multivalued, then we look for the domain min
+     * value ("" for StringDomain), the domain max value ("ÿÿÿÿÿÿÿÿ"), and px,
+     * a prefix of the first argument.  If it is a range domain ["" px], then the
+     * outputs of minusPrefix(x,"") is x and  is ""; thus return
+     * ["" minusPrefix(x,px)]. If the second argument is the range domain [px "ÿÿÿÿÿÿÿÿ"] then
+     * return [minusPrefix(x,px) x].  if [px1, px2] return [minusPrefix(x,px2) minuPrefix(x,px1)].
+     * Otherwise, return ["" x], representing all possible removed prefixes.
+     * <p>
+     * domain(minusPrefix([x x], ["" px])) = [minusPrefix(x,px), x]
+     * domain(minusPrefix([x x], [px1 px2])) = [minusPrefix(x,px2) minusPrefix(x,px1)]
+     * domain(minusPrefix([x x], [px y])) = [minusPrefix(x,px) x]
+     * <p>
+     * If the first argument's domain is [x1 x2], then we can repeat the logic
+     * above for each of x1 and x2. and have two domains.  One option is to create
+     * a multidomain.  Otherwise, how do we combine them?  Let's see . . .
+     * <p>
+     * The first domain may range within ["", minusPrefix(x1, px1_1),
+     * minusPrefix(x1,px1_2), x1 a].  If x1 is a substring of x2,
+     * <p>
+     * domain(minusPrefix([x1 x2], y)) = [domain(minusPrefix(x1, y)).
+     * <p>
+     * <p>
+     * <p>
+     * If the first argument's domain is multivaleud and not the second, then
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override public Domain calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return calculateStringDomain(this, propagate, seen);
+    }
+
+  }
+
+
+  public static Domain calculateStringDomain( Binary<String, String> minusPrefixOrSuffix,
+                                              boolean propagate, Set<HasDomain> seen ) {
+    if ( minusPrefixOrSuffix.getArguments().size() != 2 ) {
+      return StringDomain.defaultDomain;
+    }
+    Object a1 = minusPrefixOrSuffix.getArgument( 0 );
+    Object a2 = minusPrefixOrSuffix.getArgument( 1 );
+    Domain<?> d1 = DomainHelper.getDomain( a1 );
+    Domain<?> d2 = DomainHelper.getDomain( a2 );
+    if ( d1 == null || d2 == null
+//         || d1.magnitude() <= 0
+//         || d2.magnitude() <= 0
+//         || gov.nasa.jpl.ae.util.Math
+//                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
+//                 .isInfinity( d2.magnitude() )
+            ) {
+      return StringDomain.defaultDomain;
+    }
+    AbstractRangeDomain<Object> rd1 = null;
+    AbstractRangeDomain<Object> rd2 = null;
+    if ( d1 instanceof AbstractRangeDomain ) {
+      rd1 = (AbstractRangeDomain<Object>)d1;
+    }
+    if ( d2 instanceof AbstractRangeDomain ) {
+      rd2 = (AbstractRangeDomain<Object>)d2;
+    }
+    StringDomain sd1 = null;
+    StringDomain sd2 = null;
+    if ( d1 instanceof StringDomain ) {
+      sd1 = (StringDomain)d1;
+    }
+    if ( d2 instanceof StringDomain ) {
+      sd2 = (StringDomain)d2;
+    }
+
+    boolean single1 = d1.magnitude() == 1;
+    boolean single2 = d2.magnitude() == 1;
+    boolean multiple1 = d1.magnitude() > 1 && !d1.isInfinite() && rd1 != null;
+    boolean multiple2 = d2.magnitude() > 1 && !d2.isInfinite();
+
+    boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
+    if ( single1 && single2 ) {
+      String s = null;
+      if  ( isPrefix ) {
+        s = minusPrefix( "" + d1.getValue( false ),
+                         "" + d2.getValue( false ) );
+      } else {
+        s = minusSuffix( "" + d1.getValue( false ),
+                         "" + d2.getValue( false ) );
+      }
+      return new StringDomain( s, s );
+    }
+
+    ArrayList<Object> domains = new ArrayList<>();
+    if ( sd2 != null && //sd2.treatAsPrefixOrSuffix() &&
+         rd1 != null ) {
+      ArrayList<String> dom1Values = new ArrayList<>();
+      if ( rd1.isInfinite() ) {
+        String dom1Val = "" + rd1.getLowerBound();
+        Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+        if ( dx != null ) domains.add( dx );
+        dom1Val = "" + rd1.getLowerBound();
+        dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+        if ( dx != null ) domains.add( dx );
+      } else {
+        for ( long n = 0; n < rd1.size(); ++n ) {
+          String dom1Val = "" + rd1.getNthValue( n );
+          Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
+          if ( dx != null ) domains.add( dx );
+        }
+      }
+      if ( !domains.isEmpty() ) {
+        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
+        Domain<?> d = DomainHelper.combineDomains( domains, null, false );
+        return d;
+      }
+    }
+    SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
+    Domain<?> d = DomainHelper.combineDomains( minusPrefixOrSuffix.arguments,
+                                               fc, false );
+    return d;
+  }
+
+
+  // Warning! this is matched by regex with no treatment for characters with special meaning, like *.
+  protected static String wild = StringDomain.typeMaxValue;
+
+  /**
+   *
+   * Subtract the prefix/suffix based on the rules below for upper or lower bound, y.
+   *
+   * domain(minusPrefix([x x], ["" px])) = [minusPrefix(x,px), x]
+   * domain(minusPrefix([x x], [px1 px2])) = [minusPrefix(x,px2) minusPrefix(x,px1)]
+   * domain(minusPrefix([x x], [px y])) = [minusPrefix(x,px) x]
+   *
+   * Allowing wildcards makes this painful.  We should just not allow them; else,
+   * go full regex.
+   *
+   * REVIEW -- should this be replaced with regex operations?  The weird part is
+   * that there are wildcards in both the pattern and the string to match.
+   * It's like unification beyond predicates.  One problem is that there are
+   * multiple solutions.  For example,
+   * x = "* a b * c"
+   * y = "* b c"
+   * this is wrong: "* a "->"* ", "b * c"-> "b c" because there are two spaces between b and c.
+   * one correct one: "* a b * "-> "*", "* "->" b ", "c"->"c"
+   *
+   */
+  protected static StringDomain minusPrefixSuffixWild( String x, String y,
+                                                       boolean isPrefix,
+                                                       boolean isLowerBound) {
+    if ( y == null || y.isEmpty() ) {
+      return new StringDomain(x, x);
+    }
+
+    String lb = x;  // The string with the most subtracted.
+    String ub = x;  // The string with the least subtracted.
+
+    // NOTE: The Utils.longestCommon* and longestPrefix* functions may be useful here.
+
+    // check for wildcard symbol at the front of the x string.
+    boolean xHasWildToSubtract = false;
+    if (isPrefix) {
+      while ( lb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        lb = lb.substring( wild.length() );
+        xHasWildToSubtract = true;
+      }
+    } else {
+      while ( lb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        lb = lb.substring( 0, lb.length() - wild.length() );
+        xHasWildToSubtract = true;
+      }
+    }
+
+    // If xLbWildPos >= 0 then there is a wildcard after a prefix/suffix to subtract.
+    int xFirstWild = x.indexOf( wild );
+    int xLastWild = x.lastIndexOf( wild );
+    //boolean xHasWildAfter = false;
+
+    String ylb = y;
+    String yub = y;
+
+    // check for wildcard symbol at the front of the y string.
+    boolean yHasWildToSubtract = false;
+    if (isPrefix) {
+      while ( ylb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        ylb = ylb.substring( wild.length() );
+        yHasWildToSubtract = true;
+      }
+    } else {
+      while ( ylb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        ylb = ylb.substring( 0, ylb.length() - wild.length() );
+        yHasWildToSubtract = true;
+      }
+    }
+    // If yLbWildPos >= 0 then there is a wildcard after a prefix/suffix to subtract.
+    int yFirstWild = y.indexOf( wild );
+    int yLastWild = y.lastIndexOf( wild );
+    //int yLbWildPos = isPrefix ? y.indexOf( wild ) : y.lastIndexOf( wild );
+    //boolean yHasWildAfter = false;
+
+
+    if (xHasWildToSubtract && yHasWildToSubtract) {
+      StringDomain d =  new StringDomain( "", x );
+      d.kind = isPrefix ? StringDomain.Kind.SUFFIX_RANGE : StringDomain.Kind.PREFIX_RANGE;
+      return d;
+    }
+
+    // remove wild on the end since it won't actually match anything
+    String ylb2 = ylb.endsWith( wild ) ? ylb.substring( 0, ylb.length()-wild.length() ) : ylb;
+    // well, remove all wilds then -- maybe we won't use them anyway
+    String ylb3 = ylb2.replace( wild, "" );
+    if ( yHasWildToSubtract ) {
+      // y' wildcard can match anything, but any remaining characters must match something.
+      if ( ylb3.isEmpty() ) {
+        // nothing needed to match beyond the wild card, so all can be subtracted
+        lb = "";
+      } else {
+        int pos = isPrefix ? x.lastIndexOf( ylb3 ) : x.indexOf( ylb3 );
+        if ( pos >= 0 ) {
+          if ( isPrefix ) {
+            int farthest = pos + ylb3.length();
+            if ( xLastWild >= 0 ) farthest = Math.max(xLastWild + wild.length(), farthest );
+            lb = x.substring( farthest );
+          } else {
+            int farthest = pos;
+            if ( xFirstWild >= 0 ) farthest = Math.min(xFirstWild, farthest );
+            lb = x.substring( 0, farthest );
+          }
+        }
+      }
+    } else {
+      int len = Utils.longestCommonPrefixLength( isPrefix ? lb : Functions.reverse( lb ),
+                                                 isPrefix ? ylb3 : Functions.reverse( ylb3 ) );
+      lb = lb.substring( len );
+    }
+    if (isPrefix) {
+      while ( lb.startsWith( wild ) && wild.length() > 0 ) {
+        // This means anything will match as a prefix.
+        lb = lb.substring( wild.length() );
+        xHasWildToSubtract = true;
+      }
+    } else {
+      while ( lb.endsWith( wild ) && wild.length() > 0) {
+        // This means anything will match as a suffix.
+        lb = lb.substring( 0, lb.length() - wild.length() );
+        xHasWildToSubtract = true;
+      }
+    }
+
+    if (!xHasWildToSubtract && !yHasWildToSubtract ) {
+      if ( isPrefix ) {
+        if ( ub.startsWith( yub ) ){
+          ub = ub.substring( yub.length() );
+        } else if ( ub.startsWith( ylb ) ) {
+          ub = ub.substring( ylb.length() );
+          if ( yub.startsWith( ylb ) ) {
+            String newyub = yub.substring( ylb.length() );
+
+            int lenn = Utils.longestCommonPrefixLength( ub, newyub );
+            ub = ub.substring( lenn );
+          }
+        }
+      } else {
+        if ( ub.endsWith( yub ) ){
+          ub = ub.substring( 0, ub.length() - yub.length() );
+        } else if ( ub.endsWith( ylb ) ) {
+          ub = ub.substring( ylb.length() );
+          if ( yub.endsWith( ylb ) ) {
+            String newyub = yub.substring( 0, yub.length() - ylb.length() );
+            int lenn = Utils.longestCommonPrefixLength( reverse(ub), reverse(newyub) );
+            ub = ub.substring( 0, ub.length() - lenn );
+          }
+        }
+      }
+    }
+    StringDomain d = new StringDomain( lb, ub );
+    d.kind = isPrefix ? StringDomain.Kind.SUFFIX_RANGE : StringDomain.Kind.PREFIX_RANGE;
+    return d;
+  }
+
+  public static String reverse( String s ) {
+    return new StringBuilder( s ).reverse().toString();
+  }
+
+  protected static Domain prefixesAndSuffixes( String dom1Val, StringDomain sd2,
+                                               boolean isPrefix ) {
+    String r1 = null;
+    String r2 = null;
+    // Try not to loop over the whole thing.  Try from both sides.
+    // Left side first.
+    long n1 = 0;
+
+    if ( sd2.isInfinite() ) {
+      String v2 = null;
+      String v1 = null;
+
+      StringDomain d1 = minusPrefixSuffixWild( dom1Val, sd2.getLowerBound(), isPrefix, false );
+      StringDomain d2 = minusPrefixSuffixWild( dom1Val, sd2.getUpperBound(), isPrefix, false );
+      d1.union( d2 );
+      return d1;
+    }
+    for ( ; n1 < sd2.size(); ++n1 ) {
+      String nv = sd2.getNthValue( n1 );
+      String v = null;
+      if ( isPrefix ) {
+        v = minusPrefix( dom1Val, nv );
+      } else {
+        v = minusSuffix( dom1Val, nv );
+      }
+
+      if ( v != null ) {
+        if ( r1 == null ) {
+          r1 = v;
+        } else if ( !r1.equals( v ) ) {
+          r2 = v;
+          break;
+        }
+      }
+    }
+    // Now right side.
+    if ( r2 != null ) {
+      boolean startedReplacing = false;
+      for ( long n = sd2.size() - 1; n > n1; --n ) {
+        String nv = sd2.getNthValue( n );
+        String v = null;
+        if ( isPrefix ) {
+          v = minusPrefix( dom1Val, nv );
+        } else {
+          v = minusSuffix( dom1Val, nv );
+        }
+        if ( v != null ) {
+          if ( r2.equals( v ) ) {
+            break;
+          } else if ( !r1.equals( v ) ) {
+            // a third value to maybe set as max or min
+            if ( ( sd2.less( v, r2 ) && sd2.less( r2, r1 ) ) || (
+                    sd2.greater( v, r2 ) && sd2.greater( r2, r1 ) ) ) {
+              r2 = v;
+              startedReplacing = true;
+            } else if ( ( sd2.less( v, r1 ) && sd2.less( r1, r2 ) ) || (
+                    sd2.greater( v, r1 ) && sd2.greater( r1, r2 ) ) ) {
+              r1 = v;
+              startedReplacing = true;
+            } else if ( startedReplacing ) {
+              // hit a max or min -- time to quit
+              break;
+            }
+          } else if ( startedReplacing ) {
+            // hit a max or min -- time to quit
+            break;
+          }
+        }
+      }
+    }
+    StringDomain sd = null;
+    if ( r1 == null ) {
+       sd = new StringDomain( r2, r2 );
+    } else
+    if ( r2 == null ) {
+      sd = new StringDomain( r1, r1 );
+    } else {
+        boolean less = sd2.less( r1, r2 );
+        if ( less ) {
+            sd = new StringDomain( r1, r2 );
+        } else {
+            sd = new StringDomain( r2, r1 );
+        }
+    }
+    sd.kind = isPrefix ?
+              StringDomain.Kind.SUFFIX_RANGE :
+              StringDomain.Kind.PREFIX_RANGE;
+    return sd;
+  }
+
+  public static class Floor<T> extends Unary<T, T> {
+    protected static final String floor = "floor";
+
+    public Floor( Variable<T> o ) {
+      super( o, floor );
+    }
+
+    public Floor( Expression<T> o1 ) {
+      super( o1, floor );
+    }
+
+    public Floor( Object o1 ) {
+      super( o1, floor );
+    }
+
+    public Floor( Unary m ) {
+      super( m );
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( returnValue == null ) return null;
+      AbstractRangeDomain<T> d = DomainHelper.createSubDomainAbove( returnValue, true, false );
+      T ub = null;
+      try {
+        ub = plus( d.getLowerBound(), 1 );
+      } catch ( Throwable e ) {
+      }
+      if ( ub != null ) {
+        d.setUpperBound( ub );
+        d.excludeUpperBound();
+        return new Identity( new Expression(d) );
+      }
+      Debug.error(true, false, "ERROR!  Floor.inverseSingleValue(" + returnValue + ") failed!" );
+      return null;
+    }
+
+  }
+
+  public static <T> Object floor( Object e ) {
+    Pair<Object, TimeVaryingMap<?>> p = numberOrTimelineOrDistribution( e );
+    if ( p == null ) {
+      return null;
+    }
+    if ( p.second != null ) {
+        try {
+            return (T)p.second.floor();
+        } catch ( Throwable e1 ) {
+            e1.printStackTrace();
+        }
+        return null;
+    }
+    if ( p.first instanceof Number ) {
+        double floored = Math.floor( ((Number)p.first).doubleValue() );
+        Pair<Boolean, ? extends Object> flooredPair =
+              ClassUtils.coerce( floored, p.first.getClass(), false );
+        if ( flooredPair != null && flooredPair.first != null && flooredPair.first ) {
+          return flooredPair.second;
+        }
+    } else if ( p.first instanceof Distribution ) {
+//        Debug.error(true, false, "ERROR! floor() for Distribution is not yet implemented!");
+        return DistributionHelper.floor( (Distribution)p.first );
+    }
+    Debug.error(true, false, "ERROR! floor(" + p.first + ") has argument of unexpected type, " + p.first.getClass().getSimpleName());
+    return e;
+  }
+
+  // A potentially simpler implementation of mod.
+  public static class Mod2< T, R > extends Sub< T, R > {
+    public Mod2( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, new Expression<T>( new Times(o2, new Divide(o1, o2))));
+      // functionCall.
+      setMonotonic( false );
+    }
+
+    public Mod2( Object o1, Object c ) {
+      super( o1, (Object)new Expression(new Times(c, new Divide(o1, c))));
+      // functionCall.
+      setMonotonic( false );
+    }
+
+    public Mod2( Functions.Mod2< T, R > m ) {
+      super( m );
+    }
+
+    public Mod2< T, R > clone() {
+      return new Mod2< T, R >( this );
+    }
+}
+
+  /**
+   * Mod(x,y) = x - y * floor( x / y )
+   * @param <T>
+   * @param <R>
+   */
+  public static class Mod< T, R > extends Binary< T, R > {
+    public Mod( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, o2, "mod", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( false );
+    }
+
+    public Mod( Object o1, Object c ) {
+      super( o1, c, "mod", "pickValueForward", "pickValueReverse" );
+      // functionCall.
+      setMonotonic( false );
+    }
+
+    public Mod( Functions.Mod< T, R > m ) {
+      super( m );
+    }
+
+    public Mod< T, R > clone() {
+      return new Mod< T, R >( this );
+    }
+
+    /**
+     * mod(x,y) = x - y * floor( x / y )
+     * <p>
+     *     For positive valued x, the result of mod(x,y) ranges in
+     *     [0, min(x.domain.ub, abs(y).domain.ub)] - {abs(y).domain.ub}.
+     * </p>
+     * <p>
+     *     If x is always negative, then
+     *     [max(x.domain.lb, -abs(y).domain.ub), 0] - {-(abs(y).domain.ub)}.
+     * </p>
+     * <p>
+     *     If x can be positive or negative,
+     *     [max(x.domain.lb, -abs(y).domain.ub), min(x.domian.ub, abs(y).domain.ub)] - {-(abs(y).domain.ub), abs(y).domain.ub}.
+     * </p>
+     *
+     * @param propagate
+     * @param seen
+     * @return
+     */
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      Domain< ? > d = DomainHelper.combineDomains( arguments, this, true );
+      return d;
+        /*
+      if ( arguments != null && arguments.size() == 2 ) {
+        Object arg1 = arguments.get( 0 );
+        Object arg2 = arguments.get( 1 );
+
+        //Domain d1 = DomainHelper.getDomain( arg1 );
+        //Domain d2 = DomainHelper.getDomain( arg2 );
+        ComparableDomain<Object> cd1 = DomainHelper.getComparableDomain( arg1 );
+        ComparableDomain<Object> cd2 = DomainHelper.getComparableDomain( arg2 );
+        if ( cd1 != null && cd2 != null ) {
+
+        }
+      }
+      return super.calculateDomain( propagate, seen );
+        */
+    }
+
+    @Override
+    public FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object otherArg = ( arg == arguments.get( 1 ) ? arguments.get( 0 )
+                                                    : arguments.get( 1 ) );
+      boolean firstArg = otherArg != arguments.get( 0 ); // thus arg is the
+      // first
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+      // null!
+      if ( firstArg ) {
+        return new Sum< T, T >( returnValue, new Times(otherArg, new Divide(arg, otherArg)) );
+      }
+      // The set of numbers whose mod with otherArg equals returnValue.  Represent as
+      // otherArg * IntegerDomain.positiveDomain + returnValue.
+      // TODO  -- We should intersect the result with the domain of arg.
+      // FIXME -- Instead, we're just using arg's domain instead of the positive integers.
+      Domain d = DomainHelper.getDomain( arg );
+      if ( d == null ) d = IntegerDomain.positiveDomain;
+      return new Sum< T, T >( returnValue, new Plus( new Times( d, otherArg ), returnValue ) );
+    }
+  }
+
+  /**
+   * Remainder(x,y) = Mod(x,y) = x - y * floor( x / y )
+   * @param <T>
+   * @param <R>
+   */
+  public static class Remainder< T, R > extends Mod< T, R > {
+    public Remainder( Expression< T > o1, Expression< T > o2 ) {
+      super( o1, o2 );
+      setMonotonic( false );
+    }
+
+    public Remainder( Object o1, Object c ) {
+      super( o1, c );
+      setMonotonic( false );
+    }
+
+    public Remainder( Functions.Remainder< T, R > m ) {
+      super( m );
+    }
+
+    public Remainder< T, R > clone() {
+      return new Remainder< T, R >( this );
+    }
+
+}
+
+  /**
+   * mod(o1,o2) = o1 % o2 = o1 - o2 * floor( o1 / o2 )
+   *
+   * @param o1
+   * @param o2
+   * @param <T>
+   * @param <TT>
+   * @return
+   * @throws IllegalAccessException
+   * @throws InvocationTargetException
+   * @throws InstantiationException
+   */
+  public static < T, TT > T
+  mod( Expression< T > o1,
+            Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof Double && r2 instanceof Number ) {
+      return (T)(Double)0.0;
+    }
+    return mod( r1, r2 );
+  }
+
+  /**
+   * mod(o1,o2) = o1 % o2 = o1 - o2 * floor( o1 / o2 )
+   *
+   * @param o1
+   * @param o2
+   * @param <V1>
+   * @param <V2>
+   * @return
+   * @throws ClassCastException
+   * @throws IllegalAccessException
+   * @throws InvocationTargetException
+   * @throws InstantiationException
+   */
+  public static < V1, V2 > V1 mod( V1 o1, V2 o2 ) throws ClassCastException,
+                                                           IllegalAccessException,
+                                                           InvocationTargetException,
+                                                           InstantiationException {
+    return minus( o1, times(o2, floor( divide( o1, o2 ) ) ) );
+  }
+
+
 
   public static class Times< T, R > extends Binary< T, R > {
     public Times( Expression< T > o1, Expression< T > o2 ) {
@@ -1231,6 +2059,35 @@ public class Functions {
       if ( returnValue == null || otherArg == null ) return null; // arg can be
                                                                   // null!
       return new Divide< T, T >( returnValue, otherArg );
+    }
+
+    @Override
+    public Domain< ? > inverseDomain( Domain< ? > returnValue,
+                                      Object argument ) {
+      if ( returnValue == null || argument == null ) return null;
+      // If the return value and the other arg can be zero,
+      // then the inverse can be anything.
+      if ( arguments == null || arguments.size() != 2 ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      Object otherArg = ( argument == arguments.get( 1 ) ? arguments.get( 0 )
+                                                         : arguments.get( 1 ) );
+      if ( otherArg == null ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      boolean returnHasZero = DomainHelper.contains( returnValue, 0.0 ) ||
+                              DomainHelper.contains( returnValue, 0 );
+      if ( returnHasZero ) {
+        Domain<Object> otherDomain = DomainHelper.getDomain( otherArg );
+        boolean otherHasZero =
+                otherDomain != null &&
+                ( DomainHelper.contains( otherDomain, 0.0 ) ||
+                  DomainHelper.contains( otherDomain, 0 ) );
+        if ( otherHasZero ) {
+          return otherDomain.getDefaultDomain();
+        }
+      }
+      return super.inverseDomain( returnValue, argument );
     }
 
   }
@@ -1278,12 +2135,305 @@ public class Functions {
       if ( returnValue == null || otherArg == null ) return null; // arg can be
                                                                   // null!
       if ( firstArg ) {
-        return new Times< T, T >( returnValue, otherArg );
+        return inverseDivideForNumerator( returnValue, otherArg );
+      } else {
+        return inverseDivideForDenominator( returnValue, otherArg );
       }
-      return new Divide< T, T >( otherArg, returnValue );
     }
 
+    public static boolean areIntegers( Object r1, Object r2 ) {
+      if ( r1 == null || r2 == null ) return false;
+      boolean isint = r1 instanceof Integer &&
+                      r2 instanceof Integer;
+      return isint;
+    }
+    public static boolean areIntegersOrLong( Object r1, Object r2 ) {
+        if ( r1 == null || r2 == null ) return false;
+        boolean isint = ( r1 instanceof Integer || r1 instanceof Long ) &&
+                        ( r2 instanceof Integer || r2 instanceof Long );
+        return isint;
+    }
+
+    public static <T> FunctionCall inverseDivideForNumerator(Object returnValue,
+                                                             Object denominator) {
+      // If the arguments are both integer/long, then we need to return
+      // the range of integers that when divided by otherArg, equals returnValue.
+      // For example, for 3 = x / 5, x can be [15,19].
+      // So, we want
+      // [returnValue * otherArg, (returnValue+1) * otherArg - 1]
+      // special cases:
+      //   1 = x / y  -> x = y
+      //   0 = x / inf  -> x is anything
+      //   z = x / inf  -> x is inf
+      //   0 = x / y  -> x = 0
+      //   inf = x / 0  -> x is anything
+      //   z = x / 0  -> x = 0
+      //
+      Object r1=null, r2=null;
+      try {
+        r1 = Expression.evaluateDeep( returnValue, null, false, false );
+        r2 = Expression.evaluateDeep( denominator, null, false, false );
+      } catch (Throwable t) {}
+
+      if ( r1 == null || r2 == null ) return null;
+      if ( areIntegersOrLong( r1, r2 ) ) {
+        long l1 = ((Number)r1).longValue();
+        long l2 = ((Number)r2).longValue();
+        boolean isPositive = l1 < 0 == l2 < 0;
+        Domain d = null;
+        boolean resultLong = !areIntegers( r1, r2 );
+        Integer i1 = resultLong ? null : ((Number)r1).intValue();
+        Integer i2 = resultLong ? null : ((Number)r2).intValue();
+
+        // If the return value is one, return the denominator
+        if ( l1 == 1 ) {
+          return new Identity<Number>(new Expression<Number>( denominator ) );
+        }
+        // If the denominator value is one, return the return value
+        if ( l2 == 1 ) {
+          return new Identity<Number>(new Expression<Number>( returnValue ) );
+        }
+        // If the denominator is zero
+        if ( l2 == 0 ) {
+          // If the return value is also. zero the numerator is zero.
+          if ( l1 == 0 ) {
+            return new Identity<Number>(new Expression<Number>( 0 ) );
+          }
+          // If the return value is infinity, the numerator is either
+          // non-zero positive or negative and not zero, I guess.
+          if ( gov.nasa.jpl.ae.util.Math.isInfinity( r1 ) ||
+               gov.nasa.jpl.ae.util.Math.isNegInfinity( r1 ) ) {
+            if ( isPositive ) {
+              if ( resultLong ) {
+                d = new LongDomain( 1, LongDomain.typeMaxValue );
+              } else {
+                d = new IntegerDomain( 1, IntegerDomain.typeMaxValue );
+              }
+            } else {
+              if ( resultLong ) {
+                d = new LongDomain( LongDomain.typeMinValue, -1 );
+              } else {
+                d = new IntegerDomain( IntegerDomain.typeMinValue, -1 );
+              }
+            }
+          }
+          //d = resultLong ? new LongDomain() : new IntegerDomain();
+        } else
+        // If the return value is zero
+        if ( l1 == 0 ) {
+          // and the denominator is infinity, then the numerator can be anything.
+          if ( gov.nasa.jpl.ae.util.Math.isInfinity( r2 ) ||
+               gov.nasa.jpl.ae.util.Math.isNegInfinity( r2 ) ) {
+            d = resultLong ? new LongDomain() : new IntegerDomain();
+          }
+        }
+
+//        if ( d == null ) {
+//          return new Minus( new Times( new Plus( returnValue, 1 ), denominator ), 1 );
+//        }
+//        // TODO -- delete the if-else below -- will not get called because d == null returns above
+
+        // Integer or Long domain =
+        // [returnValue * otherArg, (returnValue+1) * otherArg - 1]
+        if ( d == null && resultLong ) {
+          Long lb = gov.nasa.jpl.ae.util.Math.times( l1, l2 );
+          Long ub =
+                  gov.nasa.jpl.ae.util.Math.minus(
+                          gov.nasa.jpl.ae.util.Math.times(
+                                  gov.nasa.jpl.ae.util.Math.plus(l1, l1 < 0 ? -1 : 1),
+                                  l2 ),
+                          isPositive ? 1 : -1);
+          // swap in case of negative signs
+          if ( ub < lb ) {
+            Long t = ub;
+            ub = lb;
+            lb = t;
+          }
+          d = new LongDomain( lb,ub );
+        } else if ( d == null ) {
+          Integer lb = gov.nasa.jpl.ae.util.Math.times( i1, i2 );
+          Integer ub =
+                  gov.nasa.jpl.ae.util.Math.minus(
+                          gov.nasa.jpl.ae.util.Math.times(
+                                  gov.nasa.jpl.ae.util.Math.plus(i1, i1 < 0 ? -1 : 1),
+                                  i2 ),
+                          isPositive ? 1 : -1);
+          // swap in case of negative signs
+          if ( ub < lb ) {
+            Integer t = ub;
+            ub = lb;
+            lb = t;
+          }
+          d = new IntegerDomain(lb, ub);
+        }
+        if ( d != null ) {
+          return new Identity<Number>( new Expression<Number>( d ) );
+//          return new FunctionCall( null, newListMethod,
+//                                   new Object[] { d }, (Class<?>)null );
+        }
+      }
+      return new Times< T, T >( returnValue, denominator );
+    }
+
+    public static <T> FunctionCall inverseDivideForDenominator(Object returnValue,
+                                                           Object numerator) {
+      // If the arguments are both integer/long, then we need to return
+      // the range of integers that can divided into the numerator to get the returnValue.
+      // For example, for 3 = 100 / x, x can be [26,33].
+      // So, we want
+      // [1 + numerator / (returnValue + 1), numerator / returnValue]
+      // but only if abs(numerator) >= abs(returnValue); otherwise, return 0;
+      // special cases:
+      //   1 = x / y  -> y = x
+      //   z = z / y  -> y = 1
+      //   z = -z / y  -> y = -1
+      //   z = inf / y  -> y is inf or -inf
+      //   0 = 0 / y  -> y = anything
+      //   0 = x / y  -> y = inf or -inf (or *maybe* empty set if x = inf)
+      //   z = 0 / y  -> y = 0
+      //   inf = x / y  -> y = 0
+
+      Object r1=null, r2=null;
+      try {
+        r1 = Expression.evaluateDeep( returnValue, null, false, false );
+        r2 = Expression.evaluateDeep( numerator, null, false, false );
+      } catch (Throwable t) {}
+
+      if ( r1 == null || r2 == null ) return null;
+      if ( !areIntegersOrLong( r1, r2 ) ) {
+        return new Divide< T, T >( numerator, returnValue );
+      }
+      long l1 = ((Number)r1).longValue();
+      long l2 = ((Number)r2).longValue();
+      Domain d = null;
+      boolean resultLong = !areIntegers( r1, r2 );
+      Integer i1 = resultLong ? null : ((Number)r1).intValue();
+      Integer i2 = resultLong ? null : ((Number)r2).intValue();
+      boolean isPositive = l1 < 0 == l2 < 0;
+
+      // If you divide a smaller int by a bigger one, you get 0 because there are no fractions.
+      // This takes care of the special case: z = 0 / y  -> y = 0
+      if ( Math.abs( l2 ) < Math.abs( l1 ) ) {
+        return new Identity<Number>(new Expression<Number>( 0 ) );
+      }
+      // If the return value is one, return the numerator
+      if ( l1 == 1 ) {
+        return new Identity<Number>(new Expression<Number>( numerator ) );
+      }
+      // If the values are equal return 1.
+      if ( Utils.valuesEqual( Math.abs( l2 ), Math.abs( l1 ) ) ) {
+        return new Identity<Number>(new Expression<Number>( isPositive ? 1 : -1 ) );
+      }
+      // If the return value and the denominator are zero, return anything
+      if ( l2 == 0 && l1 == 0 ) {
+          d = resultLong ? new LongDomain() : new IntegerDomain();
+          return new Identity<Number>( new Expression<Number>( d ) );
+      }
+      // If the numerator is inf, return inf
+      // If the return value is zero, return inf
+      if ( gov.nasa.jpl.ae.util.Math.isInfinity( r2 ) ||
+           gov.nasa.jpl.ae.util.Math.isNegInfinity( r2 ) ) {
+        Number n = null;
+        if ( resultLong ) {
+          n = isPositive ? LongDomain.typeMaxValue : LongDomain.typeMinValue;
+        } else {
+          n = isPositive ? IntegerDomain.typeMaxValue : IntegerDomain.typeMinValue;
+        }
+        return new Identity<Number>(new Expression<Number>( n ) );
+      }
+      // If the return value is zero, return {-inf,inf}
+      if ( l1 == 0 ) {
+        Set<Domain> includeSet = new LinkedHashSet<>();
+        Set<Domain> excludeSet = null;
+        if ( resultLong ) {
+          d = new LongDomain( LongDomain.typeMinValue, LongDomain.typeMinValue );
+          includeSet.add( d );
+          d = new LongDomain( LongDomain.typeMaxValue, LongDomain.typeMaxValue );
+          includeSet.add( d );
+        } else {
+          d = new IntegerDomain( IntegerDomain.typeMinValue, IntegerDomain.typeMinValue );
+          includeSet.add( d );
+          d = new IntegerDomain( IntegerDomain.typeMaxValue, IntegerDomain.typeMaxValue );
+          includeSet.add( d );
+        }
+        d = new MultiDomain( resultLong ? Long.class : Integer.class, includeSet, excludeSet);
+        return new Identity<Number>( new Expression<Number>( d ) );
+      }
+
+      // Integer or Long domain =
+      // [1 + numerator / (returnValue + 1), numerator / returnValue]
+      if ( d == null && resultLong ) {
+        Long lb =
+                gov.nasa.jpl.ae.util.Math.plus(
+                        gov.nasa.jpl.ae.util.Math.dividedBy(
+                                l2,
+                                gov.nasa.jpl.ae.util.Math.plus(l1, l1 > 0 ? 1 : -1) ),
+                        isPositive ? 1 : -1);
+        Long ub = gov.nasa.jpl.ae.util.Math.dividedBy( l2, l1 );
+        // swap in case of negative signs
+        if ( ub < lb ) {
+          Long t = ub;
+          ub = lb;
+          lb = t;
+        }
+        d = new LongDomain( lb, ub );
+      } else if ( d == null ) {
+        Integer lb =
+                gov.nasa.jpl.ae.util.Math.plus(
+                        gov.nasa.jpl.ae.util.Math.dividedBy(
+                                i2,
+                                gov.nasa.jpl.ae.util.Math.plus(i1, i1 > 0 ? 1 : -1) ),
+                        isPositive ? 1 : -1);
+        Integer ub = gov.nasa.jpl.ae.util.Math.dividedBy( i2, i1 );
+        // swap in case of negative signs
+        if ( ub < lb ) {
+          Integer t = ub;
+          ub = lb;
+          lb = t;
+        }
+        d = new IntegerDomain( lb, ub );
+      }
+
+
+      if ( d == null ) {
+        return new Divide< T, T >( numerator, returnValue );
+//        // [1 + numerator / (returnValue + 1), numerator / returnValue]
+//        return new Minus( new Times( new Plus( returnValue, 1 ), denominator ), 1 );
+      } else {
+        return new Identity<Number>( new Expression<Number>( d ) );
+      }
+    }
+
+
+    @Override
+    public Domain< ? > inverseDomain( Domain< ? > returnValue,
+                                      Object argument ) {
+      if ( returnValue == null || argument == null ) return null;
+      // If the return value and the numerator can be zero,
+      // then the denominator can be anything.
+      if ( arguments == null || arguments.size() != 2 ) {
+        return super.inverseDomain( returnValue, argument );
+      }
+      boolean isDenominator = argument == arguments.get( 1 ); // this arg is the first
+      // If the denominator
+      if ( isDenominator ) {
+        boolean returnHasZero = DomainHelper.contains( returnValue, 0.0 ) ||
+                                DomainHelper.contains( returnValue, 0 );
+        if ( returnHasZero ) {
+          Domain<Object> numeratorDomain = DomainHelper.getDomain( arguments.get( 0 ) );
+          boolean numeratorHasZero =
+                  numeratorDomain != null &&
+                  ( DomainHelper.contains( numeratorDomain, 0.0 ) ||
+                    DomainHelper.contains( numeratorDomain, 0 ) );
+          if ( numeratorHasZero ) {
+            return numeratorDomain.getDefaultDomain();
+          }
+        }
+      }
+      return super.inverseDomain( returnValue, argument );
+    }
   }
+
 
   public static class Div< T, R > extends Divide< T, R > {
     public Div( Expression< T > o1, Expression< T > o2 ) {
@@ -1560,6 +2710,37 @@ public class Functions {
       return new GetMember< T, R >( this );
     }
 
+    @Override
+    public Set<Parameter<?>> getParameters(boolean deep, Set<HasParameters> seen) {
+      // don't need seen since we won't be recursing anyways?
+//      Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+//      if ( pair.first ) return Utils.getEmptySet();
+//      seen = pair.second;
+
+      Set< Parameter< ? > > set = new LinkedHashSet< Parameter< ? >>();
+      Object retVal = this.returnValue;
+
+      if(retVal instanceof Parameter) {
+        set.add((Parameter) retVal);
+      } else if(retVal instanceof Expression) {
+        Parameter p = null;
+        try {
+          p = Expression.evaluate(retVal, Parameter.class, true);
+        } catch (IllegalAccessException e) {
+          e.printStackTrace();
+        } catch (InvocationTargetException e) {
+          e.printStackTrace();
+        } catch (InstantiationException e) {
+          e.printStackTrace();
+        }
+        if(p != null) {
+          set.add(p);
+        }
+      }
+
+      return set;
+    }
+
 
     @Override
     public <T1> T1 pickValue(Variable<T1> variable) {
@@ -1687,6 +2868,36 @@ public class Functions {
         }
       }
     }
+
+    @Override public String toString() {
+      if ( getArguments().size() == 2 ) {
+        String objName = null;
+        if ( getArgument( 0 ) instanceof HasOwner ) {
+          objName = ((HasOwner)getArgument( 0 )).getQualifiedName( null );
+        } else if ( getArgument( 0 ) instanceof HasName ) {
+          objName = ((HasName)getArgument( 0 )).getName().toString();
+        } else {
+          objName = MoreToString.Helper.toShortString( getArgument( 0 ) );
+        }
+        return "GetMember(" + objName + ", " + getArgument( 1 ) + ")";
+      }
+      return toString( true, false, null, true, null );
+    }
+
+    @Override
+    public synchronized String toString( boolean withHash, boolean deep,
+                                         Set<Object> seen, boolean argsShort,
+                                         Map<String, Object> otherOptions ) {
+      //return super.toString( withHash, deep, seen, true, otherOptions );
+      return toString();
+    }
+
+    @Override
+    public synchronized String toString( boolean withHash, boolean deep,
+                                         Set<Object> seen,
+                                         Map<String, Object> otherOptions ) {
+      return toString();
+    }
   }
 
 
@@ -1739,17 +2950,46 @@ public class Functions {
       Number n2 = null;
       TimeVaryingMap< ? > map1 = null;
       TimeVaryingMap< ? > map2 = null;
+      Distribution<?> d1 = null;
+      Distribution<?> d2 = null;
 
+      Object arg1 = null;
+      Object arg2 = null;
+
+      Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+      map1 = p1.second;
+      if ( p1.first instanceof Distribution ) {
+        d1 = (Distribution)p1.first;
+        arg1 = d1;
+      } else if ( p1.first instanceof Number ) {
+        n1 = (Number)p1.first;
+        arg1 = map1 == null ? n1 : map1;
+      }
+      if ( arg1 == null ) arg1 = o1;
+      Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      map2 = p2.second;
+      if ( p2.first instanceof Distribution ) {
+        d2 = (Distribution)p2.first;
+        arg2 = d2;
+      } else if ( p2.first instanceof Number ) {
+        n2 = (Number)p2.first;
+        arg2 = map2 == null ? n2 : map2;
+      }
+      if ( arg2 == null) arg2 = o2;
+
+      /*
       Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
       n1 = p1.first;
       map1 = p1.second;
-
+*/
       if ( map1 != null ) {
         result = (V1)plus( map1, o2 );
       } else {
+        /*
         Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
         n2 = p2.first;
         map2 = p2.second;
+        */
 
         if ( map2 != null ) {
           result = (V1)plus( o1, map2 );
@@ -1799,7 +3039,11 @@ public class Functions {
                                                             n2.intValue() );
         }
       }
-      // else {
+      if ( d1 != null || d2 != null ) {
+        result = DistributionHelper.plus( //arg1, arg2,
+                                          o1, o2 );
+      }
+        // else {
       // TimeVaryingMap<?> map = null;
       // try {
       // map = Expression.evaluate( o1, TimeVaryingMap.class, false );
@@ -2282,6 +3526,93 @@ public class Functions {
     return p;
   }
 
+  public static Pair< Object, TimeVaryingMap< ? > >
+        numberOrTimelineOrDistribution( Object o ) {
+    Number n = tryToGetNumberQuick( o );
+    TimeVaryingMap< ? > tvm = tryToGetTimelineQuick( o );
+    Distribution<?> dist = tryToGetDistributionQuick( o );
+    if ( tvm != null || n != null || dist != null ) {
+      if ( dist != null ) {
+        return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+      }
+      return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+    }
+    try {
+      dist = Expression.evaluate( o, Distribution.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    try {
+      tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    if ( dist == null && n == null && o instanceof String ) {
+      n = toNumber( o, true );
+    }
+    if ( dist == null && n == null ) {
+      try {
+        n = Expression.evaluate( o, Number.class, false );
+      } catch ( Throwable e ) {
+        // ignore
+      }
+    }
+    // if ( n != null ) {
+    // new Pair< Number, TimeVaryingMap<?> >( n, tvm );
+    // }
+    //// if ( n == null ) {
+    //// }
+
+    if ( dist != null ) {
+      return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+    }
+    return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+  }
+
+  public static Pair< Object, TimeVaryingMap< ? > >
+        booleanOrTimelineOrDistribution( Object o ) {
+    Boolean n = tryToGetBooleanQuick( o );
+    TimeVaryingMap< ? > tvm = tryToGetTimelineQuick( o );
+    Distribution<?> dist = tryToGetDistributionQuick( o );
+    if ( tvm != null || n != null || dist != null ) {
+      if ( dist != null ) {
+        return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+      }
+      return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+    }
+    try {
+      dist = Expression.evaluate( o, Distribution.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    try {
+      tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
+    } catch ( Throwable e ) {
+      // ignore
+    }
+    if ( dist == null && n == null && o instanceof String ) {
+      n = Utils.isTrue( o, true );
+    }
+    if ( dist == null && n == null ) {
+      try {
+        n = Expression.evaluate( o, Boolean.class, false );
+      } catch ( Throwable e ) {
+        // ignore
+      }
+    }
+    // if ( n != null ) {
+    // new Pair< Number, TimeVaryingMap<?> >( n, tvm );
+    // }
+    //// if ( n == null ) {
+    //// }
+
+    if ( dist != null ) {
+      return new Pair<Object, TimeVaryingMap<?>>( dist, tvm );
+    }
+    return new Pair<Object, TimeVaryingMap<?>>( n, tvm );
+  }
+
+
   protected static TimeVaryingMap< ? > tryToGetTimelineQuick( Object o ) {
     if ( o == null ) return null;
     if ( o instanceof TimeVaryingMap ) return (TimeVaryingMap)o;
@@ -2320,6 +3651,18 @@ public class Functions {
     return o;
   }
 
+  public static Distribution<?> tryToGetDistributionQuick( Object o ) {
+    if ( o == null ) return null;
+    if ( o instanceof Distribution ) return (Distribution)o;
+    if ( o instanceof Expression ) o = ( (Expression< ? >)o ).expression;
+    if ( o instanceof Parameter ) o =
+            ( (Parameter< ? >)o ).getValueNoPropagate();
+    if ( o instanceof Distribution ) return (Distribution)o;
+    return null;
+  }
+
+
+
   // public static <V1, V2> V1 times( V1 o1, V2 o2 ) {
   public static < V1, V2 > V1 times( V1 o1, V2 o2 )
                                                     throws IllegalAccessException,
@@ -2330,18 +3673,45 @@ public class Functions {
     Number n2 = null;
     TimeVaryingMap< ? > map1 = null;
     TimeVaryingMap< ? > map2 = null;
+    Distribution<?> d1 = null;
+    Distribution<?> d2 = null;
+
+    Object arg1 = null;
+    Object arg2 = null;
+
+    Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+    map1 = p1.second;
+    if ( p1.first instanceof Distribution ) {
+      d1 = (Distribution)p1.first;
+      arg1 = d1;
+    } else if ( p1.first instanceof Number ) {
+      n1 = (Number)p1.first;
+      arg1 = map1 == null ? n1 : map1;
+    }
+    if ( arg1 == null ) arg1 = o1;
+    Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+    map2 = p2.second;
+    if ( p2.first instanceof Distribution ) {
+      d2 = (Distribution)p2.first;
+      arg2 = d2;
+    } else if ( p2.first instanceof Number ) {
+      n2 = (Number)p2.first;
+      arg2 = map2 == null ? n2 : map2;
+    }
+    if ( arg2 == null) arg2 = o2;
+
 
     Object result = null;
-    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-    n1 = p1.first;
-    map1 = p1.second;
+//    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
+//    n1 = p1.first instanceof Number ? (Number)p1.first : null;
+//    map1 = p1.second;
 
     if ( map1 != null ) {
       result = (V1)times( map1, o2 );
     } else {
-      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-      n2 = p2.first;
-      map2 = p2.second;
+//      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
+//      n2 = p2.first;
+//      map2 = p2.second;
 
       if ( map2 != null ) {
         result = (V1)times( o1, map2 );
@@ -2406,8 +3776,10 @@ public class Functions {
         result = (Integer)gov.nasa.jpl.ae.util.Math.times( n1.intValue(),
                                                            n2.intValue() );
       }
-      if ( result == null ) return null;
-      if ( o1.getClass().equals( result.getClass() ) ) return (V1)result;
+    }
+
+    if ( d1 != null || d2 != null ) {
+      result = DistributionHelper.times( arg1, arg2 );
     }
 
     try {
@@ -2434,50 +3806,47 @@ public class Functions {
                                                      throws IllegalAccessException,
                                                      InvocationTargetException,
                                                      InstantiationException {
-    Object result = null;
+    if ( o1 == null || o2 == null ) return null;
     Number n1 = null;
     Number n2 = null;
     TimeVaryingMap< ? > map1 = null;
     TimeVaryingMap< ? > map2 = null;
+    Distribution<?> d1 = null;
+    Distribution<?> d2 = null;
 
-    Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-    n1 = p1.first;
+    Object arg1 = null;
+    Object arg2 = null;
+
+    Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
     map1 = p1.second;
+    if ( p1.first instanceof Distribution ) {
+      d1 = (Distribution)p1.first;
+      arg1 = d1;
+    } else if ( p1.first instanceof Number ) {
+      n1 = (Number)p1.first;
+      arg1 = map1 == null ? n1 : map1;
+    }
+    if ( arg1 == null ) arg1 = o1;
+    Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+    map2 = p2.second;
+    if ( p2.first instanceof Distribution ) {
+      d2 = (Distribution)p2.first;
+      arg2 = d2;
+    } else if ( p2.first instanceof Number ) {
+      n2 = (Number)p2.first;
+      arg2 = map2 == null ? n2 : map2;
+    }
+    if ( arg2 == null) arg2 = o2;
 
+    Object result = null;
     if ( map1 != null ) {
       result = (V1)divide( map1, o2 );
     } else {
-      Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-      n2 = p2.first;
-      map2 = p2.second;
-
       if ( map2 != null ) {
         result = (V1)divide( o1, map2 );
       }
     }
-    // TimeVaryingMap<?> map = null;
-    // try {
-    // map = Expression.evaluate( o1, TimeVaryingMap.class, false );
-    // } catch ( ClassCastException e ) {
-    // //ignore
-    // }
-    // if ( map != null ) result = divide( map, o2 );
-    // else {
-    // try {
-    // map = Expression.evaluate( o2, TimeVaryingMap.class, false );
-    // } catch ( ClassCastException e ) {
-    // //ignore
-    // }
-    // if ( map != null ) result = divide( o1, map );
-    // else {
-    // Number n1 = null;
-    // Number n2 = null;
-    // try {
-    // n1 = Expression.evaluate( o1, Number.class, false );
-    // n2 = Expression.evaluate( o2, Number.class, false );
-    // } catch ( Throwable e ) {
-    // // ignore
-    // }
+
     if ( n1 != null && n2 != null ) {
       if ( Infinity.isEqual( n1 ) ) {
         try {
@@ -2546,6 +3915,11 @@ public class Functions {
                                                                n2.intValue() );
       }
     }
+
+    if ( d1 != null || d2 != null ) {
+      result = DistributionHelper.divide( arg1, arg2 );
+    }
+
     // }
     // }
     try {
@@ -2696,7 +4070,44 @@ public class Functions {
                                                     IllegalAccessException,
                                                     InvocationTargetException,
                                                     InstantiationException {
+    // basic definition works for numbers, but not for strings
+    if (o1 instanceof String || o2 instanceof String) {
+      try {
+        String result = minusSuffix(o1.toString(), o2.toString());
+      
+        Class< ? > cls1 = o1.getClass();
+        Class< ? > cls2 = o2.getClass();
+        Object x =
+            Expression.evaluate( result,
+                                 ClassUtils.dominantTypeClass( cls1, cls2 ),
+                                 false );
+        if ( x == null ) x = result;
+        return (V1)x; // even if x is null; evaluate will try to cast, so there's nothing more to do, and the operation fails.
+      } catch ( ClassCastException e ) {
+        e.printStackTrace();
+      }
+    }
     return plus( o1, times( o2, -1 ) );
+  }
+  
+  public static String minusSuffix( String s1, String s2 ) {
+    if (s1.endsWith( s2 )) {
+      String s =  s1.substring( 0, s1.length() - s2.length() );
+      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
+      return s;
+    } else {
+      return s1;
+    }
+  }
+  
+  public static String minusPrefix( String s1, String s2 ) {
+    if (s1.startsWith( s2 )) {
+      String s = s1.substring( s2.length() );
+      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
+      return s;
+    } else {
+      return s1;
+    }
   }
 
   public static < T, TT > T add( Expression< T > o1,
@@ -2720,6 +4131,30 @@ public class Functions {
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return minus( r1, r2 );
+  }
+
+  public static < T, TT > String
+         subtractSuffix( Expression< T > o1,
+                   Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    return minusSuffix( r1.toString(), r2.toString() );
+  }
+
+  public static < T, TT > String
+         subtractPrefix( Expression< T > o1,
+                   Expression< TT > o2 ) throws IllegalAccessException,
+                                         InvocationTargetException,
+                                         InstantiationException {
+    if ( o1 == null || o2 == null ) return null;
+    T r1 = Expression.evaluateDeep(o1, null, false, false);
+    TT r2 = Expression.evaluateDeep(o2, null, false, false);
+    if ( r1 == null || r2 == null ) return null;
+    return minusPrefix( r1.toString(), r2.toString() );
   }
 
   public static < T, TT > T
@@ -2857,6 +4292,11 @@ public class Functions {
     if ( v instanceof TimeVaryingMap ) {
       return ( (TimeVaryingMap)v ).negative();
     }
+
+    if ( v instanceof Distribution ) {
+        return negative( (Distribution)v );
+    }
+
     Debug.error( true, true, "Unknown type for negative(" + v + ")" );
     return null;
   }
@@ -3061,6 +4501,206 @@ public class Functions {
   }
 
 
+  public static class P extends Binary<Boolean, Boolean> {
+    //Integer maxSamples = null;//FunctionOfDistributions.maxSamplesDefault;
+
+    public P( Variable<Boolean> o ) {
+      super( o, null, "p" );
+    }
+
+    public P( Expression<Boolean> o1 ) {
+      super( o1, null, "p" );
+    }
+
+    public P( Object o1 ) {
+      super( o1, null, "p" );
+    }
+
+    public P( P m ) {
+      super( m );
+    }
+
+
+    public P( Variable<Boolean> o, Object unsampledDefault ) {
+      super( o, unsampledDefault, "p" );
+    }
+
+    public P( Expression<Boolean> o1, Object unsampledDefault ) {
+      super( o1, forceExpression( unsampledDefault ), "p" );
+    }
+
+    public P( Object o1, Object unsampledDefault ) {
+      super( o1, unsampledDefault, "p" );
+    }
+
+
+      //    public P( Variable<Boolean> o, Object maxSamples ) {
+//      super( o, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( Expression<Boolean> o1, Object maxSamples )  {
+//      super( o1, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( Object o1, Object maxSamples ) {
+//      super( o1, "p" );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+//
+//    public P( P m, Object maxSamples ) {
+//      super( m );
+//      //this.maxSamples = maxSamples;
+//      init( maxSamples );
+//    }
+
+//    protected void init( Object maxSamples ) {
+//      if ( maxSamples == null ) return;
+//      if ( getArguments() != null && getArguments().size() > 0 && getArgument( 0 ) != null ) {
+//        FunctionOfDistributions fod = null;
+//        try {
+//          fod = Expression.evaluate(getArgument(0), FunctionOfDistributions.class, true);
+//          Long maxS = Expression.evaluate(maxSamples, Long.class, true);
+//          if ( fod != null && maxS != null ) {
+//            fod.setMaxSamples( maxS.intValue() );
+//          }
+//        } catch ( Throwable e ) {
+//        }
+//      }
+//    }
+
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      return new DoubleDomain( 0.0, 1.0 );
+      // TODO
+      /*
+      if ( arguments == null || arguments.isEmpty() ) {
+        return null;
+      }
+      Object arg = this.getArgument( 0 );
+      if ( arg == null ) {
+        return null;
+      }
+      if ( arg instanceof )
+      Domain<Object> d = DomainHelper.getDomain( arg );
+      Object[] args = null;
+      try {
+        args = evaluateArgs( true );
+      } catch ( Throwable t ) {
+        return null;
+      }
+      if ( args != null && args.length > 0 ) {
+        arg = args[0];
+        if ( arg != null ) {
+          return DomainHelper.getDomain( arg );
+        }
+      }
+      */
+    }
+
+  }
+
+  public static Double p(Expression<Boolean> exp) {
+      return p(exp, null);
+  }
+  public static Double p(Expression<Boolean> exp, Expression<Boolean> unsampledDefault) {
+    return p(exp, (Object)unsampledDefault);
+  }
+  public static Double p(Expression<Boolean> exp, Object unsampledDefault) {
+    System.out.println("calling p(" + exp + ")");
+    if ( exp == null ) return null;
+    return p((Object)exp, unsampledDefault);
+//    switch (exp.form) {
+//        case Value:
+//            return p((Object)exp.expression);
+//        case Function:
+//            return p( (Call)exp.expression );
+//        case Constructor:
+//            return p( (Call)exp.expression );
+//        case Parameter:
+//            return p( ((Parameter)exp.expression).getValueNoPropagate() );
+//    }
+  }
+
+//  public static Double p(Call fc) {
+//    try {
+//      Object r = fc.evaluate( true );
+//      if ( r instanceof Distribution ) {
+//        Distribution d = (Distribution)r;
+//        if ( Boolean.class.isAssignableFrom( d.getType() ) ) {
+//          Double p = d.probability( true );
+//        }
+//      } else return p(r);
+//    } catch ( Throwable t ) {
+//    }
+//    return null;
+//  }
+
+  public static Double p( Object o ) {
+    return p(o, null);
+  }
+  public static Double p( Object o, Object unsampledDefault ) {
+    //try {
+    System.out.println("calling p(" + o + ")");
+      if ( o instanceof Distribution ) {
+          Distribution d = (Distribution)o;
+          if ( d.getType() != null &&  Boolean.class.isAssignableFrom( d.getType() ) ) {
+              System.out.println("Getting the probability of " + d);
+              Double p = null;
+              if ( d instanceof FunctionOfDistributions ) {
+                  p = ((FunctionOfDistributions)d).probability( true, unsampledDefault );
+              } else {
+                  p = d.probability( true );
+              }
+              if ( d instanceof FunctionOfDistributions ) {
+                ((FunctionOfDistributions)d).getSamples().toFile("samples_" + System.currentTimeMillis() + ".csv");
+              } else if ( d instanceof SampleDistribution ) {
+                ((SampleDistribution)d).toFile("samples_" + System.currentTimeMillis() + ".csv");
+              }
+              System.out.println("Got probability " + p + " for " + d);
+              if ( p != null && p >= 0.0 ) return p;
+          }
+      };
+      try {
+          Object r = Expression.evaluate( o, Distribution.class, false, false );
+          if ( r != null && r != o && r instanceof Distribution ) {
+              return p(r, unsampledDefault);
+          }
+      } catch ( Throwable t ) {
+        t.printStackTrace();
+      }
+      try {
+          Object r = Expression.evaluate( o, Boolean.class, false, false );
+          if ( r != null && r instanceof Boolean ) {
+              return (Boolean)r ? 1.0 : 0.0;
+          }
+      } catch ( Throwable t ) {
+      }
+//      if ( o instanceof Boolean ) {
+//          return (Boolean)o ? 1.0 : 0.0;
+//      }
+//      if ( o instanceof Call ) {
+//          return p((Call)o);
+//      }
+//      if ( o instanceof Variable ) {
+//          return p(((Variable)o).getValue( false ));  // TODO -- check inf recursion!
+//      }
+//      if ( o instanceof Expression ) {
+//          return p(((Expression)o).getExpression());  // TODO -- check inf recursion!
+//      }
+//      if ( o instanceof TimeV ) {
+//          return p(((Expression)o).getExpression());  // TODO -- check inf recursion!
+//      }
+      return null;
+      //} finally {
+      //}
+  }
+
+
   protected static boolean isParameter(Object o) {
     Parameter p = null;
     try {
@@ -3114,8 +4754,10 @@ public class Functions {
 
     @Override
     public Domain<?> inverseDomain(Domain<?> returnValue, Object argument) {
+      if ( returnValue == null ) return null;
       if ( returnValue.magnitude() > 1 ) return DomainHelper.getDomain( argument );
-      boolean retVal = Utils.isTrue(returnValue.pickRandomValue());
+      Boolean retVal1 = Utils.isTrue(returnValue.pickRandomValue());
+      boolean retVal = retVal1 != null && retVal1;
       FunctionCall inverseCall = invert(retVal, argument);
       Domain<?> d =  inverseCall.getDomain(false, null);
       return d;
@@ -3140,7 +4782,7 @@ public class Functions {
       LinkedHashSet< Object > otherArgs = getOtherArgs( arg );
       // should only be one
       final Object otherArg = otherArgs.iterator().next();
-      boolean isArgFirst = arguments.firstElement() == arg;
+      final boolean isArgFirst = arguments.firstElement() == arg;
 
       try {
         return new FunctionCall( (Method)Functions.class.getMethod( "not",
@@ -3173,6 +4815,7 @@ public class Functions {
               //argEval = evaluatedArgs[isArgFirst ? 0 : 1];
               if (eqReturnValue) {
                 otherArgEval = evaluatedArgs[isArgFirst ? 1 : 0];
+                evaluationSucceeded = true;
                 return otherArgEval;
 //              } else {
 //                if (Expression.valuesEqual(argEval, otherArgEval)) {
@@ -3197,6 +4840,7 @@ public class Functions {
 //            if ( x instanceof Evaluatable ) {
 //              return ((Evaluatable) x).evaluate(null, false);
             }
+            evaluationSucceeded = true;
             return x;
           }
 
@@ -3273,17 +4917,28 @@ public class Functions {
           if ( rd1.size() == 1 && rd2.size() == 1 && rd1.equals( rd2 ) ) {
             //System.out.println( "true" );
             return new BooleanDomain( true, true );
-          } else if ( rd1.intersects( rd1 ) ) {// greaterEquals(rd1.getUpperBound(),
+          } else if ( rd1.intersects( rd2 ) ) {// greaterEquals(rd1.getUpperBound(),
                                                // rd2.getLowerBound()) &&
             // rd1.lessEquals(rd1.getLowerBound(), rd2.getUpperBound()) ){
             //System.out.println( "true or false" );
             return new BooleanDomain( false, true );
-          } else System.out.println( "false" );
+          } else if ( Debug.isOn()) System.out.println( "false" );
           return new BooleanDomain( false, false );
+        } else if ( d1 != null && d2 != null ) {
+            if ( d1 != null && !d1.isEmpty() && d2 != null && !d2.isEmpty() ) {
+            Domain d3 = d1.clone();
+            d3.restrictTo( d2 );
+            if (!d3.isEmpty()) {
+              if ( d1.magnitude() == 1 && d2.magnitude() == 1 ) {
+                return new BooleanDomain( true, true );
+              }
+              return new BooleanDomain( false, true );
+            }
+            return new BooleanDomain( false, false );
+          }
         }
-        // TODO else case
       }
-      return null;
+      return BooleanDomain.defaultDomain;
     }
 
     /*
@@ -3415,6 +5070,90 @@ public class Functions {
       ( (AbstractFiniteRangeDomain)r ).fixToIncludeBounds();
     }
   }
+  
+  /**
+   * Restricts left and right to be consistent with left <= right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @return true iff either domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLTE( Domain<T> left, Domain<T> right ) {
+    return restrictDomainsByLT(left, right, false);
+  }
+  /**
+   * Restricts left and right to be consistent with left < right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @return true iff either domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLT( Domain<T> left, Domain<T> right ) {
+    return restrictDomainsByLT(left, right, true);
+  }
+  /**
+   * Restricts left and right to be consistent with left < right or left <= right
+   * @param left The domain of the left operand
+   * @param right The domain of the right operand
+   * @param strict Set to true to use strict inequality (left < right), or to false to use non-strict (left <= right)
+   * @return A pair of booleans, (changedLeft, changedRight), true iff corresponding domain was changed
+   */
+  public static < T > Pair<Boolean, Boolean> restrictDomainsByLT( Domain<T> left, Domain<T> right, boolean strict ) {
+    boolean changedLeft  = false;
+    boolean changedRight = false;
+    
+    if (left instanceof AbstractRangeDomain< ? > &&
+        right instanceof AbstractRangeDomain< ? >) {
+      AbstractRangeDomain< T > l  = (AbstractRangeDomain< T >)left;
+      AbstractRangeDomain< T > r = (AbstractRangeDomain< T >)right;
+      
+      T llo = l.getLowerBound();
+      T lhi = l.getUpperBound();
+      T rlo = r.getLowerBound();
+      T rhi = r.getUpperBound();
+      
+      if (l.less( rhi, llo ) ||
+          (l.lessEquals( rhi, llo ) && 
+           (!r.isUpperBoundIncluded() ||
+            !l.isLowerBoundIncluded()))) {
+        // there is no overlap at all, don't try to adjust bounds
+        changedLeft = !l.isEmpty();
+        changedRight = !r.isEmpty();
+        l.makeEmpty();
+        r.makeEmpty();
+      } else {
+        if (l.less( rhi, lhi )) {
+          l.setUpperBound( rhi );
+          if (!strict && r.includeUpperBound()) {
+            l.includeUpperBound();
+          }
+          changedLeft = true;
+        }
+        if (l.includeUpperBound() &&
+            l.lessEquals( rhi, lhi ) &&
+            (strict || !r.includeUpperBound())) {
+          excludeUpperBound( l );
+          changedLeft = true;
+        }
+        
+        if (l.less( rlo, llo )) {
+          r.setLowerBound( llo );
+          if (!strict && l.includeLowerBound()) {
+            r.includeLowerBound();
+          }
+          changedRight = true;
+        }
+        if (r.includeLowerBound() &&
+            l.lessEquals( rlo, llo ) &&
+            (strict || !l.includeLowerBound())) {
+          excludeLowerBound( r );
+          changedRight = true;
+        }
+      }
+    }
+    
+    return new Pair<>(changedLeft, changedRight);
+  }
+  
+  
 
   public static class LT< T > extends BooleanBinary< T > {
     public LT( Expression< T > o1, Expression< T > o2 ) {
@@ -3460,8 +5199,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.less( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.greaterEquals( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.less( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greaterEquals( rd1, rd2 )) ) return BooleanDomain.falseDomain;
         // Object lb1 = rd1.getLowerBound();
         // Object ub1 = rd1.getUpperBound();
         // Object lb2 = rd2.getLowerBound();
@@ -3540,7 +5279,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -3560,76 +5299,26 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLT( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      } else {
+        changes = restrictDomainsByLTE( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        ard1 = ard1.clone();
-        ard2 = ard2.clone();
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), ard2.isLowerBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), ard1.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( !ard2.isLowerBoundIncluded() && ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( !ard1.isUpperBoundIncluded() && ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        }
+      if (c1) {
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
+      }
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -3696,8 +5385,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.lessEquals( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.greater( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.lessEquals( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greater( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
@@ -3762,7 +5451,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -3782,74 +5471,26 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLTE( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      } else {
+        changes = restrictDomainsByLT( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), ard2.isUpperBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), ard2.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( !ard2.isUpperBoundIncluded() && ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( !ard1.isLowerBoundIncluded() && ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || p.second;
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || p.second;
-            }
-          }
-        }
+      if (c1) {
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
+      }
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -3960,8 +5601,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.greater( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.lessEquals( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greater( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.lessEquals( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
@@ -3989,7 +5630,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -4005,74 +5646,26 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLT( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      } else {
+        changes = restrictDomainsByLTE( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || p.second;
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || (p!= null && p.second);
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), ard2.isUpperBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), ard2.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( !ard2.isUpperBoundIncluded() && ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || (p != null && p.second);
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( !ard1.isLowerBoundIncluded() && ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || (p != null && p.second);
-            }
-          }
-        }
+      if (c1) {
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
+      }
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -4181,8 +5774,8 @@ public class Functions {
            && d2 instanceof AbstractRangeDomain ) {
         AbstractRangeDomain< Object > rd1 = (AbstractRangeDomain< Object >)d1;
         AbstractRangeDomain< Object > rd2 = (AbstractRangeDomain< Object >)d2;
-        if ( Boolean.TRUE.equals(rd1.greaterEquals( rd2 )) ) return BooleanDomain.trueDomain;
-        if ( Boolean.TRUE.equals(rd1.less( rd2 )) ) return BooleanDomain.falseDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.greaterEquals( rd1, rd2 )) ) return BooleanDomain.trueDomain;
+        if ( Boolean.TRUE.equals(DomainHelper.less( rd1, rd2 )) ) return BooleanDomain.falseDomain;
       }
       // TODO -- There are many possibilities here. Instead, define less(),
       // alwaysLess(), etc. methods for domains that take a variety of
@@ -4210,7 +5803,7 @@ public class Functions {
         if ( v instanceof Boolean ) {
           String oldDom = this.getDomain( propagate, null ).toString();
           changed = restrictDomains( Boolean.TRUE.equals( (Boolean)v ) );
-          if ( changed ) {
+          if ( Debug.isOn() && changed ) {
             System.out.println( "Restricted " + getName() + " from " + oldDom
                                 + " to " + getDomain( propagate, null ) );
           }
@@ -4226,74 +5819,26 @@ public class Functions {
       Expression< T > e2 = (Expression< T >)arguments.get( 1 );
       Domain< T > d1 = e1.getDomain( false, null );
       Domain< T > d2 = e2.getDomain( false, null );
+      Pair<Boolean, Boolean> changes = null;
+      boolean c1 = false;
+      boolean c2 = false;
+      if (targetResult) {
+        changes = restrictDomainsByLTE( d2, d1 );
+        c1 = Boolean.TRUE.equals( changes.second );
+        c2 = Boolean.TRUE.equals( changes.first );
+      } else {
+        changes = restrictDomainsByLT( d1, d2 );
+        c1 = Boolean.TRUE.equals( changes.first );
+        c2 = Boolean.TRUE.equals( changes.second );
+      }
       boolean changed = false;
-      if ( d1 instanceof AbstractRangeDomain
-           && d2 instanceof AbstractRangeDomain ) {
-        AbstractRangeDomain< T > ard1 = (AbstractRangeDomain< T >)d1;
-        AbstractRangeDomain< T > ard2 = (AbstractRangeDomain< T >)d2;
-        if ( targetResult == true ) {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainAbove(
-          // ard2.getLowerBound(), ard2.isLowerBoundIncluded() ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainBelow(
-          // ard1.getUpperBound(), ard1.isUpperBoundIncluded() ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.lessEquals( ard1.getLowerBound(), ard2.getLowerBound() ) ) {
-            boolean c = ard1.setLowerBound( ard2.getLowerBound() );
-            if ( !ard2.isLowerBoundIncluded() && ard1.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second ) );
-            }
-          }
-          if ( ard2.greaterEquals( ard2.getUpperBound(),
-                                   ard1.getUpperBound() ) ) {
-            boolean c = ard2.setUpperBound( ard1.getUpperBound() );
-            if ( !ard1.isUpperBoundIncluded() && ard2.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        } else {
-          // boolean c1 = ard1.restrictTo( ard2.createSubDomainBelow(
-          // ard2.getUpperBound(), false ) );
-          // boolean c2 = ard2.restrictTo( ard1.createSubDomainAbove(
-          // ard1.getLowerBound(), false ) );
-          // changed = changed || c1 || c2;
-          if ( ard1.greaterEquals( ard1.getUpperBound(),
-                                   ard2.getUpperBound() ) ) {
-            boolean c = ard1.setUpperBound( ard2.getUpperBound() );
-            if ( ard1.isUpperBoundIncluded() ) {
-              excludeUpperBound( ard1 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e1.restrictDomain( ard1, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-          if ( ard2.lessEquals( ard2.getLowerBound(), ard1.getLowerBound() ) ) {
-            boolean c = ard2.setLowerBound( ard1.getLowerBound() );
-            if ( ard2.isLowerBoundIncluded() ) {
-              excludeLowerBound( ard2 );
-              c = true;
-            }
-            if ( c ) {
-              Pair< Domain< T >, Boolean > p =
-                  e2.restrictDomain( ard2, true, null );
-              changed = changed || ( p != null && Boolean.TRUE.equals(p.second) );
-            }
-          }
-        }
+      if (c1) {
+        Pair<Domain<T>, Boolean> p1 = e1.restrictDomain( d1, true, null );
+        changed |= p1 != null && Boolean.TRUE.equals( p1.second );
+      }
+      if (c2) { 
+        Pair<Domain<T>, Boolean> p2 = e2.restrictDomain( d2, true, null );
+        changed |= p2 != null && Boolean.TRUE.equals( p2.second );
       }
       return changed;
     }
@@ -4624,6 +6169,25 @@ public class Functions {
     return compare( r1, r2, i );
   }
 
+    /**
+     * Compare two objects, which could be numbers, strings to treat as numbers,
+     * plain strings, TimeVaryingMaps, Distributions, or a mix.
+     *
+     *
+     * @param o1 the first object
+     * @param o2 the second object
+     * @param i the kind of comparison (<, <=, =, ...)
+     * @param <V1> the type of the first object
+     * @param <V2> the type of the second object
+     * @return either a Boolean value indicating whether the inequality holds,
+     *         a Distribution indicating the probability that it holds,
+     *         a TimeVaryingMap<Boolean> indicating at what times it holds,
+     *         a TimeVaryingMap of distributions, indicating the probability that it holds over time, or
+     *         a Distribution of TimeVaryingMaps for whether it holds for alternative courses of time.
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     * @throws InstantiationException
+     */
   public static < V1, V2 > Object
          compare( V1 o1, V2 o2, Inequality i ) throws IllegalAccessException,
                                                InvocationTargetException,
@@ -4633,8 +6197,8 @@ public class Functions {
     else if ( o1 instanceof String || o2 instanceof String ) {
       Number n1 = toNumber( o1, true );
       Number n2 = toNumber( o2, true );
-      if ( !( o1 instanceof String ) || n1 != null && !( o2 instanceof String )
-           || n2 != null ) {
+      if ( (!( o1 instanceof String ) || n1 != null) && (!( o2 instanceof String )
+           || n2 != null) ) {
         if ( o1 instanceof String && n1 != null ) {
           o1 = (V1)n1;
         }
@@ -4652,20 +6216,42 @@ public class Functions {
       Number r2 = null;
       TimeVaryingMap< ? > map1 = null;
       TimeVaryingMap< ? > map2 = null;
+      Distribution<?> d1 = null;
+      Distribution<?> d2 = null;
 
-      Pair< Number, TimeVaryingMap< ? > > p1 = numberOrTimeline( o1 );
-      r1 = p1.first;
+      Object arg1 = null;
+      Object arg2 = null;
+
+      Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
       map1 = p1.second;
+      if ( p1.first instanceof Distribution ) {
+        d1 = (Distribution)p1.first;
+        arg1 = d1;
+      } else if ( p1.first instanceof Number ) {
+        r1 = (Number)p1.first;
+        arg1 = map1 == null ? r1 : map1;
+      }
+      if ( arg1 == null ) arg1 = o1;
+      Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      map2 = p2.second;
+      if ( p2.first instanceof Distribution ) {
+        d2 = (Distribution)p2.first;
+        arg2 = d2;
+      } else if ( p2.first instanceof Number ) {
+        r2 = (Number)p2.first;
+        arg2 = map2 == null ? r2 : map2;
+      }
+      if ( arg2 == null) arg2 = o2;
 
-      if ( map1 != null ) {
-        result = (V1)compare( map1, o2, i );
+
+      if ( d1 != null || d2 != null ) {
+        //result = DistributionHelper.compare(o1, o2, arg1, arg2, i);
+        result = DistributionHelper.compare(arg1, arg2, i);
+      } else if ( map1 != null ) {
+        result = (V1)compare( map1, arg2, i );
       } else {
-        Pair< Number, TimeVaryingMap< ? > > p2 = numberOrTimeline( o2 );
-        r2 = p2.first;
-        map2 = p2.second;
-
         if ( map2 != null ) {
-          result = (V1)compare( o1, map2, i );
+          result = (V1)compare( arg1, map2, i );
         }
       }
       if ( result == null ) {
@@ -5227,12 +6813,12 @@ public class Functions {
                  Expression< T > o2 ) throws IllegalAccessException,
                                       InvocationTargetException,
                                       InstantiationException {
-    // if ( o1 == o2 ) return true;
+    if ( o1 == o2 ) return true;
     // if ( o1 == null || o2 == null ) return false;
     T r1 = (T)( o1 == null ? null : o1.evaluate( false ) );  // REVIEW -- Need to evaluate deep?
     T r2 = (T)( o2 == null ? null : o2.evaluate( false ) );
-    if ( r1 == r2 ) return true;
-    if ( r1 == null || r2 == null ) return false;
+    if ( Expression.valuesEqual( r1, r2 ) ) return true;
+//    if ( r1 == null || r2 == null ) return false;
     Pair< Object, TimeVaryingMap< ? > > p1 = objectOrTimeline( r1 );
     Pair< Object, TimeVaryingMap< ? > > p2 = objectOrTimeline( r2 );
     TimeVaryingMap< ? > tvm1 = p1 == null ? null : p1.second;
@@ -5251,10 +6837,21 @@ public class Functions {
     } else if ( tvm2 != null ) {
       tvm = true;
       tvmResult = compare( r1, tvm2, Inequality.EQ );
-    } else if (DistributionHelper.isDistribution(r1) || DistributionHelper.isDistribution(r2)) {
-      return eqDistribution(o1, o2);
+    } else {
+      Object d1 = getDistribution( r1 );
+      Object d2 = getDistribution( r2 );
+      if (DistributionHelper.isDistribution(d1) || DistributionHelper.isDistribution(d2)) {
+        //FIXME -- eqDistribution() doesn't work in most cases.
+        //return eqDistribution(d1, d2);
+        Object e = eqDistribution(d1 == null ? r1 : d1, d2 == null ? r2 : d2);
+        if ( e != null ) {
+          return e;
+        }
+      }
     }
-    if (tvm) {
+    if (tvm && tvmResult != null) {
+      // REVIEW - pulling a value out of a constant TVM is now handled in Expression,
+      // which has the context to better decide whether to do so. Should it be left here too?
       boolean allSame = tvmResult.allValuesSame();
       if (allSame) {
         if (!tvmResult.isEmpty()) {
@@ -5275,6 +6872,29 @@ public class Functions {
     return eq( r1, r2 );
   }
 
+  protected static Object getDistribution( Object o ) {
+    return getDistribution( o, null );
+  }
+  protected static Object getDistribution( Object o, Set<Object> seen ) {
+    if ( o == null ) return null;
+
+    Pair< Boolean, Set< Object > > pair = Utils.seen( o, true, seen );
+    if ( pair.first ) return null;
+    seen = pair.second;
+
+    if ( o instanceof Distribution ) {
+      return o;
+    }
+    if ( o instanceof Wraps ) { // This covers expressions, parameters, calls, and TimeVaryingMaps.
+      Object oo = ((Wraps)o).getValue( false );
+      Object d = getDistribution( oo, seen ); // warning! infinite loop
+      if ( d != null ) {
+        return d;
+      }
+    }
+    return null;
+  }
+
   protected static BooleanDistribution eqDistribution(Object o1, Object o2){
     boolean isDist1 = DistributionHelper.isDistribution(o1);
     boolean isDist2 = DistributionHelper.isDistribution(o2);
@@ -5285,7 +6905,7 @@ public class Functions {
     return b;
   }
 
-  protected static <T> Boolean eq( T r1, T r2 ) {
+  public static <T> Boolean eq( T r1, T r2 ) {
     if ( Expression.valuesEqual( r1, r2, null, true, true )) return true;
     if ( Utils.valuesLooselyEqual( r1, r2, true ) ) return true;
     if ( r1 == null || r2 == null ) return false;
@@ -5676,12 +7296,20 @@ public class Functions {
                                  IllegalAccessException,
                                  InvocationTargetException,
                                  InstantiationException {
-    return compare( tv, o, i );
+    return compare( tv, o, i, true );
   }
 
   public static < T > TimeVaryingMap< Boolean >
+  compare( TimeVaryingMap< T > tv, Object o,
+           Inequality i ) throws ClassCastException,
+                                 IllegalAccessException,
+                                 InvocationTargetException,
+                                 InstantiationException {
+    return compare( tv, o, i, false );
+  }
+  public static < T > TimeVaryingMap< Boolean >
          compare( TimeVaryingMap< T > tv, Object o,
-                  Inequality i ) throws ClassCastException,
+                  Inequality i, boolean reverse ) throws ClassCastException,
                                  IllegalAccessException,
                                  InvocationTargetException,
                                  InstantiationException {
@@ -5691,15 +7319,26 @@ public class Functions {
     try {
       tvm = Expression.evaluate( o, TimeVaryingMap.class, false );
     } catch ( Throwable t ) {}
-    if ( tvm != null ) return compare( tv, tvm, i );
+    if ( tvm != null ) {
+      if ( reverse ) return compare( tvm, (TimeVaryingMap<? extends Number>)tv, i );
+      return compare( tv, tvm, i );
+    }
 
     Number n = null;
     try {
       n = toNumber( o, false );// Expression.evaluate( o, Number.class, false );
     } catch ( Throwable t ) {}
-    if ( n != null ) return TimeVaryingMap.compare( tv, n, false, i );
+    if ( n != null ) return TimeVaryingMap.compare( tv, n, reverse, i );
+    
+    Object typeMatch = null;
+    try {
+      typeMatch = Expression.evaluate( o, tv.getType(), false );
+      // TODO - should we try to just evaluate o regardless of type, to strip away any Wrapping classes?
+      // Or, does this already handle enough cases?
+    } catch ( Throwable t ) {}
+    if (typeMatch != null) return TimeVaryingMap.compare( tv, typeMatch, reverse, i );
 
-    return TimeVaryingMap.compare( tv, o, false, i );
+    return TimeVaryingMap.compare( tv, o, reverse, i );
   }
 
   public static < T, TT extends Number > TimeVaryingMap< Boolean >
@@ -6102,13 +7741,13 @@ public class Functions {
     return TimeVaryingMap.plus( tv1, tv2 );
   }
 
-  public static < T > TimeVaryingMap< T >
-         minus( Object o, TimeVaryingMap< T > tv ) throws ClassCastException,
-                                                   IllegalAccessException,
-                                                   InvocationTargetException,
-                                                   InstantiationException {
-    return minus( tv, o );
-  }
+//  public static < T > TimeVaryingMap< T >
+//         minus( Object o, TimeVaryingMap< T > tv ) throws ClassCastException,
+//                                                   IllegalAccessException,
+//                                                   InvocationTargetException,
+//                                                   InstantiationException {
+//    return minus( tv, o );
+//  }
 
   public static < T > TimeVaryingMap< T >
          minus( TimeVaryingMap< T > tv,
@@ -6208,6 +7847,12 @@ public class Functions {
     if ( variable instanceof Parameter ) {
       for ( Object arg : arguments ) {
         if ( arg == null ) continue;
+        Object o = null;
+        try {
+          o = Expression.evaluate(arg, Variable.class, false, false);
+        } catch ( Throwable e ) {
+        }
+        boolean eq = o != null && variable.equals( o );
         if ( Expression.valuesEqual( variable, arg, Parameter.class )
              || ( arg instanceof HasParameters
                   && ( (HasParameters)arg ).hasParameter( (Parameter< ? >)variable,
@@ -6394,6 +8039,12 @@ public class Functions {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
+
+      if(!Expression.valuesEqual(variableParam, subExprArg, Parameter.class)) {
+        Equals<T1> subExprFunction = new Equals<>(subExprArg, new Expression(result));
+        return subExprFunction.pickValue(variable);
+      }
+
       if ( result instanceof Collection ) {
         Collection< T1 > coll = (Collection< T1 >)result;
         T1 t11 = get( coll, Random.global.nextInt( coll.size() ) );
@@ -6625,6 +8276,88 @@ public class Functions {
     } catch ( InstantiationException e ) {
       e.printStackTrace();
     }
+
+
+    System.out.println("=== MinusPrefix.calculateDomain() ===\n");
+
+    StringDomain d1 = new StringDomain( "ab", "abcde" );
+    d1.kind = StringDomain.Kind.PREFIX_RANGE;
+    System.out.println( "StringDomain d1 = " + d1 + ", size = " + d1.size() );
+//    for ( int i = 0; i < d1.size(); ++i ) {
+//      System.out.println( "value " + i + " = " + d1.getNthValue( i ) );
+//    }
+
+    StringDomain d2 = new StringDomain( "aba", "aba_what_aba" );
+    d2.kind = StringDomain.Kind.SUFFIX_RANGE;
+    d2.excludeLowerBound();
+    d2.excludeUpperBound();
+    System.out.println( "StringDomain d2 = " + d2 + ", size = " + d2.size() );
+//    for ( int i = 0; i < d2.size(); ++i ) {
+//      System.out.println( "value " + i + " = " + d2.getNthValue( i ) );
+//    }
+
+    StringDomain d3 = new StringDomain( "abc", "abcdefg" );
+    System.out.println( "StringDomain d3 = " + d3 + ", size = " + d3.size() );
+
+
+    MinusPrefix mp = new MinusPrefix( new Expression<String>( d3 ),
+                                      new Expression<String>( d1 ) );
+
+    Domain cdd = mp.calculateDomain( true, null );
+
+    System.out.println("" + mp + ".calculateDomain() = " + cdd);
+
+
+    System.out.println("\ndividing negative integers");
+    System.out.println(" 7 / 3 = " + (7 / 3));
+    System.out.println(" -7 / 3 = " + (-7 / 3));
+    System.out.println(" 7 / -3 = " + (7 / -3));
+    System.out.println(" -7 / -3 = " + (-7 / -3));
+
+    // inverseDivideForNumerator(2, 3) = [6, 8]
+    System.out.println("inverseDivideForNumerator(2, 3) = " +
+                       Functions.Divide.inverseDivideForNumerator(2, 3));
+    System.out.println("inverseDivideForNumerator(2L, 3L) = " +
+                       Functions.Divide.inverseDivideForNumerator(2L, 3L));
+    // inverseDivideForNumerator(0, 0) = 0?
+    System.out.println("inverseDivideForNumerator(0, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, 0));
+    // inverseDivideForNumerator(0, inf) = anything
+    System.out.println("inverseDivideForNumerator(0, Integer.MAX_VALUE) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, Integer.MAX_VALUE));
+    // inverseDivideForNumerator(0, -inf) = anything
+    System.out.println("inverseDivideForNumerator(0, Integer.MIN_VALUE) = " +
+                       Functions.Divide.inverseDivideForNumerator(0, Integer.MIN_VALUE));
+    // inverseDivideForNumerator(inf, 0) = anything
+    System.out.println("inverseDivideForNumerator(Integer.MAX_VALUE, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(Integer.MAX_VALUE, 0));
+    // inverseDivideForNumerator(-inf, 0) = anything
+    System.out.println("inverseDivideForNumerator(Integer.MIN_VALUE, 0) = " +
+                       Functions.Divide.inverseDivideForNumerator(Integer.MIN_VALUE, 0));
+
+    System.out.println("");
+
+    // inverseDivideForDenominator(3, 100) = [26, 33]
+    System.out.println("inverseDivideForDenominator(3, 100) = [26, 33] = " +
+                       Functions.Divide.inverseDivideForDenominator(3, 100));
+    System.out.println("inverseDivideForDenominator(3L, 100L) = [26, 33] = " +
+                       Functions.Divide.inverseDivideForDenominator(3L, 100L));
+    // inverseDivideForDenominator(0, 0) = 0?
+    System.out.println("inverseDivideForDenominator(0, 0) = 0? = " +
+                       Functions.Divide.inverseDivideForDenominator(0, 0));
+    // inverseDivideForDenominator(0, inf) = anything
+    System.out.println("inverseDivideForDenominator(0, Integer.MAX_VALUE) = inf = " +
+                       Functions.Divide.inverseDivideForDenominator(0, Integer.MAX_VALUE));
+    // inverseDivideForDenominator(0, -inf) = anything
+    System.out.println("inverseDivideForDenominator(0, Integer.MIN_VALUE) = -inf = " +
+                       Functions.Divide.inverseDivideForDenominator(0, Integer.MIN_VALUE));
+    // inverseDivideForDenominator(inf, 0) = anything
+    System.out.println("inverseDivideForDenominator(Integer.MAX_VALUE, 0) = 0 = " +
+                       Functions.Divide.inverseDivideForDenominator(Integer.MAX_VALUE, 0));
+    // inverseDivideForDenominator(-inf, 0) = anything
+    System.out.println("inverseDivideForDenominator(Integer.MIN_VALUE, 0) = 0 = " +
+                       Functions.Divide.inverseDivideForDenominator(Integer.MIN_VALUE, 0));
+
 
     // TODO -- Add tests for overflow!!
   }

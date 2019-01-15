@@ -1,6 +1,7 @@
 package gov.nasa.jpl.ae.util;
 
 import gov.nasa.jpl.ae.event.*;
+import gov.nasa.jpl.ae.util.distributions.Distribution;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.Debug;
@@ -57,8 +58,10 @@ public class JavaForFunctionCall {
 
   protected Call call = null;
 
-  protected Boolean isTimeVarying = null;
-  protected Boolean timeVaryingCall = null;
+//  protected Boolean isTimeVarying = null;
+//  protected Boolean timeVaryingCall = null;
+//  protected Boolean isDistribution = null;
+//  protected Boolean distributionCall = null;
 
   //private Duration dummyForClassLoader = new Duration();
 
@@ -250,6 +253,19 @@ public class JavaForFunctionCall {
     return false;
   }
 
+  public boolean isADistributionCall() {
+    if ( hasUnexpectedDistributionObject() ) {
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      return true;
+    }
+    if ( hasUnexpectedDistributionArgs() ) {
+      //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+      return true;
+    }
+    //System.out.println("WWWWWWWWWWWWWWWWWWWW    IS NOT Distribution CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
+    return false;
+  }
+
   public String getCallTypeName() {
     // call getMatchingMethod() to make find out if it's a TimeVaryingFunctionCall
     Method m = getMatchingMethod();
@@ -259,14 +275,15 @@ public class JavaForFunctionCall {
     else if ( c == null && m != null ) setMethodOrConstructor( true );
 
     //String prefix = (Boolean.TRUE.equals((getTimeVaryingCall())) ? "TimeVarying" : "");
-    String prefix = (isATimeVaryingCall() ? "TimeVarying" : "");
+    String prefix = isADistributionCall() ? "Distribution" :
+                    (isATimeVaryingCall() ? "TimeVarying" : "");
     if ( !isMethodOrConstructor() ) {
       return prefix + "ConstructorCall";
     }
     if ( isEffectFunction() ) {
-      if ( Boolean.TRUE.equals(timeVaryingCall) ) {
-        Debug.error("TimeVarying EffectFunction not supported!!! " + expression);
-      }
+//      if ( Boolean.TRUE.equals(timeVaryingCall) ) {
+//        Debug.error("TimeVarying EffectFunction not supported!!! " + expression);
+//      }
       return "EffectFunction";
     }
     return prefix + "FunctionCall";
@@ -333,6 +350,14 @@ public class JavaForFunctionCall {
 
       this.expression = expression;
 
+      // detect the case where an expression like foo = Bar(a :: b, c :: d)
+      // turns into a MethodCall of Bar, when it should have been a constructor
+      // WARNING - this will break the case where a class 
+//      boolean isConstructorLikeMethod =
+//          expression instanceof MethodCallExpr &&
+//          exprXlator.getClassData().isClassName( ((MethodCallExpr)expression).getName() );
+//      boolean isMethodCall = !isConstructorLikeMethod && expression instanceof MethodCallExpr;
+//      boolean isConstructorCall = isConstructorLikeMethod || expression instanceof ObjectCreationExpr;
       boolean isMethodCall = expression instanceof MethodCallExpr;
       boolean isConstructorCall = expression instanceof ObjectCreationExpr;
       setMethodOrConstructor( isMethodCall ? true
@@ -480,6 +505,62 @@ public class JavaForFunctionCall {
 //  public void setTimeVaryingCall(Boolean timeVaryingCall) {
 //    this.timeVaryingCall = timeVaryingCall;
 //  }
+
+  public boolean hasUnexpectedDistributionObject() {
+    boolean mOrC = isMethodOrConstructor();
+    Member member = mOrC ? getMatchingMethod() : getMatchingConstructor();
+    // TODO -- This only works on pre-existing classes.  Need to make this work for classes being parsed in getExprXlator().getClassData().
+    if ( member == null ) {
+      return false;
+    }
+    if ( isStatic() ) {
+      return false;
+    }
+    Class<?> t = getObjectType();
+    if ( t == null || !Distribution.class.isAssignableFrom( t ) ) {
+      return false;
+    }
+    if ( mOrC ) {
+      if ( !Distribution.class.isAssignableFrom( member.getDeclaringClass() ) ) {
+        return true;
+      }
+    } else {
+      Class<?> cls = getMatchingConstructor().getDeclaringClass();
+      Class<?> enclosingClass = cls.getEnclosingClass();
+      if ( enclosingClass != null && !Distribution.class.isAssignableFrom(enclosingClass) ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean hasUnexpectedDistributionArgs() {
+    Class<?>[] types = getArgTypes();
+    boolean mOrC = isMethodOrConstructor();
+    Member member = mOrC ? getMatchingMethod() : getMatchingConstructor();
+    if ( member == null || ( DurativeEvent.class.isAssignableFrom(member.getDeclaringClass()) &&
+                             member.getName().contains("elaborate") ) ) {
+      return false;
+    }
+    Class<?>[] paramTypes = mOrC ? ((Method)member).getParameterTypes() : ((Constructor)member).getParameterTypes();
+    int i = 0, j = 0;
+    if ( types == null || types.length == 0 || paramTypes == null || paramTypes.length == 0 ) {
+      return false;
+    }
+    while ( i < types.length ) {
+      Class<?> type = types[i];
+      Class<?> pType = paramTypes[j];
+      if ( type != null && pType != null &&
+           Distribution.class.isAssignableFrom( type ) &&
+           !Distribution.class.isAssignableFrom( pType ) ) {
+        return true;
+      }
+      ++i;
+      if ( j < paramTypes.length - 1 ) ++j;
+    }
+    return false;
+
+  }
 
   /**
    * @return the methodOrConstructor
@@ -688,7 +769,30 @@ public class JavaForFunctionCall {
           if ( enclosingClass.equals( getClassName() ) ) {
             setObject( "this" );
           } else {
-            setObject( enclosingClass + ".this" );
+
+//            setObject("null");
+//            // trim this down to most specific enclosing class:
+//            while ( enclosingClass != null && !getClassName().startsWith(enclosingClass) ) {
+//              enclosingClass = getExprXlator().getClassData().getEnclosingClassName( enclosingClass );
+//            }
+
+// This was a merge conflict.  The commented out lines above were probably brad
+// being scared of change, and the ones below are hopefully David fixing the
+// problem that scared Brad.
+
+            // walk up this' enclosing chain, looking for the correct enclosing class
+            String enclosingThis = exprXlator.getClassData().getEnclosingClassName( getClassName() );
+            while (!Utils.isNullOrEmpty( enclosingThis ) && !enclosingThis.equals( enclosingClass )) {
+              enclosingThis = exprXlator.getClassData().getEnclosingClassName( enclosingThis );
+            }
+
+            if ( Utils.isNullOrEmpty( enclosingClass ) ) {
+              setObject("null");
+            } else {
+              // REVIEW -- This wouldn't work if the enclosing class was part of "this"
+              // so we should make sure it's not possible to reach this case.
+              setObject( enclosingClass + ".this" );
+            }
           }
         } else {
           setObject( "null" );
@@ -816,7 +920,7 @@ public class JavaForFunctionCall {
             if ( matchingMethod == null && c.getMember() instanceof Method ) {
               setMatchingMethod((Method)c.getMember());
             }
-            if ( this.call == null ) setCall( call );
+            if ( this.call == null ) setCall( c );
           }
         }
       }
@@ -921,6 +1025,18 @@ public class JavaForFunctionCall {
                                                                                  .getConstructors( getCallName() ) ) );
       constructorDecl = null;
       if ( !Utils.isNullOrEmpty( ctors ) ) {
+//        Class< ? >[] argTypes = getArgTypes();
+//        if (argTypes == null) argTypes = new Class< ? >[0];
+//        if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
+//          Class< ? >[] newArgTypes = new Class< ? >[ argTypes.length + 1 ];
+//          String encName = getExprXlator().getClassData().getEnclosingClassName( callName );
+////          newArgTypes[0] = getExprXlator().getClassData().getAeClass( encName, false ).getClass();
+//          newArgTypes[0] = getExprXlator().getClassData().
+//          for ( int i = 0; i < argTypes.length; ++i ) {
+//            newArgTypes[i + 1] = argTypes[i];
+//          }
+//          argTypes = newArgTypes;
+//        }
         constructorDecl =
             getBestArgTypes( ctors, getArgTypes(), getPreferredPackageName() );
         if ( constructorDecl == null ) {
@@ -993,7 +1109,7 @@ public class JavaForFunctionCall {
           if (m != null && m.getName() != null ) {
             String mNameNoParams = ClassUtils.noParameterName(ClassUtils.simpleName(m.getName()));
 
-            if ( mNameNoParams.equals(callNameNoParams) ) {
+            if ( mNameNoParams.equals(callNameNoParams) || mNameNoParams.endsWith( "$" + m.getName() ) ) {
             //if ( m.getName().equals(callName) ) {
               Class<?>[] params = m instanceof Method ? ((Method)m).getParameterTypes() : ((Constructor<?>)m).getParameterTypes();
               boolean isVarArgs = m instanceof Method ? ((Method)m).isVarArgs() : ((Constructor<?>)m).isVarArgs();
@@ -1006,6 +1122,10 @@ public class JavaForFunctionCall {
       }
       if ( atc.best != null ) {
         mm = (Member) atc.best;
+      } else if ( m1 != null ) {
+        mm = m1;
+      } else if ( m2 != null ) {
+        mm = m2;
       }
 //      if ( mm != m1 && mm == m2 ) {
 //        System.out.println("WWWWWWWWWWWWWWWWWWWW    IS TIMEVARYING CALL: " + expression + "   WWWWWWWWWWWWWWWWWWWW");
@@ -1118,8 +1238,24 @@ public class JavaForFunctionCall {
 
     List< Expression > argExprs = getArgExpressions();
     if ( argExprs != null ) {
-      argTypes = new Class< ? >[ argExprs.size() ];
-      for ( int i = 0; i < argExprs.size(); ++i ) {
+      int numArgs = argExprs.size();
+      // REVIEW - this is an attempt to make the init args fn smarter at injecting the enclosing object
+      // TODO - Actually implement this, or fix all of the places where the enclosing object should have been given to this, rather than injecting it
+//      if ( !methodOrConstructor &&
+//           exprXlator.getClassData().isInnerClass( callName ) &&
+//           exprXlator.getClassData().getAllEnclosingClassNames( callName ).contains( exprXlator.getClassData().getCurrentClass() )) {
+//        // Inject enclosing class arg
+//        numArgs++;
+//        String encName = exprXlator.getClassData().getEnclosingClassName( callName );
+//        if (encName.equals( exprXlator.getClassData().getCurrentClass() )) {
+//          encName = "this";
+//        } else {
+//          encName += ".this";
+//        }
+//        argExprs.add( 0, JavaToConstraintExpression.parseExpression( encName ) );
+//      }
+      argTypes = new Class< ? >[ numArgs ];
+      for ( int i = 0; i < numArgs; ++i ) {
         String argClassName = exprXlator.astToAeExprType( argExprs.get( i ), null, true, complainIfNotFound);
         List< Class<?>> classList = ClassUtils.getClassesForName( argClassName, false);
         if (classList != null && classList.size() > 1) {
@@ -1135,7 +1271,7 @@ public class JavaForFunctionCall {
             }
           }
           if (containsJavaPrimitive && restScala) {
-            argTypes[i] = javaPrimitiveClass;
+            argTypes[ i ] = javaPrimitiveClass;
           }
         } else {
           argTypes[ i ] =
@@ -1194,7 +1330,7 @@ public class JavaForFunctionCall {
         if ( Utils.isNullOrEmpty( getClassName() ) ) {
           classNameString = "null";
         } else {
-          if ( isATimeVaryingCall() ) {
+          if ( isATimeVaryingCall() || isADistributionCall() ) {
           //if ( Boolean.TRUE.equals(getTimeVaryingCall()) ) {
             if ( m != null ) {
               classNameString = m.getDeclaringClass().getCanonicalName();
@@ -1270,9 +1406,14 @@ public class JavaForFunctionCall {
         methodJavaSb.append( "ClassUtils.getConstructorForArgTypes("
                              + ClassUtils.noParameterName( callName )
                              + ".class" );
-        if ( getConstructorDecl() != null ) {
-          if ( getConstructorDecl() != null
-               && getConstructorDecl().getParameters() != null ) {
+        if ( false ) {
+        if ( getExprXlator().getClassData().isInnerClass( callName ) ) {
+          methodJavaSb.append( ", " + getExprXlator().getClassData().getEnclosingClassName( callName ) + ".class" );
+        }
+        }
+        ConstructorDeclaration cDecl = getConstructorDecl();
+        if ( cDecl != null ) {
+          if ( cDecl.getParameters() != null ) {
             for ( japa.parser.ast.body.Parameter parameter : getConstructorDecl().getParameters() ) {
               methodJavaSb.append( ", " );
               methodJavaSb.append( ClassUtils.noParameterName( parameter.getType()
@@ -1596,7 +1737,8 @@ public class JavaForFunctionCall {
      * 4. Common Java classes (assume its a FunctionCall)
      * 4. Timepoint class
      * 5. The mbee.util package (assume its a FunctionCall)
-     * 
+     * 6. Check imported classes.
+     *
      */
     if ( operationName == null ) return null;
 
@@ -1653,13 +1795,14 @@ public class JavaForFunctionCall {
     // object = model;
     // }
     // else {
-    // 2.
-    call =
-        JavaToConstraintExpression.javaCallToEventFunction( operationName, null,
-                                                            argumentss,
-                                                            argTypeArray );
 
-    if ( call == null ) {
+
+    if ( method == null ) {
+      // 2.
+      call = exprXlator.javaCallToEventFunction( operationName,null,
+                                                 argumentss, argTypeArray );
+    }
+    if ( method == null && call == null ) {
       // 3.
       if ( argSize == 1 ) {
         call =
@@ -1688,7 +1831,7 @@ public class JavaForFunctionCall {
 
       if ( call != null ) {
         call.setArguments( argumentss );
-      } else {
+      } else if ( method == null ) {
         // 4.
         Method mt = null;
         Method ma = null;
@@ -1740,7 +1883,7 @@ public class JavaForFunctionCall {
         // 5.
         if ( method == null ) {
           // checking the ae.util and mbee.util packages
-          String[] packages = new String[]{"gov.nasa.jpl.ae.util", "gov.nasa.jpl.mbee.util"};
+          String[] packages = new String[]{"gov.nasa.jpl.ae.util", "gov.nasa.jpl.mbee.util", "gov.nasa.jpl.k2mms"};
 
           // Check to see if they exist.
           if ( !checkedUtilPackages ) {
@@ -1753,11 +1896,19 @@ public class JavaForFunctionCall {
             }
           }
 
-          call = JavaToConstraintExpression.javaCallToCall(packages, operationName,
-                                                          null, argumentss,
-                                                           argTypeArray);
+          call = exprXlator.javaCallToCall(packages, operationName,
+                                           null, argumentss,
+                                           argTypeArray);
         }
 
+        // 6. check imported classes
+//        if ( method == null && call == null ) {
+//          Set<String> classNames = exprXlator.getClassData().getImportedClassNames();
+//          for ( String c : classNames ) {
+//            method = ClassUtils.getMethodForArgTypes( c, getPreferredPackageName(),
+//                                                      operationName, argTypes, false );
+//          }
+//        }
       }
 
     } // Ends call == null

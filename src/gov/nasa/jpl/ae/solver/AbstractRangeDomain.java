@@ -168,7 +168,13 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
    */
   @Override
   public T getValue( boolean propagate ) {
-    return getLowerBound();
+    if ( size() == 1 ) {
+      if ( lowerIncluded ) return getLowerBound();
+      if ( upperIncluded ) return getUpperBound();
+    }
+    T t = getNthValue( 0 );
+    return t;
+
 //    if ( this.size() == 1 ) {
 //      if ( getLowerBound() != null && lowerIncluded ) return getLowerBound();
 //      if ( getUpperBound() != null && upperIncluded ) return getUpperBound();
@@ -480,6 +486,8 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
 	public abstract boolean greater( T t1, T t2 );
   public abstract boolean less( T t1, T t2 );
   public boolean equals( T t1, T t2 ) {
+    if ( t1 == t2 ) return true;
+    if ( t1 == null || t2 == null ) return false;
     return t1.equals( t2 );
   }
   //public abstract boolean equals( T t1, T t2 ); 
@@ -593,7 +601,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   @Override
   public boolean equals( Object obj ) {
     if ( obj == null ) {
-      throw new NullPointerException( "Error! Cannot check equality on a null domain.");
+      return false;//throw new NullPointerException( "Error! Cannot check equality on a null domain.");
     }
     if (this == obj) return true;
     int comp = compare(obj);
@@ -712,14 +720,17 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   public boolean intersectRestrict( AbstractRangeDomain<T> o ) {
     T lb = (T)ClassUtils.evaluate( o.lowerBound, getType(), true );
     if ( lessEquals( lowerBound, lb) ) {
-      lowerBound = lb;
       if ( !o.isLowerBoundIncluded() ) excludeLowerBound();
+      else if ( !equals( lowerBound, lb ) ) includeLowerBound();
+      lowerBound = lb;
       //else if ( equals( lowerBound, o.lowerBound ) && includeLowerBound()
     }
     T ub = (T)ClassUtils.evaluate( o.upperBound, getType(), true );
     if ( greaterEquals( upperBound, ub) ) {
-      upperBound = ub;
       if ( !o.isUpperBoundIncluded() ) excludeUpperBound();
+      else if ( !equals( upperBound, ub ) ) includeUpperBound();
+      upperBound = ub;
+      // else includeUpperBound();
     }
     return this.magnitude() != 0;
   }
@@ -828,8 +839,13 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     if ( domain instanceof MultiDomain ) {
       return restrictTo((MultiDomain< TT >)domain);
     }
+    // REVIEW -- Do we really want this?  Is this polluting the imports?  Is there something better to do here?
+    if ( domain instanceof ClassDomain ) {
+      return false;
+    }
+
     // TODO - other cases???
-    Debug.error( "Cannot restrict " + this + " to domain " + domain
+    Debug.error( false, true, "Cannot restrict " + this + " to domain " + domain
                  + " of type " + domain.getClass().getCanonicalName() );
     return changed;
   }
@@ -1196,6 +1212,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   public boolean isNullInDomain() {
     return nullInDomain;
   }
+  @Override
   public boolean setNullInDomain( boolean b ) {
     nullInDomain = b;
     return true;

@@ -98,6 +98,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 //   */
 //  protected String packageName = null;
 
+  public static boolean initAllToNull = true;
+
   // This is for handling class names outside Java syntax.
   protected NameTranslator nameTranslator = new NameTranslator();
 
@@ -194,20 +196,36 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     return bo;
   }
   
-  public static Call javaCallToEventFunction( String fName,
+  public Call javaCallToEventFunction( String fName,
+                                              Class<?> returnType,
+                                              Vector<Object> arguments,
+                                              Class<?>... argTypes) {
+    return javaCallToEventFunction(getClassData(), fName, returnType, arguments, argTypes );
+  }
+  public static Call javaCallToEventFunction( ClassData classData,
+                                              String fName,
                                               Class<?> returnType,
                                               Vector<Object> arguments,
                                               Class<?>... argTypes) {
 
     String[] packages = new String[]{"gov.nasa.jpl.view_repo.sysml"};
-    return javaCallToCall(packages, fName, returnType, arguments, argTypes );
+    return javaCallToCall(packages, fName, returnType, arguments, argTypes, classData );
   }
 
-  public static Call javaCallToCall( String[] packages,
+  public Call javaCallToCall( String[] packages,
                                      String fName,
                                      Class<?> returnType,
                                      Vector<Object> arguments,
                                      Class<?>[] argTypes) {
+    return javaCallToCall( packages, fName, returnType, arguments, argTypes,
+                           getClassData() );
+  }
+  public static Call javaCallToCall( String[] packages,
+                                     String fName,
+                                     Class<?> returnType,
+                                     Vector<Object> arguments,
+                                     Class<?>[] argTypes,
+                                     ClassData classData ) {
     Class<?> cls = null;
     Method method = null;
     Call call = null;
@@ -236,7 +254,13 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       // Search by class:
       cls = ClassUtils.getClassForName(fName, null,
                                        packages,  false);
-      
+      if ( cls == null && classData != null && fName != null ) {
+        String fName2 = classData.getImportedClassNameWithScope( fName );
+        if ( !fName.equals( fName2 ) ) {
+          cls = ClassUtils.getClassForName( fName2, null, packages, false );
+        }
+      }
+
       if ( cls == null ) {
         if ( Debug.isOn() ) Debug.errln( "javaCallToEventFunction( " + fName +
                  "): no class found!" );
@@ -384,7 +408,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
           case '^':
             return "Xor"; // bitwise?
           case '%':
-            return "Mod"; // TODO -- add to Functions.java
+            return "Mod";
           case '<':
             return "LT";
           case '>':
@@ -511,6 +535,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         if ( operator == null ) return null;
         Class< ? extends Binary< ?, ? > > cls = 
                 binaryOpNameToFunctionClass( operator.toString() );
+        if ( cls == null ) return null;
         return cls.getSimpleName();
     }  
 
@@ -599,8 +624,9 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // convert types to Class equivalents
     // TODO -- REVIEW -- other than "time", shouldn't this be in ClassUtils?
     if ( type.toLowerCase().equals( "time" )
-        || type.toLowerCase().startsWith( "duration" )
-        || type.toLowerCase().startsWith( "long" ) ) {
+        || type.toLowerCase().startsWith( "duration" ) ) {
+      type = "Time";
+    } else if ( type.toLowerCase().startsWith( "long" ) ) {
       type = "Long";
     } else if ( type.toLowerCase().startsWith( "int" )
                 || type.toLowerCase().startsWith( "integer" ) ) {
@@ -1515,6 +1541,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         }
       }
       
+      if ( result != null && result.equals("Time") ) {
+        result = "Long";
+      }
+      
       if ( complainIfNotFound && (result == null || result.length() <= 0) )
         Debug.errorOnNull( "Error! null type for expression " + expr + "!", result );
       if ( Debug.isOn() ) Debug.outln( "astToAeExprType(" + expr + ") = " + result );
@@ -1589,40 +1619,45 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       result = fieldAccessExpr.toString();
     } else {
 
-      //FieldAccessExpr fieldAccessExpr = (FieldAccessExpr)expr;
-      // The member/field type is defined in its parent's class, and the parent
-      // class can be found by getting the type of the FiedAccessExpr's scope.
-      // if ( fieldAccessExpr.getScope() instanceof FieldAccessExpr ) {
-      String parentType =
-          astToAeExprType( fieldAccessExpr.getScope(), fieldAccessExpr.getField(),
-                           lookOutsideClassData, false );
-      ClassData.Param p = null;
-      if ( !Utils.isNullOrEmpty( parentType ) ) {
-        p = getClassData().lookupMemberByName( parentType,
-                                               fieldAccessExpr.getField(),
-                                               lookOutsideClassData, false );
-      }
-      // }
-      if ( p == null ) {
-        // If the member is static, then the scope is a class name, and we can
-        // try looking it up. // TODO -- Check to see if it's static.
-        p = getClassData().lookupMemberByName( fieldAccessExpr.getScope().toString(),
-                                               fieldAccessExpr.getField(),
-                                               lookOutsideClassData, false );
-      }
-      if ( p != null ) {
-        result = p.type;
+      Package pkg = Package.getPackage( fieldAccessExpr.toString() );
+      if ( pkg != null ) {
+        result = fieldAccessExpr.toString();
       } else {
-        // Maybe it's not a field access, but an enclosed class.
-        if ( Utils.isNullOrEmpty( parentType ) ) {
-          parentType = fieldAccessExpr.getScope().toString();
+        //FieldAccessExpr fieldAccessExpr = (FieldAccessExpr)expr;
+        // The member/field type is defined in its parent's class, and the parent
+        // class can be found by getting the type of the FiedAccessExpr's scope.
+        // if ( fieldAccessExpr.getScope() instanceof FieldAccessExpr ) {
+        String parentType =
+                astToAeExprType( fieldAccessExpr.getScope(), fieldAccessExpr.getField(),
+                                 lookOutsideClassData, false );
+        ClassData.Param p = null;
+        if ( !Utils.isNullOrEmpty( parentType ) ) {
+          p = getClassData().lookupMemberByName( parentType, fieldAccessExpr.getField(),
+                                                 lookOutsideClassData, false );
         }
-        Class< ? > classForName =
-            ClassUtils.getClassOfClass( parentType,
-                                        fieldAccessExpr.getField().toString(),
-                                        getClassData().getPackageName(), false );
-        if ( classForName != null ) {
-          result = classForName.getName();
+        // }
+        if ( p == null ) {
+          // If the member is static, then the scope is a class name, and we can
+          // try looking it up. // TODO -- Check to see if it's static.
+          p = getClassData().lookupMemberByName( fieldAccessExpr.getScope().toString(),
+                                                 fieldAccessExpr.getField(),
+                                                 lookOutsideClassData, false );
+        }
+        if ( p != null ) {
+          result = p.type;
+        } else {
+          // Maybe it's not a field access, but an enclosed class.
+          if ( Utils.isNullOrEmpty( parentType ) ) {
+            parentType = fieldAccessExpr.getScope().toString();
+          }
+          Class<?> classForName = ClassUtils.getClassOfClass( parentType,
+                                                              fieldAccessExpr.getField()
+                                                                             .toString(),
+                                                              getClassData().getPackageName(),
+                                                              false );
+          if ( classForName != null ) {
+            result = classForName.getName();
+          }
         }
       }
     }
@@ -2251,13 +2286,28 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                               boolean evaluateCall, boolean getParameterValue,
                               boolean propagate ) {
     if ( nameExpr == null ) return null;
-    if ( !getParameterValue ) return nameExpr.getName();
     String aeString = nameExpr.getName();
     ClassData.Param p =
         getClassData().lookupCurrentClassMember( aeString, false, false );
     if ( p == null ) {
       return aeString;
     }
+
+    // wrap member access in GetMember call
+    if ( !getParameterValue ) {
+      String objectEnclosingParam; // reference to object containing the desired parameter
+
+      // split currentClass from ClassData by "." and check to see if p.scope appears anywhere in that list
+      // if p.scope appears in the list, then p.scope is an enclosing class
+      if(Arrays.asList(getClassData().getCurrentClass().split(Pattern.quote("."))).contains(p.scope)) {
+        objectEnclosingParam = p.scope + ".this";
+      } else { // otherwise, param is declared in this (possibly a super class)
+        objectEnclosingParam = "this";
+      }
+
+      return "new Functions.GetMember(" + objectEnclosingParam + ", " + "\"" + p.name + "\"" + ")";
+    }
+
     if ( wrapInFunction ) {
       aeString =
           "new FunctionCall(" + aeString + ", Parameter.class, \"getValue\", "
@@ -2287,10 +2337,10 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
   }
 
   // Had to dodge the domain code in order to get 'Foo.new Bar()' to work.
-  protected static boolean useObjectDomain = true;
+  protected static boolean useClassDomain = true;
 
   public String getDomainString(String type, String enclosingObject) {
-    if (!useObjectDomain) return "null";
+    if (!useClassDomain ) return "null";
     if (!type.equals( "Integer" ) && !type.equals("Boolean") &&!type.equals( "Double" ) && !type.equals( "String" )) {
       String qType = getClassData().getClassNameWithScope(type);
       if (qType == null) qType = type;
@@ -2302,15 +2352,22 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         String qEnc = getClassData().getClassNameWithScope(enclosing);
         if ( qEnc != null ) enclosing = qEnc;
         if (enclosing != null) {
-          String cc = getCurrentClass();
-          if (cc != null && enclosing.contains(cc)) {
+          String cc = getClassData().getClassNameWithScope( getCurrentClass() );
+          // test if the class we want (enclosing) is one of the enclosing classes of this
+          if (cc != null &&
+              (cc.equals( enclosing ) ||
+               getClassData().getAllEnclosingClassNames( cc ).contains( enclosing ))) {
             enclosingObject = enclosing + ".this";
           }
         }
       }
-      if ( !Utils.isNullOrEmpty(enclosingObject) ) {
-        return "new ObjectDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
-      }
+// This commented out code was replaced by the code below.  Not sure about this.  -- BJC
+//      if ( !Utils.isNullOrEmpty(enclosingObject) ) {
+//        return "new ClassDomain<" + qType + ">(" + qType + ".class, " + enclosingObject + ")";
+//      }
+      String qTypeNoGenerics = qType.replaceAll( "<.*>", "" );
+      return "new ClassDomain<" + qType + ">( ((Class<" + qType + ">)((Object)" + qTypeNoGenerics + ".class))" +
+        (!Utils.isNullOrEmpty( enclosingObject ) ? ", " + enclosingObject : "") + " )";
     }
     return "null";
   }
@@ -2359,25 +2416,21 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // parameterTypes = getFullyQualifiedName( parameterTypes, true );
     parameterTypes = getClassData().getClassNameWithScope( parameterTypes, true );
     String castType = parameterTypes;
-    if ( Utils.isNullOrEmpty( p.value ) ) {
-      p.value = "null";
-    }
-    // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
-    // do not include p.value?
-    String valueArg = javaToAeExpr( p.value, p.type, true, true, true );
     String typePlaceholder = "!TYPE!";
-    String domain = getDomainString(p.type, enclosingObject);
-//    // if ( valueArg.equals( "null" )
-//    // || ( valueArg.startsWith( "new Expression" ) &&
-//    // valueArg.endsWith( "(null)" ) ) ) {
-    if ( evaluateForType ) {
-      valueArg = "Expression.evaluate(" + valueArg + ", " + typePlaceholder +
-                 ".class, true)"; // replacing !TYPE! later
-    } else {
-      valueArg = "(" + typePlaceholder + ")" + valueArg; // replacing !TYPE! later
+    String valuePlaceholder = "!VALUE!";
+    if ( Utils.isNullOrEmpty( p.value ) ) {
+      if ( initAllToNull || Utils.isNullOrEmpty( p.type ) ||
+           p.type.toLowerCase().equals( "time" ) ||
+           ClassUtils.getPrimitives().containsKey( p.type.toLowerCase() ) ||
+           Utils.isTrue( p.valueIsConstructor )
+           ) {
+        p.value = "null";
+      } else {
+        p.value = "new " + typePlaceholder + "()";
+      }
     }
-//    // }
-    String args = "\"" + p.name + "\"," + domain + ", " + valueArg + ", this";
+    String domain = getDomainString(p.type, enclosingObject);
+    String args = "\"" + p.name + "\"," + domain + ", " + valuePlaceholder + ", this";
     String parameterClass =
         ClassData.typeToParameterType( p.type );
     if ( Utils.isNullOrEmpty( p.type ) ) {
@@ -2389,7 +2442,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null; // "Integer";
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
         
         if ( p.value != null && !Utils.isNullOrEmpty( p.value.trim() )
              && Character.isDigit( p.value.trim().charAt( 0 ) ) && !castType.contains( "." )) {
@@ -2401,7 +2454,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       if ( !type.equals( "Parameter" ) ) {
         parameterTypes = null;
         if ( !Utils.isNullOrEmpty( castType ) ) {
-          args = "\"" + p.name + "\", " + valueArg + ", this";
+          args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
         }
       }
     } else if ( p.type.toLowerCase().equals( "time" ) ) {
@@ -2409,7 +2462,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
+        castType = "Long";
       }
     } else if ( p.type.toLowerCase().startsWith( "int" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2418,7 +2472,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null; // "Integer";
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.toLowerCase().equals( "double" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2427,7 +2481,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.toLowerCase().equals( "boolean" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2436,7 +2490,7 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       parameterTypes = null;
       // args = "\"" + p.name + "\", this";
       if ( !Utils.isNullOrEmpty( castType ) ) {
-        args = "\"" + p.name + "\", " + valueArg + ", this";
+        args = "\"" + p.name + "\", " + valuePlaceholder + ", this";
       }
     } else if ( p.type.equals( "String" )
                 || p.type.trim().replaceAll( " ", "" )
@@ -2458,26 +2512,56 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         parameterTypes = ttype.substring( bpos, epos );
       }
     }
+    String valueArg;
+    String castTypeNoParams = "";
+    
     if ( Utils.isNullOrEmpty( castType ) ) {
-      if ( evaluateForType ) {
-        String typePlaceholder2 = typePlaceholder + ".class";
-        args = args.replace(typePlaceholder2, "null");
-        valueArg = valueArg.replace(typePlaceholder2, "null");
-      } else {
-        String typePlaceholder1 = "(" + typePlaceholder + ")";
-        args = args.replace(typePlaceholder1, "");
-        valueArg = valueArg.replace(typePlaceholder1, "");
+      if (p.value.contains( typePlaceholder )) {
+        p.value = "null"; // tried to be smart, but couldn't figure out the type, so give up
       }
     } else {
-      String castTypeNoParams;
       if ( evaluateForType ) {
         castTypeNoParams = castType.replaceFirst("<.*>", "");
       } else {
         castTypeNoParams = castType;
       }
-      args = args.replace( typePlaceholder, castTypeNoParams );
-      valueArg = valueArg.replace( typePlaceholder, castTypeNoParams );
+      if ( getClassData().isInnerClass( castTypeNoParams ) ) {
+        String ctnpEnclosing = getClassData().getEnclosingClassName( castTypeNoParams );
+        if ( !getClassData().getCurrentClass().equals( ctnpEnclosing ) &&
+             !getClassData().getAllEnclosingClassNames( getClassData().getCurrentClass() ).contains( ctnpEnclosing ) ) {
+          // since this is inner to a sibling class, can't decide on the instance right now
+          // so set to null and hope someone later sets it to an object
+          p.value = "null"; // REVIEW
+        }
+      }
     }
+    p.value = p.value.replace( typePlaceholder, castTypeNoParams );
+    // TODO -- REVIEW -- Why is p.value in args by default, but recognized types
+    // do not include p.value?
+    valueArg = javaToAeExpr( p.value, p.type, true, true, true );
+    if ( evaluateForType ) {
+      valueArg = "Expression.evaluate(" + valueArg + ", " + typePlaceholder +
+                 ".class, true)"; // replacing !TYPE! later
+    } else {
+      valueArg = "(" + typePlaceholder + ")" + valueArg; // replacing !TYPE! later
+    }
+    
+    if ( Utils.isNullOrEmpty( castType ) ) {
+      if ( evaluateForType ) {
+        String typePlaceholder2 = typePlaceholder + ".class";
+        args = args.replace(typePlaceholder2, "null");
+        valueArg = valueArg.replace( typePlaceholder2, "null" );
+      } else {
+        String typePlaceholder1 = "(" + typePlaceholder + ")";
+        args = args.replace(typePlaceholder1, "");
+        valueArg = valueArg.replace( typePlaceholder1, "" );
+      }
+    } else {
+      args = args.replace( typePlaceholder, castTypeNoParams );
+      valueArg = valueArg.replaceAll( typePlaceholder, castTypeNoParams );
+    }
+    
+    args = args.replace( valuePlaceholder, valueArg );
 
     // HACK -- TODO
     if ( args.contains( ", new FunctionCall" ) && "Parameter".equals( type ) ) {

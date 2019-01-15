@@ -337,7 +337,8 @@ public class SystemModelToAeExpression< C, T, P, N, U, SM extends SystemModel< ?
        if ( debug ) System.out.println("^^^^^^^^^^^^  2  ^^^^^^^^^^^^^^");
 
        if ( argsUsed != ArgsUsed.raw ) {
-           call = JavaToConstraintExpression.javaCallToEventFunction(operationName.toString(),
+           call = JavaToConstraintExpression.javaCallToEventFunction(getClassData(),
+                                                                     operationName.toString(),
                                                                      returnType,
                                                                      aeArguments,
                                                                      argTypes.toArray(new Class[]{}));
@@ -353,7 +354,8 @@ public class SystemModelToAeExpression< C, T, P, N, U, SM extends SystemModel< ?
                 || prefersRawArgs( call, argTypes, rawArgTypes ) );
         
         if ( tryRawArgs ) {
-          Call call2 = JavaToConstraintExpression.javaCallToEventFunction(operationName.toString(),
+          Call call2 = JavaToConstraintExpression.javaCallToEventFunction(getClassData(),
+                                                                          operationName.toString(),
                                                                           returnType,
                                                                           rawArguments,
                                                                           rawArgTypes.toArray(new Class[]{}));

@@ -3,15 +3,12 @@ package gov.nasa.jpl.ae.event;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.Vector;
 
 import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
 import gov.nasa.jpl.ae.solver.CollectionTree;
@@ -21,6 +18,8 @@ import gov.nasa.jpl.ae.solver.HasConstraints;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.ObjectDomain;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.ae.solver.RangeDomain;
 import gov.nasa.jpl.ae.solver.Satisfiable;
@@ -30,9 +29,10 @@ import gov.nasa.jpl.ae.solver.Variable;
  *
  */
 public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
-                            Comparable< Parameter< ? > >, Satisfiable, Node,
-                            Variable< T >, LazyUpdate, HasConstraints, HasOwner,
-                            MoreToString, Deconstructable {
+                                                         Comparable< Parameter< ? > >, Satisfiable, Node,
+                                                         Variable< T >, LazyUpdate, HasConstraints, HasOwner,
+                                                         MoreToString, Deconstructable,
+                                                         UsesClock {
   public static final Set< Parameter< ? > > emptySet =
       new TreeSet< Parameter< ? > >();
 
@@ -41,10 +41,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
    * order to satisfy a constraint.
    */
   public static boolean allowPickValue = true;
-
   // These are for debug validation.
   public static boolean mayPropagate = true;
   public static boolean mayChange = true;
+
+  public static boolean printOnSetValue = true;
+  public static boolean printOnRestrictDomain = true;
 
   protected String name = null;
   public Domain< T > domain = null;
@@ -53,6 +55,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   protected boolean stale;
   protected List< Constraint > constraintList = new ArrayList< Constraint >();
   protected boolean deconstructed = false;
+  protected long lastUpdated = LamportClock.tick();
 
   public Parameter() {}
 
@@ -276,7 +279,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( Debug.isOn() ) assert mayPropagate;
     if ( isStale() ) {
       if ( owner != null ) {
-        owner.refresh( this );
+        owner.refresh( this, null );
         if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() refreshed: " + this );
       } else {
         setStale( false );
@@ -385,9 +388,15 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( Debug.isOn() ) assert !propagateChange || mayPropagate;
     if ( Debug.isOn() )assert mayChange;
     T castVal = null;
+//    if ( ( val instanceof Parameter && ( (Parameter)val ).isDeconstructed() ) ||
+//         ( val instanceof ParameterListenerImpl && ( (ParameterListenerImpl)val ).isDeconstructed() ) ) {
+//      Debug.outln( "Parameter.setValue(" + valString + ") failed for deconstructed value: " + this.toString( true, false, null ) );
+//      return;
+//    }
     try {
       try {
-        castVal = (T)Expression.evaluate( val, getType(), propagateChange, false);
+        // REVIEW - why did we disallow wrapping here, before?
+        castVal = (T)Expression.evaluate( val, getType(), propagateChange, true);
       } catch ( Throwable t ) {
       }
       val = castVal;
@@ -416,7 +425,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
                                          + this.toString( true, false, null ) + ")" );
         setValueOwner(val);
         // lazy/passive updating
-        owner.setStaleAnyReferencesTo( this, null );
+        if ( LamportClock.usingLamportClock ) {
+          owner.setStaleAnyReferencesTo( this, null );
+        }
 
         // set isGrounded constraint stale
         Collection<Constraint> constraints = getConstraints(true, null);
@@ -438,10 +449,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
       valString = MoreToString.Helper.toString( val, true, false, null );
       //if ( val instanceof TimeVarying || (val instanceof Wraps && ((Wraps)val).getValue( false ) instanceof TimeVarying)) {
-        //if ( "burn1Duration".equals(name) || "maxDischargeDuration".equals(name) || "avgBatteryDischargeRate".equals(name) ) {
-            System.out.println(
-                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
-        //}
+//            System.out.println(
+//                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
@@ -449,6 +458,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
       T oldValue = this.value;
       this.value = val;
+      lastUpdated = LamportClock.tick();
 
       // add reference
       if ( this.value instanceof Deconstructable ) {
@@ -459,7 +469,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         ((Deconstructable)oldValue).subtractReference();
       }
 
-
+      if (printOnSetValue) {
+        System.out.println( "Set value of Parameter " + getQualifiedName( null ) + 
+                            " from " + MoreToString.Helper.toShortString( oldValue ) + 
+                            " to " + MoreToString.Helper.toShortString( val ) );
+      }
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                        + "): value set!" );
       //constraintList.clear();
@@ -467,6 +481,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                          + "): handleValueChangeEvent("
                                          + this.toString( true, false, null ) + ")" );
+        // REVIEW -- should we call this when usingLamportClock?
         owner.handleValueChangeEvent( this, null );
       }
     }
@@ -525,11 +540,19 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public boolean refresh() {
     if ( owner != null ) {
-      if ( owner.refresh( this ) ) {
+      if ( owner.refresh( this, null ) ) {
         return true;
       }
     }
     return false;
+  }
+
+  public static void setPrintOnSetValue( boolean printOnSetValue ) {
+    Parameter.printOnSetValue = printOnSetValue;
+  }
+
+  public static void setPrintOnRestrictDomain( boolean printOnRestrictDomain ) {
+    Parameter.printOnRestrictDomain = printOnRestrictDomain;
   }
 
   public static boolean setAllowPickValue( boolean allow ) {
@@ -540,7 +563,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   @Override
   public boolean pickValue() {
     if ( Random.global.nextBoolean() ) {
-      return ownerPickValue();
+      boolean changed = ownerPickValue();
+      if ( changed ) return true;
     }
     T value = pickRandomValue();
     if ( value != null ) {
@@ -580,18 +604,19 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     if ( isGrounded(deep, null) ) return true;
     if ( refresh() ) return true;
     if ( isDependent()) return false;
-    if (Parameter.allowPickValue ){
-    	T newValue = pickRandomValue();
-    	if ( newValue != null ) {
-    		setValue( newValue );
-    		return true;
-    	}
-    }
 
     if ( deep && value instanceof Groundable ) {
       ((Groundable)value).ground(deep, seen);
+      if ( isGrounded(deep, null) ) return true;
     }
-    
+
+    if (Parameter.allowPickValue ){
+      T newValue = pickRandomValue();
+      if ( newValue != null ) {
+        setValue( newValue );
+        return true;
+      }
+    }
 
     // If the domain is an ObjectDomain, ground by constructing a new object.
     // This may contribute to thrashing in construction/deconstruction.
@@ -640,6 +665,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return compare;
   }
 
+  @Override
   public boolean inDomain() {
     boolean inDom = false;
     try {
@@ -744,7 +770,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
           sb.append( "<OBJ>@" + getOwner().hashCode() + ":");
         }
       } else {
-        sb.append( getOwner().getName() + ":");
+        if ( deep ) {
+          if ( getOwner() instanceof HasOwner ) {
+            sb.append( ( (HasOwner)getOwner() ).getQualifiedName( null ) + ":" );
+          }
+        } else {
+          sb.append( getOwner().getName() + ":" );
+        }
       }
     }
     if ( !Utils.isNullOrEmpty( getName() ) || withOwner || deep || withHash ) {
@@ -766,7 +798,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       if ( value != null && withHash && !ClassUtils.isPrimitive( value.getClass() ) ) {
         sb.append("@" + value.hashCode());
       }
-    } else if ( isGrounded( false, null ) ) {
+    } else if ( isGrounded( false, Utils.asSet(seen, Groundable.class) ) ) {
       T value = getValueNoPropagate();
       String valueString = null;
       if ( value instanceof MoreToString ) {
@@ -908,6 +940,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   @Override
   public void setStale( boolean staleness ) {
+    if ( staleness ) {
+      //System.err.println( "WARNING!  Why are we setting parameter " + getName() + " stale?!!!" );
+    }
     if ( Debug.isOn() ) {
       if ( stale != staleness ) Debug.outln( "setStale(" + staleness + "): "
                                                     + toShortString() );
@@ -980,6 +1015,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     for ( Constraint c : getConstraints(deep, seen) ) {
       if ( c.isSatisfied( false, null ) ) {
@@ -1047,6 +1086,9 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       if ( owner != null ) {
         owner.handleDomainChangeEvent( this, null );
       }
+      if (printOnRestrictDomain) {
+        System.out.println( "Restricted domain of Parameter " + getQualifiedName( null ) + " from " + d + " to " + this.domain );
+      }
       if ( Debug.isOn() ) {
         if ( Debug.isOn() ) Debug.outln( "Changed domain of "
                                          + MoreToString.Helper.toLongString( this )
@@ -1100,5 +1142,23 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     //}
   }
 
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
+  @Override public long getLastUpdated() {
+    return getLastUpdated( null );
+  }
+  @Override public long getLastUpdated( Set<UsesClock> seen) {
+    Pair<Boolean, Set<UsesClock>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return lastUpdated;
+    seen = pr.second;
 
+    if ( value != null && value instanceof UsesClock ) {
+      long tt = ( (UsesClock)value ).getLastUpdated(seen);
+      if ( tt > lastUpdated ) {
+        lastUpdated = tt;
+      }
+    }
+    return lastUpdated;
+  }
 }

@@ -168,6 +168,9 @@ public class Dependency< T > extends HasIdImpl
       if ( value == null && parameter.getDomain() != null && !parameter.getDomain().isNullInDomain() && parameter.getDomain() instanceof ObjectDomain ) {
         ((ObjectDomain)parameter.getDomain()).add(null);
       }
+      if ( value == null && parameter.getDomain() != null && !parameter.getDomain().isNullInDomain() && parameter.getDomain() instanceof ClassDomain ) {
+        ((ClassDomain)parameter.getDomain()).setNullInDomain(true);
+      }
 
       parameter.setValue( value, propagate );
       return true;
@@ -197,17 +200,17 @@ public class Dependency< T > extends HasIdImpl
       sat = false;
       parameter.setStale( true );
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): parameter not grounded: " );// + this );
-    } else if ( expression == null ) {
+    } else if ( false && expression == null ) {
       sat = false;
       if ( Debug.isOn() && !sat ) Debug.outln( "Dependency.isSatisfied(): expression is null: " );// + this );
-    } else if ( !expression.isGrounded(deep, null) ) {
+    } else if ( expression != null && expression.form != Form.Value && !expression.isGrounded(deep, null) ) {
       sat = false;
       parameter.setStale( true );
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not grounded: " );// + this );
     } else if ( false && deep && !parameter.isSatisfied(deep, null) ) {
       sat = false;
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): parameter not satisfied: " );// + this );
-    } else if ( false && deep && !expression.isSatisfied(deep, null) ) {
+    } else if ( false && deep && expression != null && !expression.isSatisfied(deep, null) ) {
       sat = false;
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not satisfied: " );// + this );
     } else {
@@ -262,28 +265,24 @@ public class Dependency< T > extends HasIdImpl
     if ( Debug.isOn() ) Debug.outln("Dependency.satisfy() calling ground: " + this );
     if ( expression == null ) return false;
     if ( parameter == null ) return false;
-    expression.ground(deep, null);
+    expression.ground(deep, seen == null ? null : Utils.asSet(seen, Groundable.class));
+    if ( seen != null ) {
+      seen.remove( expression );
+    }
     expression.satisfy(deep, seen);
+    T oldValue = parameter.getValueNoPropagate();
     //if ( expression.isGrounded(deep, null) ) {
-    T oldValue = parameter.getValue( false );
       boolean applied = apply( true );
     //} else {
     //  parameter.satisfy(deep, seen);
     //}
     boolean succ = isSatisfied( false, null );
-//    if ( expression.form == Form.Function
-//         && ( (FunctionCall)expression.expression ).getMethod() != null
-//         && ( (FunctionCall)expression.expression ).getMethod().getName()
-//                                                   .contains( "minus" ) ) {
-//      System.out.println( "minus dep was" + ( applied ? "" : " not" )
-//                          + " applied," + ( succ ? "" : " not" )
-//                          + " satisfied: " + this );
-//    }
     if (succ && !parameter.inDomain()) {
+      succ = false;
       System.out.println( "Reversing Dependency!" );
       parameter.setValue( oldValue );
       seen.remove( this );
-      getConstraintExpression().satisfy( deep, seen );
+      succ = getConstraintExpression().satisfy( deep, seen );
     }
     return succ;
   }
@@ -408,7 +407,7 @@ public class Dependency< T > extends HasIdImpl
     if ( Debug.isOn() ) Debug.outln( "Dependency.pickValue(" + variable + ") begin" );
     if ( variable == this.parameter ) {
       Object value = variable.getValue( false ); // DON'T CHANGE false
-      if ( refresh( this.parameter ) ) {
+      if ( refresh( this.parameter, null ) ) {
         if ( !Utils.valuesEqual( variable.getValue( true ), value ) ) { // DON'T CHANGE true
           if ( Debug.isOn() ) Debug.outln( "Dependency.pickValue(" + variable + ") returning refreshed value" );
           return true;
@@ -683,7 +682,11 @@ public class Dependency< T > extends HasIdImpl
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     if ( this.parameter == parameter ) {
       if ( !refreshing ) {
         refreshing = true;
@@ -701,6 +704,8 @@ public class Dependency< T > extends HasIdImpl
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if (p.first) return;
     seen = p.second;
+    
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
     
     if ( expression.hasParameter( changedParameter, false, null ) ) {
       expression.setStaleAnyReferencesTo( changedParameter, seen );
@@ -757,17 +762,29 @@ public class Dependency< T > extends HasIdImpl
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return isSatisfied( false, null ) ? 1 : 0;
   }
 
   @Override
   public long getNumberOfUnresolvedConstraints( boolean deep,
                                                 Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return isSatisfied( false, null ) ? 0 : 1;
   }
 
   @Override
   public long getNumberOfConstraints( boolean deep, Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     return 1;
   }
       

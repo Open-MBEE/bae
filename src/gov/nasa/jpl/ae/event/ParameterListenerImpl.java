@@ -7,21 +7,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.Map.Entry;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-
+import gov.nasa.jpl.ae.solver.*;
+import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import junit.framework.Assert;
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.ConstraintLoopSolver;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.mbee.util.Timer;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Solver;
-import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.ClassUtils;
 import gov.nasa.jpl.mbee.util.CompareUtils;
@@ -40,15 +32,22 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                                    Groundable, Satisfiable, ParameterListener,
                                    HasConstraints, HasTimeVaryingObjects,
                                    HasOwner, HasEvents,
-                                   Comparable< ParameterListenerImpl > {
+                                   Comparable< ParameterListenerImpl >,
+                                                                UsesClock {
 
   public static boolean usingArcConsistency = true;
+  public static boolean assigningVarsWithAC = usingArcConsistency;
   public static boolean arcConsistencyQuiet = true;
+  public static boolean quitEarlyWhenInconsistent = true;
+  public static boolean restoreAfterACAssignVars = false;
+  public static boolean restoreIfACNoSolution = true;
   public static boolean usingConstraintLoopSolver = true;
   public static boolean usingDependencyGraphSolver = false;
 
   protected static double timeoutSeconds = 900.0;
   protected static int maxLoopsWithNoProgress =50;
+  protected static int maxLoopsWithSameAssignment=51;
+
   protected static long maxPassesAtConstraints = 10000;
   protected static boolean usingTimeLimit = false;
   protected static boolean usingLoopLimit = true;
@@ -85,6 +84,21 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean usingCollectionTree = false;
   protected Object owner = null;
   protected Object enclosingInstance = null;
+  protected boolean foundInconsistency = false;
+  protected long lastUpdated = LamportClock.tick();
+
+  public enum SolvingMode {
+    MINIMIZE, MAXIMIZE, SATISFY
+  };
+
+  // for optimization
+  public static SolvingMode mode = SolvingMode.SATISFY;
+  //protected static DoubleParameter objectiveParam = null;
+  public static String objectiveParamName = null;
+  //protected static DoubleParameter target = null;
+  public static String targetParamName = null;
+  public static final Double objectiveThreshold = 0.0001;
+
   // TODO -- Need to keep a collection of ParameterListeners (just as
   // DurativeEvent has getEvents())
 
@@ -144,6 +158,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static void reset() {
     counter = 0;
+    TimeVaryingMap.reset();
   }
 
   /**
@@ -153,6 +168,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public void setAllConstraintsToStale() {
     for(ConstraintExpression c : constraintExpressions) {
       c.setStale(true, true, null);
+    }
+  }
+
+  public void setAllParametersToStale() {
+    for(Parameter p : parameters) {
+      p.setStale(true);
     }
   }
 
@@ -293,7 +314,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     StringBuffer sb = new StringBuffer();
     sb.append((sat? "Satisfied" : "Unsatisfied") + "\n");
     sb.append( "Solution:\n" );
-    sb.append(kSolutionString(0));
+    sb.append(kSolutionString(0, null));
     sb.append( "Requirements:\n" );
     sb.append( solutionRequirements() );
         
@@ -308,7 +329,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     JSONObject json = new JSONObject();
     Boolean sat = isSatisfied(true, null);
     json.put("satisfied", "" + sat.booleanValue());
-    String partialSolution = kSolutionString(0);
+    String partialSolution = kSolutionString(0, null);
     json.put("solution", partialSolution);
 
     JSONArray jarr = solutionRequirements();
@@ -334,7 +355,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
 
   public List<String> solutionRequirementList() {
-    List<String> reqs = JSONArrToReqs(kSolutionJSONArr());
+    List<String> reqs = JSONArrToReqs(kSolutionJSONArr(null));
     ArrayList<String> arr = new ArrayList<String>();
     for (String s : reqs) {
       arr.add( "req " + s );
@@ -343,8 +364,13 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
 
-  public JSONArray kSolutionJSONArr() {
+  public JSONArray kSolutionJSONArr( Set<ParameterListenerImpl> seen ) {
     JSONArray value = new JSONArray();
+
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return value;
+    seen = pair.second;
+
     Set< Parameter< ? > > allParams = getParameters( false, null );
     for ( Parameter< ? > p : allParams ) {
       JSONObject param = new JSONObject();
@@ -353,7 +379,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
             ( (ParameterListenerImpl)p.getValueNoPropagate() );
         param.put( "name", p.getName() );
         param.put( "type", "class" );
-        JSONArray val = pLI.kSolutionJSONArr();
+        JSONArray val = pLI.kSolutionJSONArr(seen);
         param.put( "value", val );
         
       } else {
@@ -393,7 +419,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return strings;
   }
 
-  public String kSolutionString( int indent ) {
+  //public String kSolutionString( int indent ) {
+  public String kSolutionString( int indent, Set<ParameterListenerImpl> seen ) {
+    Pair< Boolean, Set< ParameterListenerImpl > > pair = Utils.seen( this, true, seen );
+    if ( pair.first ) return "";
+    seen = pair.second;
 
     String indentString = "";
     for (int i = 0 ; i < indent; i++) {
@@ -407,7 +437,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
               ( (ParameterListenerImpl)p.getValueNoPropagate() );
           sb.append( indentString + p.getName() + " = " + pLI.getClass().getSimpleName()
                      + " {\n" );
-          sb.append(  pLI.kSolutionString( indent + 1 ) );
+          sb.append(  pLI.kSolutionString( indent + 1, seen ) );
           sb.append( indentString + "}\n" );
         } else {
           sb.append(indentString + p.getName() + " = " + MoreToString.Helper.toStringWithSquareBracesForLists((Object) p.getValue(), true, true, null) + "\n" );
@@ -427,6 +457,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
   public static boolean setUsingArcConsistency(boolean b) {
     usingArcConsistency = b;
+    return true;
+  }
+
+  public static boolean setAssigningVarsWithAC(boolean b) {
+    assigningVarsWithAC = b;
     return true;
   }
 
@@ -581,8 +616,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         }
       }
       for ( Dependency< ? > d : getDependencies() ) {
-        if ( !d.isSatisfied( true, null ) ) {
-          if ( !d.satisfy( true, null ) ) {
+        Set<Satisfiable> satSet =
+                seen == null ? null : Utils.asSet( seen, Satisfiable.class );
+        if ( !d.isSatisfied( false, satSet ) ) {
+          if ( !d.satisfy( false, satSet) ) {
             satisfied = false;
           }
         }
@@ -614,6 +651,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     seen = pair.second;
 
     // All parameters that have domains with single values are dependent.
+    if ( seen != null ) seen.remove(this);
     Set<Parameter<?>> params = getParameters(deep, seen);
     for ( Parameter<?> p : params ) {
       if ( p.getDomain() != null && p.getDomain().magnitude() == 1 ) {
@@ -622,50 +660,66 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       // TODO -- check if domain is { null }
     }
 
-    if ( false )
-    for ( Constraint c : getConstraints(deep, null) ) {
-      // Add the dependent variable in a dependency.
-      if ( c instanceof Dependency ) {
-        Dependency<?> d = (Dependency<?>) c;
-        set.add(d.parameter);
-      } else
+    // Add the dependent variable in a dependency.
+    Collection<Dependency<?>> deps = getDependencies();
+    if ( deps != null ) {
+      for ( Dependency d : deps ) {
+        if ( d != null && d.parameter != null ) {
+          set.add( d.parameter );
+        }
+      }
+    }
+
+//    if ( false )
+    Collection<Constraint> cstrs = getConstraints( deep, null );
+    if ( cstrs != null )
+    for ( Constraint c : cstrs ) {
+//      // Add the dependent variable in a dependency.
+//      if ( c instanceof Dependency ) {
+//        Dependency<?> d = (Dependency<?>) c;
+//        set.add(d.parameter);
+//      } else
       // A single parameter on one side of an equals constraint with no free
       // variables on the other side is dependent.
       if ( c instanceof ConstraintExpression ) {
         ConstraintExpression ce = (ConstraintExpression)c;
-        if ( ce.expression instanceof Functions.EQ ) {
-          Vector<Object> args = ((Functions.EQ) ce.expression).getArguments();
-          if ( args != null && args.size() >= 2 ) {  // It should always be 2, but . . .
-            for ( int i = 0; i < args.size(); ++i ) {
-              try {
-                Parameter<?> p = Expression.evaluate(args.get(i), Parameter.class, false);
-                if ( p != null && !set.contains(p) ) {
-                  for ( int j = 0; j < args.size(); ++j ) {
-                    if ( j != i ) {
-                      Object otherArg = args.get( j );
-                      if ( otherArg instanceof HasParameters ) {
-                        if ( !HasParameters.Helper.hasFreeParameter(otherArg, deep, seen) ) {
-                          set.add( p );
-                        }
-                      } else {
-                        set.add( p );
-                      }
-                    }
-                  }
-                }
-              } catch (IllegalAccessException e) {
-                e.printStackTrace();
-              } catch (InvocationTargetException e) {
-                e.printStackTrace();
-              } catch (InstantiationException e) {
-                e.printStackTrace();
-              }
-            }
-          }
+        Pair<Parameter<?>, Object> p = ce.dependencyLikeVar();
+        if ( p != null && p.first != null ) {
+          set.add( p.first );
         }
-//        if ( ((ConstraintExpression) c).form == Expression.Form.Function ) {
-//        } else if (((ConstraintExpression) c).form == Expression.Form.Constructor ) {
+//        if ( ce.expression instanceof Functions.EQ ) {
+//          Vector<Object> args = ((Functions.EQ) ce.expression).getArguments();
+//          if ( args != null && args.size() >= 2 ) {  // It should always be 2, but . . .
+//            for ( int i = 0; i < args.size(); ++i ) {
+//              try {
+//                Parameter<?> p = Expression.evaluate(args.get(i), Parameter.class, false);
+//                if ( p != null && !set.contains(p) ) {
+//                  for ( int j = 0; j < args.size(); ++j ) {
+//                    if ( j != i ) {
+//                      Object otherArg = args.get( j );
+//                      if ( otherArg instanceof HasParameters ) {
+//                        if ( !HasParameters.Helper.hasFreeParameter(otherArg, deep, seen) ) {
+//                          set.add( p );
+//                        }
+//                      } else {
+//                        set.add( p );
+//                      }
+//                    }
+//                  }
+//                }
+//              } catch (IllegalAccessException e) {
+//                e.printStackTrace();
+//              } catch (InvocationTargetException e) {
+//                e.printStackTrace();
+//              } catch (InstantiationException e) {
+//                e.printStackTrace();
+//              }
+//            }
+//          }
 //        }
+////        if ( ((ConstraintExpression) c).form == Expression.Form.Function ) {
+////        } else if (((ConstraintExpression) c).form == Expression.Form.Constructor ) {
+////        }
       }
     }
     return set;
@@ -796,12 +850,16 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     long mostResolvedConstraints = 0;
     double highestFractionResolvedConstraint = 0;
     int numLoopsWithNoProgress = 0;
+    int numLoopsWithSameAssignment = 0;
     long numberOfConstraints = getNumberOfConstraints( true, null );
     boolean satisfied = false;
     long millisPassed = (long)( System.currentTimeMillis() - clockStart );
     double curTimeLeft = ( timeoutSeconds * 1000.0 - ( millisPassed ) );
 
+    Map<Parameter, Object> lastAssignments = saveAssignments( true, null );
+
     while ( !satisfied && numLoopsWithNoProgress < maxLoopsWithNoProgress
+            && numLoopsWithSameAssignment < maxLoopsWithSameAssignment
             && ( !usingTimeLimit || curTimeLeft > 0.0 )
             && ( !usingLoopLimit || numLoops < maxPassesAtConstraints ) ) {
       if ( Debug.isOn() || this.amTopEventToSimulate ) {
@@ -830,6 +888,24 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
         DurativeEvent.newMode = false; // numLoops % 2 == 0;
       }
       satisfied = tryToSatisfy( deep, null );
+      
+      if ( quitEarlyWhenInconsistent && foundInconsistency ) {
+        return false;
+      }
+
+      Map<Parameter, Object> assignments = saveAssignments( true, null );
+      if ( assignmentsEqual( assignments, lastAssignments ) ) {
+        ++numLoopsWithSameAssignment;
+        if ( numLoopsWithSameAssignment >= maxLoopsWithSameAssignment
+               && ( Debug.isOn() || amTopEventToSimulate ) ) {
+            System.out.println( "\nPlateaued at " + numLoopsWithSameAssignment
+                                + " loops with same assignment." );
+        }
+      } else {
+        numLoopsWithSameAssignment = 0;
+      }
+      lastAssignments = assignments;
+
 
       // numberOfConstraints = this.getNumberOfConstraints( true, null );
       long numResolvedConstraints =
@@ -1000,7 +1076,120 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     return satisfied;
   }
 
+  protected Consistency arcConsistency(Collection< Constraint > allConstraints) {
+    if ( !usingArcConsistency ) return null;
+    Consistency ac = null;
+    try {
+      ac = new Consistency();
+      ac.constraints = allConstraints;
+      ac.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
+      ac.arcConsistency(arcConsistencyQuiet);
+    } catch (Throwable t) {
+      Debug.error(true, false, "Error! Arc consistency failed.");
+      t.printStackTrace();
+    }
+    return ac;
+  }
+
+  // TODO -- Shouldn't this be in Consistency?
+  protected boolean isArcInconsistent( Consistency ac ) {
+    //if ( !quitEarlyWhenInconsistent ) return false;
+    if ( ac == null ) return false;
+    Map<Variable<?>, Domain<?>> domainState = ac.getDomainState();
+    for ( Map.Entry<Variable<?>, Domain<?>> e : domainState.entrySet() ) {
+      Domain<?> d = e.getValue();
+      if ( d.isEmpty() ) {
+        System.out.println( "Arc consistency detected inconsistency: empty domain for variable " + e.getKey() + ". Quitting immediately." );
+        ac.restoreDomains();
+        //foundInconsistency = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // REVIEW -- Ideally, the solver would integrate smart picking with AC, and we
+  // wouldn't need this.
+  // TODO -- Actually, shouldn't this be in Consistency anyway?
+  protected void assignVarsWithArcConsistency( Consistency ac,
+                                               boolean restoreDomains,
+                                               boolean restoreIfNoSolution ) {
+    // assign vars using arc consistency
+    if (!usingArcConsistency || !assigningVarsWithAC || ac == null) {
+      return;
+    }
+    Map<Variable<?>, Domain<?>> original = ac.getDomainState();
+    Set<Variable<?>> vars = ac.getVariables();
+    boolean gotChange = true;
+    long loopsLeft = vars.size();
+    while ( gotChange &&  loopsLeft > 0 ) {
+      System.out.println("New round of assignVarsWithArcConsistency()." );
+      gotChange = false;
+      for ( Variable v : vars ) {
+        if ( quitEarlyWhenInconsistent && ac.noSolution ) {
+          System.out.println(
+                  "Exiting before assigning all vars in assignVarsWithArcConsistency()." );
+          break;
+        }
+        if ( v == null ) continue; // deal with this somewhere else?
+        boolean ch = assignVarWithArcConsistency( v, ac );
+        if ( ch ) gotChange = true;
+      }
+      vars = ac.getVariables();
+      --loopsLeft;
+    }
+    if ( restoreDomains ||
+         (restoreIfNoSolution && quitEarlyWhenInconsistent && ac.noSolution) ) {
+      ac.restoreDomains( original );
+    }
+  }
+
+  // TODO -- Shouldn't this be in Consistency?
+  protected boolean assignVarWithArcConsistency( Variable v, Consistency ac ) {
+    Parameter p = v instanceof Parameter ? (Parameter)v : null;
+    boolean hasGoodValue = false;
+    boolean changed = false;
+    if ( firstTryToSatisfy ||
+         ( p != null && !p.isGrounded( false, null ) ) ||
+         !v.inDomain() ) {
+      //if (firstTryToSatisfy || !p.isGrounded( false, null ) || !p.inDomain()) {
+      changed = v.pickValue();
+      hasGoodValue = v.inDomain();
+
+      // HACK!  Sometimes collections and maps (in particular, TimeVaryingMaps) are
+      // simplified to the one value they contain, such as 'true' for satisfying
+      // a timeline constraint.  We should prevent that from happening except at the
+      // time the the one value is needed.  That may be difficult.  The code
+      // below is a workaround.
+      if ( !hasGoodValue && v.getDomain() instanceof ClassDomain &&
+           TimeVaryingMap.class.isAssignableFrom(((ClassDomain)v.getDomain()).getType()) ) {
+        hasGoodValue = true;
+      }
+
+      if (!hasGoodValue && !arcConsistencyQuiet) {
+        System.out.println( "Warning! Arc Consistency couldn't pick good value for " + v );
+      }
+      //          } else {
+      //            hasGoodValue = true; // no need to pick a new one, v is grounded and in domain
+      //          }
+      if (hasGoodValue && changed) {// && changed) {
+        // regardless of how v got a good value, propagate the effects of choosing that value
+        v.restrictDomain( new SingleValueDomain<>( v.getValue( false ) ),
+                          true, null );
+        Set<Constraint> lastConstraintSet = ac.lastConstraintSet;
+        ac.lastConstraintSet = null;
+        ac.arcConsistency( arcConsistencyQuiet, false );
+        ac.lastConstraintSet = lastConstraintSet;
+      }
+    }
+    return changed;
+  }
+
+  protected boolean firstTryToSatisfy = true;
+
   protected boolean tryToSatisfy( boolean deep, Set< Satisfiable > seen ) {
+    boolean satisfied = false;
+    foundInconsistency = false;
     ground( deep, null );
     if ( Debug.isOn() ) Debug.outln( this.getClass().getName()
                                      + " satisfy loop called ground() " );
@@ -1011,24 +1200,29 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + ".tryToSatisfy() calling solve() with "
                           + allConstraints.size() + " constraints" );
     }
-    // REVIEW -- why not call satisfy() here and solve elsewhere??
 
-    // Restrict the domains of the variables using arc consistency on the
-    // constraints.
+    addNullToDomains( allConstraints, true );
+
     Consistency ac = null;
     if ( usingArcConsistency ) {
-      try {
-        ac = new Consistency();
-        ac.constraints = allConstraints;
-        ac.arcConsistency(arcConsistencyQuiet);
-      } catch (Throwable t) {
-        Debug.error(true, false, "Error! Arc consistency failed.");
-        t.printStackTrace();
+      // Restrict the domains of the variables using arc consistency on the
+      // constraints.
+      ac = arcConsistency(allConstraints);
+      ac.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
+
+      if ( quitEarlyWhenInconsistent && ac.noSolution ) {//isArcInconsistent( ac ) ) {
+        foundInconsistency = true;
+        return false;
       }
+
+      // assign vars using arc consistency
+      assignVarsWithArcConsistency( ac, restoreAfterACAssignVars, restoreIfACNoSolution );
     }
+
     allConstraints = getConstraints( deep, null );
+
     // restore domains of things that are not simple variables
-    if ( ac != null ) {
+    if ( usingArcConsistency && ac != null ) {
       for (Entry<Variable<?>, Domain<?>> e : ac.savedDomains.entrySet()) {
         if (Boolean.FALSE.equals(isSimpleVar(e.getKey()))) {
           e.getKey().setDomain((Domain) e.getValue());
@@ -1036,25 +1230,25 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       }
     }
 
-    // Now assign values to variables within their domains to satisfy
-    // constraints.
-    boolean satisfied = false;
-    if ( usingConstraintLoopSolver ) {
-      satisfied = solver.solve( allConstraints );
-    }
-
-//    if (!satisfied ) {
     if ( usingDependencyGraphSolver ) {
       System.out.println( "Dependency solver" );
       solver2 = new DependencyGraphSolver( allConstraints );
       satisfied = solver2.solveDependencies();
     }
-//    }
+
+    // Now assign values to variables within their domains to satisfy
+    // constraints.
+    if ( usingConstraintLoopSolver ) {
+      satisfied = solver.solve( allConstraints );
+    }
 
     //System.out.println( MoreToString.Helper.toShortString( allConstraints ) );
     if ( usingArcConsistency ) {
       ac.restoreDomains();
     }
+
+    firstTryToSatisfy = false;
+
     if ( Debug.isOn() || amTopEventToSimulate ) {
       Timer t = new Timer();
       t.start();
@@ -1093,6 +1287,101 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
                           + satisfied );
     }
     return satisfied;
+  }
+
+  protected static HashSet<Integer> processedConstraintsAndParameters = new HashSet<>();
+
+  /**
+   * Infer when null is a valid value for a variable and, if so, add null to its domain.
+   *
+   * @param constraints
+   * @return whether a domain was changed
+   */
+  private boolean addNullToDomains( Collection<Constraint> constraints, boolean onlyIfNotGrounded ) {
+    boolean setSomething = false;
+    for ( Constraint c : constraints ) {
+      //      if ( c instanceof Dependency || c instanceof ConstraintExpression ) {
+      //        if ( processedConstraintsAndParameters.contains( c.getId() ) ) {
+      //          continue;
+      //        }
+      //        processedConstraintsAndParameters.add( c.getId() );
+      //      } else {
+      //        continue;
+      //      }
+      ////      if ( onlyIfNotGrounded && c instanceof Groundable && ( (Groundable)c ).isGrounded( false, null ) ) {
+      ////        System.out.println("++++++++++++++     already grounded: " + c);
+      ////        continue;
+      ////      }
+      boolean didSet = addNullToDomains( c, onlyIfNotGrounded );
+      setSomething = setSomething || didSet;
+    }
+    return setSomething;
+  }
+  /**
+   * Infer when null is a valid value for a variable and, if so, add null to its domain.
+   *
+   * @param constraints
+   * @return whether a domain was changed
+   */
+  private boolean addNullToDomains( Constraint c, boolean onlyIfNotGrounded ) {
+    boolean setSomething = false;
+
+    if ( c instanceof Dependency ) {
+        Dependency dep = (Dependency)c;
+
+        Domain d = dep.getParameter() != null ? dep.getParameter().getDomain() : null;
+        if (d == null || d.isNullInDomain() ) {
+//          if ( d == null ) {
+//            System.out.println( "++++++++++++++     no domain for " + dep.getParameter() + " in Dependency: " + dep);
+//          } else {
+//            System.out.println( "++++++++++++++     null already in domain for " + dep.getParameter() + " in Dependency: " + dep);
+//          }
+          return setSomething;
+        }
+        Domain od = DomainHelper.getDomain( dep.expression );
+        if ( od != null && od.isNullInDomain() ) {
+          //System.out.println("++++++++++++++     Adding null to domain of " + dep.getParameter() + ", for Dependency: " + dep);
+          d.setNullInDomain( true );
+        } else {
+//          if ( od == null ) {
+//            System.out.println( "++++++++++++++     no domain for expression " + dep.getExpression()  + " in Dependency: " + dep);
+//          } else {
+//            System.out.println( "++++++++++++++     null not in domain of expression " + dep.getExpression() + " in Dependency: " + dep);
+//          }
+        }
+      } else if ( c instanceof ConstraintExpression ) {
+        ConstraintExpression cx = (ConstraintExpression)c;
+        List<Pair<Parameter<?>, Object>> deps =
+                cx.dependencyLikeVars( cx, false, true, false );
+        if ( deps != null )
+        for ( Pair<Parameter<?>, Object> p : deps ) {
+//            if ( onlyIfNotGrounded && p.first.isGrounded(false , null) ) {
+//              continue;
+//            }
+            Domain d = p.first.getDomain();
+            if ( d != null && !d.isNullInDomain() ) {
+                Domain od = DomainHelper.getDomain(p.second);
+                if ( od != null && od.isNullInDomain() ) {
+//                    System.out.println("++++++++++++++     Adding null to domain of " + p.first + ", for constraint: " + c);
+                    setSomething = d.setNullInDomain(true);
+                } else {
+//                  if ( od == null ) {
+//                    System.out.println( "++++++++++++++     no domain for " + p.second + " in constraint: " + c);
+//                  } else {
+//                    System.out.println( "++++++++++++++     null not in domain for " + p.second + " in constraint: " + c);
+//                  }
+
+                }
+            } else {
+//              if ( d == null ) {
+//                System.out.println( "++++++++++++++     no domain for " + p.first + " in constraint: " + c);
+//              } else {
+//                System.out.println( "++++++++++++++     null already in domain for " + p.first + " in constraint: " + c);
+//              }
+            }
+        }
+      }
+    return setSomething;
   }
 
   protected Boolean isSimpleVar( Variable< ? > key ) {
@@ -1418,6 +1707,9 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     // REVIEW -- Should we be passing in a set of parameters? Find review/todo
     // note on staleness table.
 
+    // do this even if using LamportClock
+    TimeVaryingMap.handleValueChangeEventForTimeVarying( parameter, seen );
+
     // Alert affected dependencies.
     List<Dependency<?>> deps = Utils.scramble(getDependencies());
     for ( Dependency< ? > d : deps ) {
@@ -1613,6 +1905,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       if ( p == null ) continue;
       if ( p.isStale() ) return true;
     }
+    if ( isDeconstructed() ) return true;
     return false;
   }
 
@@ -1631,7 +1924,11 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     boolean didRefresh = false;
 
     boolean triedRefreshing = false;
@@ -1639,7 +1936,8 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     for ( Dependency< ? > d : getDependencies() ) {
       if ( d.parameter == parameter ) {
         triedRefreshing = true;
-        if ( d.refresh( parameter ) ) didRefresh = true;
+        if ( d.refresh( parameter, seen ) ) didRefresh = true;
+        // TODO -- should we break out of the loop if didRefresh?
       }
     }
 
@@ -1660,6 +1958,12 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public void setStaleAnyReferencesTo( Parameter< ? > changedParameter,
                                        Set< HasParameters > seen ) {
+    // do this even if using LamportClock
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
+    
+    if ( LamportClock.usingLamportClock ) {
+      return;
+    }
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if ( p.first ) return;
     seen = p.second;
@@ -1721,7 +2025,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     if ( pair.first ) return false;
     seen = pair.second;
     // if ( Utils.seen( this, deep, seen ) ) return false;
-
+    seen.remove(this);
     return !getDependentParameters( deep, seen ).contains( p );
   }
 
@@ -1731,7 +2035,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       if ( d.pickParameterValue( variable ) ) return true;
     }
     for ( ConstraintExpression c : getConstraintExpressions() ) {
-      if ( c.pickParameterValue( variable ) ) return true;
+      if ( c != null && c.pickParameterValue( variable ) ) return true;
     }
     if ( variable instanceof Parameter
          && ( (Parameter< ? >)variable ).getOwner() != this
@@ -1777,6 +2081,21 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
    */
   public static void setTimeoutSeconds( double timeoutSeconds ) {
     ParameterListenerImpl.timeoutSeconds = timeoutSeconds;
+  }
+
+  /**
+   * @return the maxLoopsWithSameAssignment
+   */
+  public static int getMaxLoopsWithSameAssignment() {
+    return maxLoopsWithSameAssignment;
+  }
+
+  /**
+   * @param maxLoopsWithSameAssignment
+   *          the maxLoopsWithSameAssignment to set
+   */
+  public static void setMaxLoopsWithSameAssignment( int maxLoopsWithSameAssignment ) {
+    ParameterListenerImpl.maxLoopsWithSameAssignment = maxLoopsWithSameAssignment;
   }
 
   /**
@@ -1943,6 +2262,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   public static void setArcConsistencyQuiet( boolean arcConsistencyQuiet ) {
     ParameterListenerImpl.arcConsistencyQuiet = arcConsistencyQuiet;
   }
+  
+  public static void setQuitEarlyWhenInconsistent( boolean quitEarlyWhenInconsistent ) {
+    ParameterListenerImpl.quitEarlyWhenInconsistent = quitEarlyWhenInconsistent;
+  }
 
   public boolean isUsingCollectionTree() {
     return usingCollectionTree;
@@ -1975,6 +2298,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfResolvedConstraints( boolean deep,
                                               Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num +=
         HasConstraints.Helper.getNumberOfResolvedConstraints( getParameters(),
@@ -1997,6 +2324,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfUnresolvedConstraints( boolean deep,
                                                 Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num +=
         HasConstraints.Helper.getNumberOfUnresolvedConstraints( getParameters(),
@@ -2019,6 +2350,10 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public long getNumberOfConstraints( boolean deep,
                                       Set< HasConstraints > seen ) {
+    Pair<Boolean, Set<HasConstraints>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return 0;
+    seen = pr.second;
+
     long num = 0;
     num += HasConstraints.Helper.getNumberOfConstraints( getParameters(), deep,
                                                          seen );
@@ -2092,7 +2427,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   @Override
   public Set<Event> getEvents(boolean deep, Set<HasEvents> seen) {
     Set<ParameterListenerImpl> objects = getObjects(deep, seen);
-    Set< Event > set = Utils.asSet( objects, Event.class);
+    Set< Event > set = objects == null ? null : Utils.asSet( objects, Event.class);
 
     return set;
 //
@@ -2166,6 +2501,61 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
       }
     }
     return set;
+  }
+
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
+  @Override public long getLastUpdated() {
+    return getLastUpdated( null );
+  }
+  @Override public long getLastUpdated( Set<UsesClock> seen) {
+    Pair<Boolean, Set<UsesClock>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return lastUpdated;
+    seen = pr.second;
+    long t = lastUpdated;
+    for ( Parameter p : parameters ) {
+      long pt = p.getLastUpdated(seen);
+      if (pt > t) {
+        t = pt;
+      }
+    }
+    lastUpdated = t;
+    return lastUpdated;
+  }
+
+  public void loadAssignments(Map<Parameter, Object> assignment) {
+    if ( assignment == null ) return;
+    for ( Map.Entry<Parameter, Object> e : assignment.entrySet() ) {
+      Parameter p = e.getKey();
+      p.setValue( e.getValue() );
+//      if ( p.getDomain() != null ) {
+//        p.getDomain().restrictToValue( e.getValue() );
+//      }
+    }
+  }
+
+  public Map<Parameter, Object> saveAssignments() {
+    return saveAssignments( true, null );
+  }
+  public Map<Parameter, Object> saveAssignments(boolean deep, Set<HasParameters> seen) {
+    Pair< Boolean, Set< HasParameters > > pair = Utils.seen( this, deep, seen );
+    if ( pair.first ) return Utils.getEmptyMap();
+    seen = pair.second;
+    LinkedHashMap<Parameter, Object> assignment = new LinkedHashMap<>();
+
+    Set<Parameter<?>> params = getParameters( deep, seen );
+    for ( Parameter p : params ) {
+      assignment.put( p, p.getValue( false ) );
+    }
+    return assignment;
+  }
+  public boolean assignmentsEqual(Map<Parameter, Object> params1, Map<Parameter, Object> params2) {
+    if ( params1 == params2 ) return true;
+    if ( params1 == null || params2 == null ) return false;
+    if ( params1.size() != params2.size() ) return false;
+    int comp = CompareUtils.compare(params1, params2);
+    return comp == 0;
   }
 
 }

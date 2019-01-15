@@ -1,13 +1,14 @@
 package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.event.Functions.SuggestiveFunctionCall;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.solver.*;
+import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.ae.util.distributions.BooleanDistribution;
+import gov.nasa.jpl.ae.util.distributions.DistributionHelper;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
@@ -23,8 +24,8 @@ import java.util.*;
  */
 public class ConstraintExpression extends Expression< Boolean >
                                   implements Constraint { // ,
-                                                          // ParameterListener
-                                                          // {
+  // ParameterListener
+  // {
 
   protected boolean applicableAsDependency = false;
   protected Parameter<?> dependentVar = null;
@@ -40,7 +41,7 @@ public class ConstraintExpression extends Expression< Boolean >
   /**
    * @param parameter
    */
-  public ConstraintExpression( Parameter< Boolean > parameter ) {
+  public ConstraintExpression( Parameter<Boolean> parameter ) {
     super( parameter );
   }
 
@@ -54,7 +55,7 @@ public class ConstraintExpression extends Expression< Boolean >
   /**
    * @param expression
    */
-  public ConstraintExpression( Expression< Boolean > expression ) {
+  public ConstraintExpression( Expression<Boolean> expression ) {
     super( expression, true );
   }
 
@@ -67,19 +68,22 @@ public class ConstraintExpression extends Expression< Boolean >
 
   /**
    * (non-Javadoc)
-   * 
+   *
    * @see gov.nasa.jpl.ae.solver.Constraint#isSatisfied(boolean, Set)
    */
-  @Override
-  public boolean isSatisfied(boolean deep, Set< Satisfiable > seen) {
+  @Override public boolean isSatisfied( boolean deep, Set<Satisfiable> seen ) {
     Boolean sat = null;
     try {
       Object o = evaluate( this, Boolean.class, false );
-      sat = Utils.isTrue( o, false );
-      if (!Boolean.TRUE.equals(sat)) {
+      if ( o instanceof BooleanDistribution ) {
+        sat = ( (BooleanDistribution)o ).probability() > 0.0;
+      } else {
+        sat = Utils.isTrue( o, false );
+      }
+      if ( !Boolean.TRUE.equals( sat ) ) {
         if ( o instanceof Wraps ) {
-          Object oo = ((Wraps)o).getValue(false);
-          sat = Utils.isTrue(oo, false);
+          Object oo = ( (Wraps)o ).getValue( false );
+          sat = Utils.isTrue( oo, false );
         }
       }
     } catch ( IllegalAccessException e ) {
@@ -96,7 +100,8 @@ public class ConstraintExpression extends Expression< Boolean >
     if ( false && deep & sat ) {
       sat = HasParameters.Helper.isSatisfied( this, false, null );
     }
-    if ( Debug.isOn() ) Debug.outln( "ConstraintExpression.isSatisfied() = " + sat + ": " + this );
+    if ( Debug.isOn() ) Debug.outln(
+            "ConstraintExpression.isSatisfied() = " + sat + ": " + this );
     return sat;
   }
 
@@ -106,8 +111,7 @@ public class ConstraintExpression extends Expression< Boolean >
 
   public <T> boolean applyAsIfDependency( Parameter<?> noChangeParam, Set<HasParameters> seen ) {
 
-    Pair< Boolean, Set< HasParameters > > pair =
-            Utils.seen( this, true, seen );
+    Pair<Boolean, Set<HasParameters>> pair = Utils.seen( this, true, seen );
     if ( pair.first ) {
       return false;
     }
@@ -116,7 +120,7 @@ public class ConstraintExpression extends Expression< Boolean >
     applicableAsDependency = false;
     Pair<Parameter<?>, Object> p = valueToSetLikeDependency();
     if ( p == null ) return false;
-    Parameter<T> dependentVar = (Parameter<T>) p.first;
+    Parameter<T> dependentVar = (Parameter<T>)p.first;
     this.dependentVar = dependentVar;
     if ( dependentVar == null ) return false;
     if ( dependentVar == noChangeParam ) return false;
@@ -124,12 +128,17 @@ public class ConstraintExpression extends Expression< Boolean >
     T oldVal = dependentVar.getValueNoPropagate();
 
     // fix domain for null
-    if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded && dependentVar.getDomain() instanceof ObjectDomain ) {
-      ((ObjectDomain)dependentVar.getDomain()).add(null);
+    if ( p.second == null && dependentVar.getDomain() != null && !dependentVar.getDomain().isNullInDomain() && isValueExpGrounded ) {
+      if ( dependentVar.getDomain() instanceof ObjectDomain ) {
+        ( (ObjectDomain)dependentVar.getDomain() ).add( null );
+      }
+      if ( dependentVar.getDomain() instanceof ClassDomain ) {
+        ( (ClassDomain)dependentVar.getDomain() ).setNullInDomain( true );
+      }
     }
 
     applicableAsDependency = true;
-    dependentVar.setValue((T)p.second, true, seen);
+    dependentVar.setValue( (T)p.second, true, seen );
     T newVal = dependentVar.getValueNoPropagate();
     if ( oldVal == newVal ) return false;
     return true;
@@ -145,14 +154,17 @@ public class ConstraintExpression extends Expression< Boolean >
     Object value = null;
     boolean succ = false;
     try {
-      value = Expression.evaluateDeep(p.second, dependentVar.getType(), true, false);
-      if (!(p.second instanceof Call) || ((Call) p.second).didEvaluationSucceed())
+      value = Expression
+              .evaluateDeep( p.second, dependentVar.getType(), true, false );
+      if ( !( p.second instanceof Call ) || ( ( (Call)p.second )
+              .didEvaluationSucceed() && (value != null || ((Call)p.second).returnValue == null ) ) ) {
         succ = true;
-    } catch (IllegalAccessException e) {
+      }
+    } catch ( IllegalAccessException e ) {
       e.printStackTrace();
-    } catch (InvocationTargetException e) {
+    } catch ( InvocationTargetException e ) {
       e.printStackTrace();
-    } catch (InstantiationException e) {
+    } catch ( InstantiationException e ) {
       e.printStackTrace();
     }
     if ( !succ ) return null;
@@ -160,60 +172,333 @@ public class ConstraintExpression extends Expression< Boolean >
     // HACK -- using static variable instead of stuffing in return value!
     isValueExpGrounded = true;
     if ( p.second instanceof Groundable ) {
-      isValueExpGrounded = ((Groundable)p.second).isGrounded( false, null );
+      isValueExpGrounded = ( (Groundable)p.second ).isGrounded( false, null );
     }
 
-    return new Pair<Parameter<?>, Object>(dependentVar, value);
+    return new Pair<Parameter<?>, Object>( dependentVar, value );
   }
 
-  protected static Set<String> equalFunctionNames =
-          new LinkedHashSet<String>(Utils.arrayAsList(new String[]{
-                  "eq", "equal", "equals", "is", "=", "==", "equivalent"
-          }));
+  protected static Set<String> equalFunctionNames = new LinkedHashSet<String>(
+          Utils.arrayAsList(
+                  new String[] { "eq", "equal", "equals", "is", "=", "==",
+                                 "equivalent" } ) );
 
   public boolean canBeDependency() {
-    if ( !isEqualsFunction() ) {
-      return false;
-    }
+//    if ( !isEqualsFunction() ) {
+//      return false;
+//    }
     Pair<Parameter<?>, Object> pair = dependencyLikeVar();
     if ( pair == null || pair.first == null ) return false;
-//    try {
-//      Parameter<?> p = Expression.evaluate(pair.first, Parameter.class, false);
-//      if ( p == null ) return false;
-//      if ( pair.second == null ||
-//           !HasParameters.Helper.hasParameter(pair.second, p, false, null, true) ) {
-        return true;
-//      }
-//    } catch (IllegalAccessException e) {
-//    } catch (InvocationTargetException e) {
-//    } catch (InstantiationException e) {
-//    }
-//    return false;
+    //    try {
+    //      Parameter<?> p = Expression.evaluate(pair.first, Parameter.class, false);
+    //      if ( p == null ) return false;
+    //      if ( pair.second == null ||
+    //           !HasParameters.Helper.hasParameter(pair.second, p, false, null, true) ) {
+    return true;
+    //      }
+    //    } catch (IllegalAccessException e) {
+    //    } catch (InvocationTargetException e) {
+    //    } catch (InstantiationException e) {
+    //    }
+    //    return false;
   }
 
   public boolean isEqualsFunction() {
-    if ( this.form != Form.Function || !(this.expression instanceof FunctionCall) ) return false;
-    FunctionCall fc = (FunctionCall)this.expression;
-    if ( equalFunctionNames.contains(fc.method.getName().toLowerCase()) ) {
+    return isEqualsFunction( this );
+  }
+
+  public static boolean isEqualsFunction( Object o ) {
+    Call c = null;
+    if ( o instanceof Call ) {
+      c = (Call)o;
+    } else if ( o instanceof Expression ) {
+      Expression e = (Expression)o;
+      if ( e.form == Form.Function && e.expression instanceof FunctionCall ) {
+        c = (Call)e.expression;
+      } else if ( e.form == Form.Constructor && e.expression instanceof ConstructorCall ) {
+        c = (Call)e.expression;
+      }
+    } else if ( o instanceof Parameter ) {
+      Parameter p = (Parameter)o;
+      if ( !( p.getValueNoPropagate() instanceof Parameter ) ) {
+        return isEqualsFunction( p.getValueNoPropagate() );
+      }
+    }
+    if ( c != null && equalFunctionNames.contains( c.getMember().getName().toLowerCase() ) ) {
       return true;
     }
     return false;
   }
 
   public Pair<Parameter<?>, Object> dependencyLikeVar() {
-    ConstraintExpression ce = this;
-    if ( !( ce.expression instanceof Functions.EQ ) ) {
+    List<Pair<Parameter<?>, Object>> deps =
+            dependencyLikeVars( this, true, //false,
+                                true, false );
+    if ( Utils.isNullOrEmpty( deps ) ) {
       return null;
     }
-    Vector<Object> args = ((Functions.EQ) ce.expression).getArguments();
+    Pair<Parameter<?>, Object> p = deps.get( 0 );
+    return p;
+  }
+
+  public List<Pair<Parameter<?>, Object>>
+        dependencyLikeVars(Expression e, boolean justFirst, //boolean potential,
+                           boolean mustBeTrue, boolean mustBeFalse) {
+    // Equals is the normal case where we can infer dependencies, but we can
+    // find them nested in other functions, like logical AND.
+    if ( e.expression instanceof Functions.EQ  ) {
+      return dependencyLikeVarsForEquals( e, justFirst, //potential,
+                                          mustBeTrue, mustBeFalse );
+    }
+    if ( e.expression instanceof Functions.Conditional  ) {
+      return dependencyLikeVarsForConditional( e, justFirst, //potential,
+                                               mustBeTrue, mustBeFalse );
+    }
+    if ( ! (e.expression instanceof Functions.BooleanBinary ) ) {
+      return null;
+    }
+    if ( e.expression instanceof Functions.And ) {
+      return dependencyLikeVarsForAndOr( e, justFirst, //potential,
+                                         mustBeTrue, mustBeFalse );
+    }
+    if ( e.expression instanceof Functions.Or ) {
+      return dependencyLikeVarsForAndOr( e, justFirst, //potential,
+                                         mustBeTrue, mustBeFalse );
+    }
+    if ( e.expression instanceof Functions.NEQ ) {
+      return dependencyLikeVarsForEquals( e, justFirst, //potential,
+                                          mustBeTrue, mustBeFalse );
+    }
+    if ( e.expression instanceof Functions.ForAll ) {
+      return dependencyLikeVarsForForAll( e, justFirst, //potential,
+                                          mustBeTrue, mustBeFalse );
+    }
+    if ( e.expression instanceof Functions.Exists ) {
+      return dependencyLikeVarsForExists( e, justFirst, //potential,
+                                          mustBeTrue, mustBeFalse );
+    }
+    return null;
+  }
+
+  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForConditional(
+          Expression e, boolean justFirst, //boolean potential,
+          boolean mustBeTrue, boolean mustBeFalse ) {
+    if ( !( e.expression instanceof Functions.Conditional ) ) {
+      return null;
+    }
+    Functions.Conditional ce = (Functions.Conditional)e.expression;
+
+    List<Pair<Parameter<?>, Object>> deps = null;
+
+//    // if not getting potential deps (only required ones), and there's no
+//    // constraint, then there's nothing left to do.
+//    if ( !mustBeTrue && !mustBeFalse && !potential ) {
+//      return deps;
+//    }
+
+    boolean potential = !mustBeTrue && !mustBeFalse;
+
+    // Get the condition of the if-then-else.
+    if ( Utils.isNullOrEmpty( ce.getArguments() ) ) {
+      return deps;
+    }
+    Object cond = ce.getArgument( 0 );
+    Domain condDomain = DomainHelper.getDomain( cond );
+    Expression condExp = cond instanceof Expression ? (Expression)cond :
+                         new Expression( cond );
+
+    Domain thenDomain = null;
+    Domain elseDomain = null;
+    Expression thenExpression = null;
+    Expression elseExpression = null;
+    boolean thenDomainRelevant = false;
+    boolean elseDomainRelevant = false;
+
+    // Get the 'then' expression.
+    if ( ce.getArguments().size() > 1 ) {
+
+      Object thenObj = ce.getArgument( 1 );
+      thenExpression = thenObj instanceof Expression ? (Expression)thenObj :
+                       new Expression( thenObj );
+      if ( thenExpression != null && condDomain != null && condDomain.contains( true ) && ( mustBeTrue || mustBeFalse ) ) {
+        thenDomain = DomainHelper.getDomain( thenObj );
+        thenDomainRelevant = thenDomain != null && thenDomain.contains( mustBeTrue );
+      }
+
+      // Get the 'else' expression.
+      if ( ce.getArguments().size() > 2 ) {
+        Object elseObj = ce.getArgument( 2 );
+        elseExpression = elseObj instanceof Expression ? (Expression)elseObj :
+                         new Expression( elseObj );
+        if ( elseExpression != null && condDomain != null && condDomain.contains( false ) && ( mustBeTrue || mustBeFalse ) ) {
+          elseDomain = DomainHelper.getDomain( elseObj );
+          elseDomainRelevant = elseDomain != null && elseDomain.contains( mustBeTrue );
+        }
+      }
+    }
+
+    if ( !potential && !thenDomainRelevant && !elseDomainRelevant ) {
+      return deps;
+    }
+
+    boolean condDepsRelevant = potential || thenDomainRelevant || elseDomainRelevant;
+    Boolean condConstrained =
+            ( ( potential || !condDepsRelevant || ( thenDomainRelevant
+                                                    && elseDomainRelevant ) ) ?
+              null : thenDomainRelevant );
+    if ( condConstrained != null ) {
+      condDepsRelevant = condDomain != null && condDomain.contains( thenDomainRelevant );
+    }
+
+    if ( condDepsRelevant ) {
+      List<Pair<Parameter<?>, Object>> condDeps =
+              dependencyLikeVars( condExp, justFirst, //potential,
+                                  Boolean.TRUE.equals( condConstrained ),
+                                  Boolean.FALSE.equals( condConstrained ) );
+      deps = Utils.addAll( deps, condDeps );
+      if ( justFirst && !Utils.isNullOrEmpty( deps ) ) {
+        return deps;
+      }
+    }
+
+    if ( thenDomainRelevant ) {
+      List<Pair<Parameter<?>, Object>> thenDeps =
+              dependencyLikeVars( thenExpression, justFirst, //potential,
+                                  mustBeTrue, mustBeFalse );
+      deps = Utils.addAll( deps, thenDeps );
+      if ( justFirst && !Utils.isNullOrEmpty( deps ) ) {
+        return deps;
+      }
+    }
+
+    if ( elseDomainRelevant ) {
+      List<Pair<Parameter<?>, Object>> elseDeps =
+              dependencyLikeVars( elseExpression, justFirst, //potential,
+                                  mustBeTrue, mustBeFalse );
+      deps = Utils.addAll( deps, elseDeps );
+      if ( justFirst && !Utils.isNullOrEmpty( deps ) ) {
+        return deps;
+      }
+    }
+    return deps;
+    //        if ( thenDomainRelevant )
+    //
+    //        //// check if the return value is constrained to one of {true, false}
+    //        //boolean constrained = condDomain != null && condDomain.magnitude() == 1 && (mustBeTrue || mustBeFalse);
+    //
+    //        // Get deps for the 'then' case.
+    //
+    //        // Make sure there is a 'then' argument.
+    //        if ( ce.getArguments().size() <= 1 ) {
+    //          return deps;
+    //        }
+    //        // Make sure there the 'then' case is reachable.
+    //        if ( condDomain == null || condDomain.contains( true ) ) {
+    //          List<Pair<Parameter<?>, Object>> thenDeps =
+    //                  dependencyLikeVars( thenExpression, true, potential,
+    //                                      mustBeTrue, mustBeFalse );
+    //          deps = Utils.addAll( deps, thenDeps );
+    //        }
+    //
+    //
+    //        // If constrained and the 'then' case is not possible, skip it.
+    //
+    //
+    ////        // Figure out whether we will pass on boolean constraint based on mustBeTrue/False.
+    ////        boolean mustTrue = false;
+    ////        boolean mustFalse = false;
+    ////        if ( condDomain != null && condDomain.magnitude() == 1 && (mustBeTrue || mustBeFalse) ) {
+    ////          if ( condDomain.contains( true ) ) {
+    ////            mustTrue = mustBeTrue;
+    ////          } else if ( condDomain.contains( false ) ) {
+    ////            mustFalse = mustBeFalse;
+    ////          }
+    ////        }
+
+  }
+
+  /**
+   * Use this instead of Expression.evaluate() to avoid evaluating
+   * a Call.
+   * @param o
+   * @return
+   */
+  protected static <A> Parameter<?> tryToGetParameterQuick(Object o) {
+    if ( o == null ) return null;
+    if ( o instanceof Parameter) {
+      return (Parameter<?>)o;
+    }
+    if ( o instanceof Collection ) {
+      Collection<?> c = (Collection<?>)o;
+      if ( c.size() == 1 ) {
+        Object wo = c.iterator().next();
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o.getClass().isArray() ) {
+      if ( Array.getLength(o) == 1 ) {
+        Object wo = Array.get(o, 0);
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Call ) {
+      Object rv = ((Call)o).returnValue;
+      if ( rv != null && rv != o ) {
+        Parameter p = tryToGetParameterQuick( rv );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Expression ) {
+      Object wo = ((Expression)o).expression;
+      if ( o != wo ) {
+        Parameter p = tryToGetParameterQuick( wo );
+        return p;
+      }
+      return null;
+    }
+    if ( o instanceof Wraps ) {
+      Object wo = ( (Wraps)o ).getValue( false );
+      if ( wo == o ) return null;
+      Parameter p = tryToGetParameterQuick( wo );
+      if ( p != null ) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  protected List<Pair<Parameter<?>, Object>>
+        dependencyLikeVarsForEquals(Expression e, boolean justFirst, //boolean potential,
+                                    boolean mustBeTrue, boolean mustBeFalse) {
+    List<Pair<Parameter<?>, Object>> deps = null;
+    boolean isEq = isEqualsFunction(e);
+    boolean isNeq = e.expression instanceof Functions.NEQ;
+    if ( !isEq && !isNeq ) {
+      return deps;
+    }
+    // TODO -- if args are boolean and recursing into args, then don't return below.
+    if ( ( isEq && mustBeFalse ) || ( isNeq && mustBeTrue ) ) {
+      return deps;
+    }
+    deps = new ArrayList<>();
+    Vector<Object> args = ((Functions.EQ) e.expression).getArguments();
     if ( args == null || args.size() < 2 ) {  // It should always be 2, but . . .
       return null;
     }
     for ( int i = 0; i < args.size(); ++i ) {
+      Object arg = args.get(i);
       try {
         Parameter<?> p = null;
         try {
-          p = Expression.evaluate(args.get(i), Parameter.class, false);
+          p = tryToGetParameterQuick( arg );
+          if ( p == null ) {
+            p = Expression.evaluate( arg, Parameter.class, false );
+          }
         } catch (Throwable t) {
           // ignore
         }
@@ -221,24 +506,112 @@ public class ConstraintExpression extends Expression< Boolean >
         for ( int j = 0; j < args.size(); ++j ) {
           if ( j == i ) continue;
           Object otherArg = args.get( j );
-//          if ( otherArg instanceof HasParameters ) {
-//            if ( !HasParameters.Helper.hasFreeParameter(otherArg, false, null) ) {
-//              return new Pair<Parameter<?>, Object>(p, otherArg);
-//            }
-//          } else {
-            return new Pair<Parameter<?>, Object>(p, otherArg);
-//          }
+          //          // Only apply to the case where direction is implied by free variables.
+          //          if ( otherArg instanceof HasParameters ) {
+          //            if ( !HasParameters.Helper.hasFreeParameter(otherArg, false, null) ) {
+          //              return new Pair<Parameter<?>, Object>(p, otherArg);
+          //            }
+          //          } else {
+          deps.add( new Pair<Parameter<?>, Object>(p, otherArg) );
+          if ( justFirst ) {
+            return deps;
+          }
+          //          }
         }
-      } catch (Throwable e) {
-//        e.printStackTrace();
-//      } catch (InvocationTargetException e) {
-//        e.printStackTrace();
-//      } catch (InstantiationException e) {
-//        e.printStackTrace();
+      } catch (Throwable t) {
       }
     }
-    return null;
+    // TODO -- Check and see if the domains of the args are boolean and, if so,
+    // call recursively on them.
+    return deps;
   }
+
+  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForAndOr(
+          Expression e, boolean justFirst, //boolean potential,
+          boolean mustBeTrue, boolean mustBeFalse ) {
+    if ( !( e.expression instanceof Functions.And ) && !( e.expression instanceof Functions.Or ) ) {
+      return null;
+    }
+    List<Pair<Parameter<?>, Object>> deps = null;
+    Functions.And andFcn = (Functions.And)e.expression;
+    if ( andFcn.getArguments() != null ) {// &&
+         // ( !mustBeFalse || potential || andFcn.getArguments().size() == 1 ) ) {
+      for ( Object a : andFcn.getArguments() ) {
+        Domain domain = DomainHelper.getDomain( a );
+        if ( mustBeFalse || mustBeTrue ) {
+          if ( !domain.contains( mustBeTrue ) ) {
+            continue;
+          }
+        }
+        Expression exp = a instanceof Expression ? (Expression)a : new Expression( a );
+        List<Pair<Parameter<?>, Object>> newDeps =
+                dependencyLikeVars( exp, justFirst, //potential,
+                                    mustBeTrue, mustBeFalse );
+        deps = Utils.addAll( deps, newDeps );
+        if ( justFirst && !Utils.isNullOrEmpty( deps ) ) {
+          return deps;
+        }
+      }
+    }
+    return deps;
+  }
+
+//  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForOr(
+//          Expression e, boolean justFirst, //boolean potential,
+//          boolean mustBeTrue, boolean mustBeFalse ) {
+//    if ( !( e.expression instanceof Functions.Or ) && !( e.expression instanceof Functions.And ) ) {
+//      return null;
+//    }
+//    return dependencyLikeVarsForAnd(e, justFirst, mustBeTrue, mustBeFalse);
+////    Functions.And orFcn = (Functions.And)e.expression;
+////    if ( orFcn.getArguments() != null ) {//&&
+////         //( !mustBe || potential || orFcn.getArguments().size() == 1 ) ) {
+////      for ( Object a : orFcn.getArguments() ) {
+////        Domain domain = DomainHelper.getDomain( a );
+////        if ( mustBeFalse || mustBeTrue ) {
+////          if ( !domain.contains( mustBeTrue ) ) {
+////            continue;
+////          }
+////        }
+////        Expression exp = a instanceof Expression ? (Expression)a : new Expression( a );
+////        List<Pair<Parameter<?>, Object>> newDeps =
+////                dependencyLikeVars( exp, justFirst, //potential,
+////                                    mustBeTrue, mustBeFalse );
+////        deps = Utils.addAll( deps, newDeps );
+////        if ( justFirst && !Utils.isNullOrEmpty( deps ) ) {
+////          return deps;
+////        }
+////      }
+////    }
+////    return deps;
+//  }
+
+//  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForNeq(
+//          Expression e, boolean justFirst, //boolean potential,
+//          boolean mustBeTrue, boolean mustBeFalse ) {
+//    return dependencyLikeVarsForEquals( e, justFirst, mustBeTrue, mustBeFalse );
+//    List<Pair<Parameter<?>, Object>> deps = null;
+//    // TODO
+//    return deps;
+//  }
+
+  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForForAll(
+          Expression e, boolean justFirst, //boolean potential,
+          boolean mustBeTrue, boolean mustBeFalse ) {
+    List<Pair<Parameter<?>, Object>> deps = null;
+    // TODO
+    return deps;
+  }
+
+  protected List<Pair<Parameter<?>, Object>> dependencyLikeVarsForExists(
+          Expression e, boolean justFirst, //boolean potential,
+          boolean mustBeTrue, boolean mustBeFalse ) {
+    List<Pair<Parameter<?>, Object>> deps = null;
+    // TODO
+    return deps;
+  }
+
+
 
   private static boolean pickDeep = true;
   /**
@@ -263,7 +636,7 @@ public class ConstraintExpression extends Expression< Boolean >
     }
 
     // Now try choosing new values for the variables to meet this constraint.
-    if ( Parameter.allowPickValue && !isSatisfied(deep, seen) ) {
+    if ( Parameter.allowPickValue && !DistributionHelper.isDistribution(this) && !isSatisfied( deep, seen) ) {
       Set< Variable< ? > > vars = new LinkedHashSet<Variable<?>>(getVariables());
       if ( Debug.isOn() ) Debug.outln("ConstraintExpression.isSatisfied()   Picking values for " + vars + " in " + this);
 

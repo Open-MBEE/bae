@@ -5,25 +5,20 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.ae.solver.HasIdImpl;
 import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.Vector;
+import java.util.*;
 
+import gov.nasa.jpl.mbee.util.Random;
 import junit.framework.Assert;
+
+import static gov.nasa.jpl.ae.util.LamportClock.tick;
+import static gov.nasa.jpl.ae.util.LamportClock.usingLamportClock;
 
 public abstract class Call extends HasIdImpl implements HasParameters,
                                                         ParameterListener,
@@ -32,7 +27,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
                                                         Comparable< Call >,
                                                         MoreToString,
                                                         Cloneable,
-                                                        Wraps<Object> {
+                                                        Wraps<Object>,
+                                                        UsesClock {
 
   /**
    * A function call on the result of this function call.
@@ -42,6 +38,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   protected Object object = null; // object from which constructor is invoked
   protected Class<?> returnType = null;
   protected Vector< Object > arguments = null; // arguments to constructor
+  protected Object evaluatedObject = null;
   public Vector< Vector< Object > > alternativeArguments = new Vector< Vector< Object > >(); // arguments to member if the default arguments don't work.
   protected Object[] evaluatedArguments = null; // arguments to constructor
   protected boolean evaluationSucceeded = false;
@@ -51,7 +48,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public boolean alwaysNotStale = false;
 
   public Object returnValue = null;  // a cached value
-  
+
+  public long lastUpdated = tick();
+
   protected boolean proactiveEvaluation = false;
   
   abstract public Class<?>[] getParameterTypes();
@@ -60,7 +59,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   abstract public boolean isVarArgs();
   abstract public boolean isStatic();
   abstract public Call clone();
-  
+
   // Hook to externally preprocess arguments for proper parameter type matching.
   public static interface ArgHelper {
     public void helpArgs( Call call );
@@ -94,7 +93,20 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( isStatic() ) return null;
     return getMember().getDeclaringClass();
   }
-  
+
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
+  @Override public long getLastUpdated() {
+    if ( returnValue instanceof UsesClock && ( (UsesClock)returnValue ).getLastUpdated() > lastUpdated ) {
+      lastUpdated = ( (UsesClock)returnValue ).getLastUpdated();
+    }
+    return lastUpdated;
+  }
+  @Override public long getLastUpdated(Set<UsesClock> seen) {
+    return lastUpdated;
+  }
+
   static boolean simpleDeconstruct = true;
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.Deconstructable#deconstruct()
@@ -378,7 +390,40 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( compare != 0 ) return compare;
     return compare;
   }
-  
+
+  public int compareStructure(Call o) {
+    if ( this == o ) return 0;
+    if ( o == null ) return -1;
+    if ( getId() == o.getId() ) return 0;
+    int compare = 0;
+    compare = CompareUtils.compare( getMember(), o.getMember(), true );
+    if ( compare != 0 ) return compare;
+    compare = CompareUtils.compare( getParameterTypes(), o.getParameterTypes(), true );
+    if ( compare != 0 ) return compare;
+    //    compare = Utils.compareTo( getReturnType(), o.getReturnType(), true );
+    //    if ( compare != 0 ) return compare;
+    compare = CompareUtils.compare( getClass().getName(), o.getClass().getName() );
+    if ( compare != 0 ) return compare;
+    // TODO -- would like to skip this since it changes.
+    if ( Debug.isOn() ) Debug.errln( "Call.compareTo comparing value information." );
+    compare = CompareUtils.compare( arguments, o.arguments, true );
+    if ( compare != 0 ) return compare;
+    if (!isStatic()) {
+      compare = CompareUtils.compare(object, o.object, true);
+      if (compare != 0) return compare;
+    }
+    return compare;
+  }
+
+  @Override public boolean equals( Object obj ) {
+    if ( this == obj ) return true;
+    if ( obj == null ) return false;
+    if ( ! (obj instanceof  Call) ) return false;
+    Call o = (Call)obj;
+    int c = compareStructure( o );
+    return c == 0;
+  }
+
   public Object evaluate( boolean propagate ) throws IllegalAccessException, InvocationTargetException, InstantiationException { // throws IllegalArgumentException,
     if ( returnValue != null && !isStale() ) {
         evaluationSucceeded = true;
@@ -467,7 +512,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     return result;
   }
-  
+
   public synchronized Object evaluateWithSetArguments( boolean propagate,
                                                        boolean doEvalArgs )
                                                                        throws IllegalAccessException,
@@ -513,10 +558,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       evaluatedArgs = fixArgsForVarArgs( evaluatedArgs, false );
       
       Object newValue = invoke( evaluatedObj, evaluatedArgs );// arguments.toArray() );
-      setReturnValue(newValue);
 
-      // No longer stale after invoked with updated arguments and result is cached.
-      if ( evaluationSucceeded ) setStale( false );
+      if ( evaluationSucceeded ) {
+        setReturnValue( newValue );
+        update();
+
+        // No longer stale after invoked with updated arguments and result is cached.
+        setStale( false );
+      }
       
     } catch ( ClassCastException e ) {
       evaluationSucceeded = false;
@@ -570,6 +619,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     Member m = getMember();
     Class<?> cls = ( m == null ? null : m.getDeclaringClass() );
     Object evaluatedObj = Expression.evaluate( object, cls, propagate, true );
+
+    this.evaluatedObject = evaluatedObj;
 
     return evaluatedObj;
   }
@@ -662,6 +713,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( ( c == null || c.equals( Object.class ) ) // || Expression.class.isAssignableFrom( c ) )
          && unevaluatedArg instanceof Wraps ) {
       c = ((Wraps)unevaluatedArg).getType();
+      // Don't complain if we're guessing the type.
+      // This could be a domain, distribution, timeline,...
+      complainIfError = false;
     }
     //Object result = Expression.evaluate( unevaluatedArg, c, propagate, true );
     Object result = evaluateArg( unevaluatedArg, c, propagate);
@@ -705,9 +759,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     }
     //boolean wasDebugOn = Debug.isOn();
     //Debug.turnOff();
-    assert ( args.size() == paramTypes.length
-             || ( isVarArgs && ( args.size() > paramTypes.length
-                                 || paramTypes.length == 1 ) ) );
+//    assert ( args.size() == paramTypes.length
+//             || ( isVarArgs && ( args.size() > paramTypes.length
+//                                 || paramTypes.length == 1 ) ) );
     Object argObjects[] = new Object[args.size()];
     for ( int i = 0; i < args.size(); ++i ) {
       Object unevaluatedArg = args.get( i );
@@ -1003,6 +1057,10 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // Check the object
     if ( !this.isStatic() ) {
       if ( (nestedCall == null && getObject() == null) || ( getObject() instanceof Parameter && !((Parameter) getObject()).hasValue()) ) {
+        if ( getMember().getName().equals( "inDomain" ) ) {
+          // HACK -- instead maybe create an InDomain subclass of Constraint or FunctionCall and override isGrounded().
+          return true;
+        }
         return false;
       }
     }
@@ -1143,10 +1201,19 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   @Override
   public synchronized String toString(boolean withHash, boolean deep, Set< Object > seen,
                                       Map< String, Object > otherOptions) {
+    return toString( withHash, deep, seen, false, otherOptions );
+  }
+  public synchronized String toString(boolean withHash, boolean deep, Set< Object > seen,
+                                      boolean argsShort, Map< String, Object > otherOptions) {
+    argsShort = true;
     Pair< Boolean, Set< Object > > pair = Utils.seen( this, deep, seen );
     if ( pair.first ) deep = false;
     seen = pair.second;
     StringBuffer sb = new StringBuffer();
+    if ( otherOptions == null ) otherOptions = new HashMap<>();
+    if ( !otherOptions.containsKey( "withOwner" ) ) {
+      otherOptions.put("withOwner", true);
+    }
     if ( nestedCall != null ) {
       sb.append( //"nested::" + 
                  nestedCall.toString(withHash, deep, seen,
@@ -1186,27 +1253,41 @@ public abstract class Call extends HasIdImpl implements HasParameters,
           } else {
             sb.append(", ");
           }
-          //TimeVaryingMap tvm = Functions.tryToGetTimelineQuick( arg );
-          //if ( tvm != null ) {
-            sb.append(MoreToString.Helper.toString(arg, withHash, false, seen, otherOptions));
-          //} else {
-          //  sb.append(MoreToString.Helper.toString(arg, withHash, false, seen, otherOptions));
-          //}
+          if ( argsShort ) {
+            sb.append( MoreToString.Helper.toShortString( arg ) );
+          } else {
+            sb.append( MoreToString.Helper.toString( arg, withHash, false, seen,
+                                                     otherOptions ) );
+          }
         }
         sb.append(")");
       } else {
-        sb.append(MoreToString.Helper.toString(arguments, withHash, deep, seen,
-                otherOptions,
-                MoreToString.PARENTHESES, true));
+        if ( argsShort ) {
+          sb.append( MoreToString.Helper.toShortString( arguments ) );
+        } else {
+          sb.append( MoreToString.Helper
+                             .toString( arguments, withHash, deep, seen,
+                                        otherOptions, MoreToString.PARENTHESES,
+                                        true ) );
+        }
       }
-      if ( !Utils.isNullOrEmpty( evaluatedArguments ) ) {
-        sb.append( " = " );
-        sb.append( getMember().getName() );
-        sb.append( MoreToString.Helper.toString( evaluatedArguments, withHash,
-                                                 deep, seen, otherOptions ) );
-      }
-      if ( returnValue != null ) {
-        sb.append( " = " + MoreToString.Helper.toString(returnValue, withHash, false, seen, otherOptions));
+      if ( deep ) {
+        if ( !Utils.isNullOrEmpty( evaluatedArguments ) ) {
+          sb.append( " = " );
+          sb.append( getMember().getName() );
+          if ( argsShort ) {
+            sb.append( MoreToString.Helper.toShortString( evaluatedArguments ) );
+          } else {
+            sb.append( MoreToString.Helper
+                               .toString( evaluatedArguments, withHash, deep,
+                                          seen, otherOptions ) );
+          }
+        }
+        if ( returnValue != null ) {
+          sb.append( " = " + MoreToString.Helper
+                  .toString( returnValue, withHash, false, seen,
+                             otherOptions ) );
+        }
       }
     }
     return sb.toString();
@@ -1218,7 +1299,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( obj instanceof LazyUpdate && ((LazyUpdate)obj).isStale() ) return true;
     if ( obj instanceof Variable ) {
       Object v = ((Variable<?>)obj).getValue( false );
-      if ( possiblyStale( v ) ) return true;
+      if ( obj != v && possiblyStale( v ) ) return true;
     }
     return false;
   }
@@ -1251,6 +1332,22 @@ public abstract class Call extends HasIdImpl implements HasParameters,
             return true;
           }
         }
+        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+          setStale( true );
+          return true;
+        }
+//        if ( arg instanceof Parameter ) {
+//          if ( ((Parameter)arg).isDeconstructed()) {
+//            setStale( true );
+//            return true;
+//          }
+//        }
+//        if ( arg instanceof ParameterListenerImpl ) {
+//          if ( ((ParameterListenerImpl)arg).isDeconstructed()) {
+//            setStale( true );
+//            return true;
+//          }
+//        }
       }
     }
 
@@ -1259,11 +1356,36 @@ public abstract class Call extends HasIdImpl implements HasParameters,
       return true;
     }
 
+    // check clock for arguments.
+    if ( arguments != null ) {
+      for ( Object arg : arguments ) {
+        if ( arg instanceof LazyUpdate ) {
+          if ( ( (LazyUpdate)arg ).isStale() ) {
+            setStale( true );
+            return true;
+          }
+        }
+        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+          setStale( true );
+          return true;
+        }
+      }
+    }
+
     for ( Parameter< ? > p : getParameters( false, null ) ) {
-      if ( p.isStale() && ( !( p.getValueNoPropagate() instanceof ParameterListenerImpl ) || !isGetMember() ) ) {
+      if ( usingLamportClock && p.getLastUpdated() > getLastUpdated() ) {
         setStale( true );
         return true;
       }
+      if ( !usingLamportClock && p.isStale() && ( !( p.getValueNoPropagate() instanceof ParameterListenerImpl ) || !isGetMember() ) ) {
+        setStale( true );
+        return true;
+      }
+      // No need to do this -- the parameter would be stale
+//      if ( p.isDeconstructed()) {
+//        setStale( true );
+//        return true;
+//      }
     }
     if ( nestedCall != null ) {
       if ( nestedCall.isStale() ) {
@@ -1508,6 +1630,13 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   public Object[] getEvaluatedArguments() {
     return evaluatedArguments;
   }
+  /**
+   * @return the evaluatedObject
+   */
+  public Object getEvaluatedObject() {
+    return evaluatedObject;
+  }
+
   /**
    * @param evaluatedArguments the evaluatedArguments to set
    */
@@ -1964,6 +2093,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if (p.first) return;
     seen = p.second;
     if ( changedParameter == null ) return;
+    
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
 
     // System.out.println("setStaleAnyReferencesTo(" + changedParameter.name + ") in " + toShortString() );
 
@@ -2117,7 +2248,11 @@ public abstract class Call extends HasIdImpl implements HasParameters,
    * @see gov.nasa.jpl.ae.event.ParameterListener#refresh(gov.nasa.jpl.ae.event.Parameter)
    */
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     // TODO -- REVIEW -- Is thjs necessary? Doesn't the
     // setStaleAnyReferencesTo() function do this? Or, does it only do it on
     // value changes, and are there other cases where things become stale and

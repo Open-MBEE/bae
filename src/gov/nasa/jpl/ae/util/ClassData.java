@@ -37,12 +37,18 @@ ClassData {
     public String type;
     public String value;
     public String scope;
-  
+    public Boolean valueIsConstructor = null;
+
 //    public Param( String name, String type, String value ) {
 //      this.name = name;
 //      this.type = type;
 //      this.value = value;
 //    }
+
+    public Param( String name, String type, String value, String scope, boolean valueIsConstructor ) {
+      this(name, type, value, scope);
+      this.valueIsConstructor = valueIsConstructor;
+    }
     public Param( String name, String type, String value, String scope ) {
       this.name = name;
       this.type = type;
@@ -264,12 +270,7 @@ ClassData {
     return null;
   }
 
-  public String getImportedClassNameWithScope( String className ) {
-    String otherClassName = null;
-//            ClassUtils.getFullyQualifiedName( className, false );
-//    if ( !Utils.isNullOrEmpty( otherClassName ) ) {
-//      return otherClassName;
-//    }
+  public Set<String> getImportedClassNames() {
     Collection<String> importNames = imports.keySet();
     // Make sure current class is first
     if ( !Utils.isNullOrEmpty( getCurrentClass() ) ) {
@@ -280,6 +281,16 @@ ClassData {
         importNames = newNames;
       }
     }
+    return new LinkedHashSet<>( importNames );
+  }
+
+    public String getImportedClassNameWithScope( String className ) {
+    String otherClassName = null;
+//            ClassUtils.getFullyQualifiedName( className, false );
+//    if ( !Utils.isNullOrEmpty( otherClassName ) ) {
+//      return otherClassName;
+//    }
+    Collection<String> importNames = getImportedClassNames();
     for ( String impName : importNames ) {
       Set<String> imps = imports.get( impName );
       if ( imps == null ) continue;
@@ -812,7 +823,25 @@ ClassData {
     if ( params != null ) {
       p = params.get( paramName );
     }
-    // If not in the table and an inner class, check enclosing class's scope.
+
+    // if not in table look in superclasses
+    if ( p == null ) {
+      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
+      if ( clsDecl != null ) {
+        List<ClassOrInterfaceType> superclasses =
+                clsDecl.getExtends();
+        if ( superclasses != null ) {
+          for (ClassOrInterfaceType ciType : superclasses) {
+            String superclassName = ciType.toString();
+            p = lookupMemberByName( superclassName, paramName, lookOutsideClassData,
+                    complainIfNotFound && lookOutsideClassData );
+            if ( p != null ) break;
+          }
+        }
+      }
+    }
+
+    // If not in the table and an inner class/super class, check enclosing class's scope.
     if ( p == null && isInnerClass( className ) ) {
       String enclosingClassName = getEnclosingClassName( className );
       if ( !Utils.isNullOrEmpty( enclosingClassName ) ) {
@@ -835,23 +864,6 @@ ClassData {
         if ( field != null ) {
           p = new Param( paramName, ClassUtils.toString( field.getType() ),
                          null, classForName.getCanonicalName().replaceAll("<.*>", "") );
-        }
-      }
-    }
-
-    // FIXME -- TODO -- Superclasses should be explored before enclosing classes!!!
-    if ( p == null ) {
-      ClassOrInterfaceDeclaration clsDecl = this.getClassDeclaration(className);
-      if ( clsDecl != null ) {
-        List<ClassOrInterfaceType> superclasses =
-                clsDecl.getExtends();
-        if ( superclasses != null ) {
-          for (ClassOrInterfaceType ciType : superclasses) {
-            String superclassName = ciType.toString();
-            p = lookupMemberByName( superclassName, paramName, lookOutsideClassData,
-                                        complainIfNotFound && lookOutsideClassData );
-            if ( p != null ) break;
-          }
         }
       }
     }
@@ -1430,9 +1442,9 @@ ClassData {
     if ( Utils.isNullOrEmpty( type ) ) {
       //type = "null";
     } else if ( type.toLowerCase().equals( "time" ) ) {
-      type = "Long";
+      type = "Time";
     } else if ( type.toLowerCase().equals( "duration" ) ) {
-      type = "Long";
+      type = "Time"; // REVIEW - should this be a Duration instead?
     } else {
       String classType = JavaToConstraintExpression.typeToClass( type );
       final String[] primClassesSame =

@@ -12,6 +12,8 @@ public interface Variable< T > extends HasDomain, HasId<Integer>, HasName< Strin
 
   public void setDomain( Domain< T > domain );
 
+  public boolean inDomain();
+
   public T pickRandomValue();
 
   public boolean pickValue();

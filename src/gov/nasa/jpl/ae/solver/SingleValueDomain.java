@@ -32,8 +32,13 @@ public class SingleValueDomain< T > extends HasIdImpl implements Domain< T > {
   }
 
   public SingleValueDomain( SingleValueDomain< T > singleValueDomain ) {
-    value = singleValueDomain.value;
-    nullInDomain = singleValueDomain.nullInDomain;
+    if ( singleValueDomain == null ) {
+      value = null;
+      nullInDomain = true;
+    } else {
+      value = singleValueDomain.value;
+      nullInDomain = singleValueDomain.nullInDomain;
+    }
   }
 
   public SingleValueDomain( T singleValue ) {
@@ -156,6 +161,12 @@ public class SingleValueDomain< T > extends HasIdImpl implements Domain< T > {
   @Override
   public boolean isNullInDomain() {
     return value == null && nullInDomain;
+  }
+
+  @Override
+  public boolean setNullInDomain(boolean b) {
+    nullInDomain = b;
+    return true;
   }
 
   /* (non-Javadoc)

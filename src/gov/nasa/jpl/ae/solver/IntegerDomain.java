@@ -80,10 +80,15 @@ public class IntegerDomain extends AbstractFiniteRangeDomain< Integer > {
     double r2 = Random.global.nextDouble();
     double middle = getMiddleValue();
     double half = getUpperBound() - middle;
+    int r = 0;
+    // Have to use max and min since middle is not exactly in the middle
+    // REVIEW -- does this skew the distribution?
     if ( r1 < 0.5 ) {
-      return (int)(middle - r2 * half);
+      r = max(getLowerBound(), (int)(middle - r2 * half));
+    } else {
+    r = min(getUpperBound(), (int)(middle + r2 * half));
     }
-    return (int)(middle + r2 * half);
+    return r;
 	}
 
   /* (non-Javadoc)

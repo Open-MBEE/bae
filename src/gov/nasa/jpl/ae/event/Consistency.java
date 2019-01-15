@@ -22,12 +22,32 @@ import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
 
+/**
+ * Class for manipulating domains of variables to enforce consistency with
+ * respect to a set of constraints.  It includes methods for restricting domains
+ * for arc consistency.
+ */
 public class Consistency {
-  
+  /**
+   * Whether too print out debug information.
+   */
   boolean debug = true;
-  
+  /**
+   * Quit out of solving early if the constraints are determined to be
+   * inconsistent (i.e. no solution).
+   */
+  public boolean quitEarlyWhenInconsistent = true;
+  /**
+   * flag indicating that there is no solution.  This is only updated if
+   * quitEarlyWhenInconsistent is true;
+   */
+  public boolean noSolution = false;
+
+  /**
+   * The collection of constraints that specify the problem to solve.
+   */
   public Collection<Constraint> constraints = null;
-  
+
   /**
    * A map for saving away the original domains of the variables in case we want to reset.
    */
@@ -47,8 +67,7 @@ public class Consistency {
   protected Map< Variable< ? >, Domain< ? > > lastArcConsistencySolution = null;
   
   protected boolean lastSucceeded = false;
-  
-  
+
   public Set<Variable<?>> getVariables() {
     LinkedHashSet<Variable<?>> vars = new LinkedHashSet< Variable<?> >();
     if ( constraints == null ) {
@@ -158,7 +177,12 @@ public class Consistency {
   }
 
   public boolean arcConsistency( boolean quiet ) {
-    saveDomains();
+    return arcConsistency( quiet, true );
+  }
+  public boolean arcConsistency( boolean quiet, boolean save ) {
+    if (save) {
+      saveDomains();
+    }
     if ( lastConstraintSet != null && lastArcConsistencySolution != null
          && constraints instanceof Set
          && setsEqual( lastConstraintSet, (Set< Constraint >)constraints ) ) {// lastConstraintSet.equals( allConstraints ) ) {
@@ -175,10 +199,24 @@ public class Consistency {
   public boolean restrictDomainsForConstraintExpression(ConstraintExpression cx, boolean quiet) {
     Pair<Domain<Boolean>,Boolean> p = cx.restrictDomain( BooleanDomain.trueDomain, true, null );
     if ( p!= null && !quiet && Boolean.TRUE.equals(p.second) ) {
-      System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
+      if ( !quiet ) {
+        System.out.println( "Restricted constraint " + MoreToString.Helper.toLongString( cx ) + " to domain " + p.first );
+      }
     }
     boolean restrictedSomething = (p!=null && Boolean.TRUE.equals(p.second));
+    if ( restrictedSomething && quitEarlyWhenInconsistent && anyEmpty(cx.getVariables()) ) {
+      noSolution = true;
+    }
     return restrictedSomething;
+  }
+
+  protected boolean anyEmpty( Set<Variable<?>> variables ) {
+    for ( Variable<?> v : variables ) {
+      if ( v.getDomain() != null && v.getDomain().isEmpty() ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public long restrictDomainsForConstraint(Constraint c, boolean quiet) {
@@ -193,6 +231,10 @@ public class Consistency {
         }
         cct += b ? 1 : 0;
         //restrictedSomething = restrictedSomething || b;
+        if ( b && quitEarlyWhenInconsistent && v.getDomain() != null && v.getDomain().isEmpty() ) {
+          noSolution = true;
+          break;
+        }
       }
     }
     return cct;
@@ -212,42 +254,69 @@ public class Consistency {
           restrictedSomething = restrictedSomething || num > 0;
           cct += num;
         }
+        if ( quitEarlyWhenInconsistent && noSolution ) {
+          System.out.println("Terminating arc consistency for empty domain after restricting " + c);
+          break;
+        }
       }
-      System.out.println("At least " + cct + " domain changes.");
+      if ( !quiet ) {
+        System.out.println( "At least " + cct + " domain changes." );
+      }
       return cct > 0;
   }
 
   public boolean arcConsistencySolve(boolean quiet) {
+    boolean oldPrintOnRD = Parameter.printOnRestrictDomain;
+    boolean oldPrintOnSV = Parameter.printOnSetValue;
     if ( !quiet ) {
       System.out.println( "Arc consistency problem:\n" + toString() );
+      Parameter.printOnRestrictDomain = true;
+      Parameter.printOnSetValue = true;
     }
+
+    this.noSolution = false; // reset inconsistency flag
 
     long ct = 0;
     boolean succeeded = false;
     long maxCount = constraints.size() * constraints.size() + 1;
-    System.out.println("arc consistency max rounds = " + maxCount);
+    if ( !quiet ) {
+      System.out.println( "arc consistency max rounds = " + maxCount );
+    }
     while ( ct < maxCount && ct < 100 ) {
-      System.out.println("arc consistency round " + (ct+1));
+      if ( !quiet ) {
+        System.out.println( "arc consistency round " + ( ct + 1 ) );
+      }
       boolean restrictedSomething = restrictDomainsForConstraints(constraints, quiet);
       if ( !restrictedSomething ) {
         succeeded = true;
         break;
       }
+      if ( quitEarlyWhenInconsistent && noSolution ) {
+        succeeded = false;
+        break;
+      }
       ++ct;
     }
-    
-    System.out.println();
-    if ( succeeded ) {
-      System.out.println( "Arc consistency completed after " + (ct+1) + " passes at the constraints. Variables:" );
-    } else {
-      System.out.println( "Arc consistency failed to complete after " + (ct+1) + " passes at the constraints. Variables:" );
-    }
-    System.out.println();
+
     if ( !quiet ) {
+      System.out.println();
+    }
+    if ( succeeded ) {
+      if ( !quiet ) {
+        System.out.println( "Arc consistency completed after " + ( ct + 1 ) + " passes at the constraints." + (
+                quiet ? "" : " Variables:" ) );
+      }
+    } else {
+      System.out.println( "Arc consistency failed to complete after " + (ct+1) + " passes at the constraints."+ (quiet ? "" : " Variables:") );
+    }
+    if ( !quiet ) {
+      System.out.println();
       System.out.println( variablesToString() );
       System.out.println();
     }
 
+    Parameter.printOnRestrictDomain = oldPrintOnRD;
+    Parameter.printOnSetValue = oldPrintOnSV;
     return succeeded;
   }
   

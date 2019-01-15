@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.event;
 
+import gov.nasa.jpl.ae.solver.ClassDomain;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.ae.solver.Domain;
@@ -58,7 +59,7 @@ public class ConstructorCall extends Call {
                           Class<?> returnType ) {
     this.constructor = constructor; // the constructor must be static
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   /**
@@ -71,7 +72,7 @@ public class ConstructorCall extends Call {
     thisClass = cls;
     this.returnType = returnType;
     setConstructor( ClassUtils.getConstructorForArgTypes( cls, (Class<?>[])null ) );
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   /**
@@ -83,7 +84,7 @@ public class ConstructorCall extends Call {
     this.object = object;
     this.returnType = returnType;
     setConstructor( constructor );
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
   }
 
   public ConstructorCall( Object object, Class<?> cls,
@@ -104,7 +105,7 @@ public class ConstructorCall extends Call {
     setConstructor( constructor );
     this.arguments = arguments;
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -122,7 +123,7 @@ public class ConstructorCall extends Call {
     this.arguments = arguments;
     this.constructor = getConstructor();
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -195,7 +196,7 @@ public class ConstructorCall extends Call {
       }
     }
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -218,7 +219,7 @@ public class ConstructorCall extends Call {
     }
     this.constructor = getConstructor();
     this.returnType = returnType;
-    this.alwaysNotStale = true;
+    //this.alwaysNotStale = true;
     hasTypeErrors();
   }
 
@@ -377,9 +378,7 @@ public class ConstructorCall extends Call {
                             + "): ConstructorCall{" + this + "} " + e.getMessage() );
         e.printStackTrace();
       }
-      if ( Debug.isOn() ) {
-        throw e;
-      }
+      throw e;
     }
     return returnValue; //newObject;
   }
@@ -438,7 +437,8 @@ public class ConstructorCall extends Call {
     if ( returnValue != null ) {
       // If it's a generated class, we just need to update dependencies, and we
       // can rely on the LazyUpdate interface for that.
-      if ( !isStale() || isParameterListenerImpl() ) {
+      if ( !hasSomethingDeconstructed() &&
+           (!isStale(false) || isParameterListenerImpl() ) ) {
         evaluationSucceeded = true;
         return returnValue;
       }
@@ -460,9 +460,50 @@ public class ConstructorCall extends Call {
     lastReturnValue = value;
   }
 
+  protected static boolean isDeconstructed( Object o ) {
+    if ( o == null ) return false;
+    if ( o instanceof Collection ) {
+      for ( Object oo : (Collection)o ) {
+        if ( isDeconstructed( oo ) ) {
+          return true;
+        }
+      }
+    }
+    if ( ( o instanceof ParameterListenerImpl
+           && ( (ParameterListenerImpl)o ).isDeconstructed() ) ||
+         ( o instanceof Parameter
+           && ( (Parameter)o ).isDeconstructed() ) ) {
+      return true;
+    }
+    return false;
+  }
+
+  protected boolean hasSomethingDeconstructed() {
+    if ( isDeconstructed( returnValue ) ) {
+      return true;
+    }
+    if ( isDeconstructed( evaluatedArguments ) ) {
+      return true;
+    }
+    if ( isDeconstructed( evaluatedObject ) ) {
+      return true;
+    }
+    if ( isDeconstructed( getParameters( false, null ) ) ) {
+      return true;
+    }
+    return false;
+  }
+
   @Override
   public boolean isStale() {
+    return isStale( true );
+  }
+  public boolean isStale(boolean checkDeconstructed) {
+
     if ( alwaysNotStale ) {
+      if ( checkDeconstructed && hasSomethingDeconstructed() ) {
+        return true;
+      }
       return false;
     }
     if ( stale ) {
@@ -475,13 +516,14 @@ public class ConstructorCall extends Call {
     if ( isParameterListenerImpl() ) {
       return false;
     }
+    return super.isStale();
 
-    boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
-    if ( argsStale ) {
-      return true;
-    }
-
-    return false;
+//    boolean argsStale = areArgsStale(); // calls this.setStale(true) if true, so we don't need to here.
+//    if ( argsStale ) {
+//      return true;
+//    }
+//
+//    return false;
   }
 
 
@@ -490,8 +532,7 @@ public class ConstructorCall extends Call {
    */
   @Override
   public Domain< ? > calculateDomain( boolean propagate, Set< HasDomain > seen ) {
-    //assert(false); // Must be overridden!
-    return null;
+    return new ClassDomain(getType(), getObject());
   }
 
   @Override

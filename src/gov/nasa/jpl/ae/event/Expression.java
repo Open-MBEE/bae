@@ -703,7 +703,7 @@ public class Expression< ResultType > extends HasIdImpl
   @Override
   public boolean isGrounded(boolean deep, Set< Groundable > seen) {
     if ( expression == null && form != Form.Value) return false;
-    if (expression instanceof Groundable) {
+    if (deep && expression instanceof Groundable) {
       return ((Groundable)expression).isGrounded(deep, seen);
     }
 //    if ( expression == null ) {
@@ -716,7 +716,9 @@ public class Expression< ResultType > extends HasIdImpl
     case Parameter: // Groundable -- should not get here
     case Function: // Groundable -- should not get here
     case Constructor: // Groundable -- should not get here
+      return true;
     case None:
+      return false;
     default:
       Debug.error(true, false, "Error! isGrounded(): Expression has invalid type: " + form );
       if ( Debug.isOn() ) { 
@@ -735,7 +737,7 @@ public class Expression< ResultType > extends HasIdImpl
    */
   @Override
   public boolean ground(boolean deep, Set< Groundable > seen) {
-    if (expression instanceof Groundable) {
+    if (expression instanceof Groundable && deep) {
       return ((Groundable)expression).ground(deep, seen);
     }
     if ( expression == null ) {
@@ -856,12 +858,12 @@ public class Expression< ResultType > extends HasIdImpl
 
   @Override
   public boolean isSatisfied(boolean deep, Set< Satisfiable > seen) {
-    return HasParameters.Helper.isSatisfied( this, true, null );
+    return HasParameters.Helper.isSatisfied( this, deep, seen );
   }
 
   @Override
   public boolean satisfy(boolean deep, Set< Satisfiable > seen) {
-    return HasParameters.Helper.satisfy( this, true, null );
+    return HasParameters.Helper.satisfy( this, deep, seen );
   }
 
   @Override
@@ -886,10 +888,14 @@ public class Expression< ResultType > extends HasIdImpl
       }
       return new SingleValueDomain<ResultType>( (ResultType)expression ); // since expression is not null
     case Parameter:
-      return ((Parameter<ResultType>)expression).getDomain( propagate, seen );
+      Domain<ResultType> paramDomain = ((Parameter<ResultType>)expression).getDomain( propagate, seen );
+      if (paramDomain != null) paramDomain = paramDomain.clone();
+      return paramDomain;
     case Function:
     case Constructor:
-      return (Domain< ResultType >)((Call)expression).getDomain( propagate, seen );
+      Domain<ResultType> functionDomain = (Domain< ResultType >)((Call)expression).getDomain( propagate, seen );
+      if (functionDomain != null) functionDomain = functionDomain.clone();
+      return functionDomain;
     case None:
     default:
       Debug.error(true, false, "Error! getDomain(): Expression has invalid type: " + form );
@@ -913,7 +919,9 @@ public class Expression< ResultType > extends HasIdImpl
     
     // avoid infinite recursion
     Pair< Boolean, Set< HasDomain > > pair = Utils.seen( this, propagate, seen );
-    if ( pair.first ) return null;
+    if ( pair.first ) {
+      return null;
+    }
     seen = pair.second;
 
     // If the expression is null, check to see if null is in the domain.
@@ -1057,6 +1065,10 @@ public class Expression< ResultType > extends HasIdImpl
       Object result2 = Evaluatable.Helper.evaluate( result, cls, propagate, true );
       if ( result2 != null ) return (TT)result2;
     }
+    // TODO -- uncomment the code below to ensure objects of the specified type.
+    //if ( result != null && cls != null && !cls.isAssignableFrom( result.getClass() ) ) {
+    //  result = null;
+    //}
     return (TT)result;
   }
   
@@ -1110,6 +1122,11 @@ public class Expression< ResultType > extends HasIdImpl
         return (TT)( new Parameter( null, null, object, null ) );
       } else if ( cls.isAssignableFrom( Expression.class ) ) {
         return (TT)( new Expression( object ) );
+      } else if ( cls.isAssignableFrom( TimeVaryingMap.class ) ) {
+        TimeVaryingMap<Object> tvm = new TimeVaryingMap<Object>();
+        tvm.interpolation = TimeVaryingMap.STEP;
+        tvm.put( SimpleTimepoint.zero, object );
+        return (TT)(tvm);
       }
     }
     // Try pulling the only item out of an array or collection.
@@ -1120,6 +1137,15 @@ public class Expression< ResultType > extends HasIdImpl
       } else if ( object instanceof Collection && ((Collection<?>)object).size() == 1 ) {
         object = ((Collection<?>)object).iterator().next();
         return evaluate( object, cls, propagate, allowWrapping );
+      }
+    }
+    
+    if (object != null && cls != null &&
+        !TimeVaryingMap.class.isAssignableFrom( cls ) &&
+        object instanceof TimeVaryingMap) {
+      TimeVaryingMap<?> tvm = (TimeVaryingMap<?>)object;
+      if ( tvm.allValuesSame() ) {
+        return evaluate( tvm.getValue( propagate ), cls, propagate, allowWrapping );
       }
     }
     
@@ -1357,6 +1383,8 @@ public class Expression< ResultType > extends HasIdImpl
     if (p.first) return;
     seen = p.second;
     
+    TimeVaryingMap.setStaleAnyReferencesToForTimeVarying( changedParameter, seen );
+    
     if ( expression instanceof ParameterListener ) {
       ( (ParameterListener)expression ).setStaleAnyReferencesTo( changedParameter, seen );
     }
@@ -1370,9 +1398,13 @@ public class Expression< ResultType > extends HasIdImpl
   }
 
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
+    Pair<Boolean, Set<ParameterListener>> pr = Utils.seen( this, true, seen );
+    if ( pr != null && pr.first ) return false;
+    seen = pr.second;
+
     if ( expression instanceof ParameterListener ) {
-      return ( (ParameterListener)expression ).refresh( parameter );
+      return ( (ParameterListener)expression ).refresh( parameter, seen );
     }
     return false;
   }

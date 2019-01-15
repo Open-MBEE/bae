@@ -345,9 +345,9 @@ public class Consumable extends TimeVaryingPlottableMap< Double > {
     if ( lastTime != null ) {
       Double lastVal = getValue( lastTime );
       if ( lastVal != null ) {
-        Long x = interpolatedTime(lastTime, t, lastVal, cap, value);
+        Double x = interpolatedTime(lastTime, t, lastVal, cap, value);
         if ( x != null ) {
-          return setValue( new SimpleTimepoint( "", x, this ), cap );
+          return setValue( new SimpleTimepoint( "", new Double(Math.floor(x + 1)).longValue(), this ), cap );
         }
       }
     }

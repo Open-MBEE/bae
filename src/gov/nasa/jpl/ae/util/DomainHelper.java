@@ -18,25 +18,8 @@ import gov.nasa.jpl.ae.event.FunctionCall;
 import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.TimeVaryingMap;
 import gov.nasa.jpl.ae.event.TimeVaryingMap.MathOperation;
-import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
-import gov.nasa.jpl.ae.solver.BooleanDomain;
-import gov.nasa.jpl.ae.solver.ComparableDomain;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.DoubleDomain;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.IntegerDomain;
-import gov.nasa.jpl.ae.solver.LongDomain;
-import gov.nasa.jpl.ae.solver.MultiDomain;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
-import gov.nasa.jpl.ae.solver.RangeDomain;
-import gov.nasa.jpl.ae.solver.SingleValueDomain;
-import gov.nasa.jpl.ae.solver.StringDomain;
-import gov.nasa.jpl.mbee.util.ClassUtils;
-import gov.nasa.jpl.mbee.util.CompareUtils;
-import gov.nasa.jpl.mbee.util.Debug;
-import gov.nasa.jpl.mbee.util.Utils;
-import gov.nasa.jpl.mbee.util.Wraps;
-
+import gov.nasa.jpl.ae.solver.*;
+import gov.nasa.jpl.mbee.util.*;
 
 /**
  *
@@ -71,12 +54,48 @@ public class DomainHelper {
     AbstractRangeDomain<T> d = (AbstractRangeDomain< T >)getDomainForClass( t.getClass() );
     if ( d != null ) {
       d.setLowerBound( t );
+      d.includeLowerBound();
       d.setUpperBound( t );
+      d.includeUpperBound();
     }
     return d;
   }
 
-  public static < T > AbstractRangeDomain< T >
+  public static <T> AbstractRangeDomain<T> makeRangeDomainFromValues( T t1, T t2 ) {
+    if ( t1 instanceof AbstractRangeDomain && t1 == t2) return (AbstractRangeDomain<T>)t1;
+    AbstractRangeDomain<T> d = (AbstractRangeDomain< T >)getDomainForClass( t1.getClass() );
+    if ( d != null ) {
+      d.setLowerBound( t1 );
+      d.includeLowerBound();
+      d.setUpperBound( t2 );
+      d.includeUpperBound();
+    }
+    return d;
+  }
+
+  public static <T1, T2> AbstractRangeDomain<T2> changeRangeDomainType( ComparableDomain<T1> cd, Class<T2> type2) {
+    Pair<Boolean, T2> lbp =
+            ClassUtils.coerce( cd.getLowerBound(), type2, false );
+    if ( lbp == null || lbp.first == null || !lbp.first ) {
+      return null;
+    }
+    Pair<Boolean, T2> ubp =
+            ClassUtils.coerce( cd.getUpperBound(), type2, false );
+    if ( ubp == null || ubp.first == null || !ubp.first ) {
+      return null;
+    }
+
+    AbstractRangeDomain<T2> cd2 =
+            makeRangeDomainFromValues( lbp.second, ubp.second );
+
+    if ( !cd.isLowerBoundIncluded() ) cd2.excludeLowerBound();
+    if ( !cd.isUpperBoundIncluded() ) cd2.excludeUpperBound();
+
+    return cd2;
+  }
+
+
+    public static < T > AbstractRangeDomain< T >
          createSubDomainBelow( Object o, boolean include, boolean propagate ) {
     Domain< ? > d = DomainHelper.getDomain( o );
     if ( d instanceof AbstractRangeDomain ) {
@@ -198,6 +217,10 @@ public class DomainHelper {
         }
         return null;
       }
+      if ( d instanceof ClassDomain ) {
+        ComparableDomain<T> ard = getEmptyComparableDomain(d);
+        return ard;
+      }
     }
     AbstractRangeDomain<T> ard = (AbstractRangeDomain<T>)getDomainForClass( o.getClass() );
     if ( ard != null ) {
@@ -231,7 +254,9 @@ public class DomainHelper {
   }
   
   public static <T> Domain<T> getDomain( T o ) {
-    if ( o == null ) return null;
+    if ( o == null ) {
+      return new SingleValueDomain<T>( (T)null );
+    }
     if ( o instanceof Domain ) return (Domain< T >)o;
     if ( o instanceof HasDomain ) {
       return (Domain<T>)((HasDomain)o).getDomain( false, null );
@@ -327,7 +352,45 @@ public class DomainHelper {
       return comp < 0;
     }
   }
-  
+
+  protected static boolean less(ComparableDomain cd1, ComparableDomain cd2,
+                             boolean orEquals) {
+    if ( cd1 == cd2 ) return false;
+    if ( cd1 == null || cd2 == null ) return false;
+    if ( Utils.valuesEqual( cd1.getType(), cd2.getType() ) ) {
+      return cd1.less(cd2);
+    }
+    Class<?> type =
+            ClassUtils.dominantTypeClass( cd1.getType(), cd2.getType() );
+    ComparableDomain cd1_2 = cd1;
+    ComparableDomain cd2_2 = cd2;
+    if ( ! Utils.valuesEqual( type, cd1.getType() ) ) {
+      cd1_2 = changeRangeDomainType( cd1, type );
+      if ( cd1_2 == null ) cd1_2 = cd1;
+    }
+    if ( ! Utils.valuesEqual( type, cd2.getType() ) ) {
+      cd2_2 = changeRangeDomainType( cd2, type );
+      if ( cd2_2 == null ) cd2_2 = cd2;
+    }
+    if ( orEquals ) return cd1_2.lessEquals(cd2_2);
+    return cd1_2.less(cd2_2);
+  }
+
+  public static boolean less(ComparableDomain cd1, ComparableDomain cd2) {
+    return less(cd1, cd2, false);
+  }
+  public static boolean lessEquals(ComparableDomain cd1, ComparableDomain cd2) {
+    return less(cd1, cd2, true);
+  }
+
+  public static boolean greater(ComparableDomain cd1, ComparableDomain cd2) {
+    return !lessEquals( cd1, cd2 );
+  }
+  public static boolean greaterEquals(ComparableDomain cd1, ComparableDomain cd2) {
+    return !less( cd1, cd2 );
+  }
+
+
   public static <T> ComparableDomain<T> getComparableDomain( Collection<?> results ) {
     RangeDomain<T> domain = null;
     Class<T> domainType = null;
@@ -755,6 +818,17 @@ public class DomainHelper {
           return null;
         }
       }
+    } else if ( domain instanceof ClassDomain ) {
+      ClassDomain<?> classDomain = (ClassDomain <?>)domain;
+      ComparableDomain< ? > cd = getEmptyComparableDomain( classDomain );
+      if ( cd != null ) {
+        representativeValues.add( cd );
+      } else {
+        if ( Debug.isOn() ) {
+          Debug.error(false, false, "Could not convert " + domain + " to ComparableDomain");
+        }
+        return null;
+      }
     }
     // Handle non-monotonic stuff
     if ( op == MathOperation.DIVIDE || op == MathOperation.LOG ) {
@@ -846,6 +920,9 @@ public class DomainHelper {
 //        odlb = it.next();
 //        odub = it.next();
 //      }
+    } else if ( domain instanceof ClassDomain ) {
+      ClassDomain<?> classDomain = (ClassDomain<?>)domain;
+      addAll(representativeValues, classDomain, flatten);
     }
     if ( odlb != null || odub != null ) {
 

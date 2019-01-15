@@ -15,6 +15,8 @@ import gov.nasa.jpl.ae.solver.SingleValueDomain;
 import gov.nasa.jpl.ae.solver.StringDomain;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.ae.util.DomainHelper;
+import gov.nasa.jpl.ae.util.LamportClock;
+import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
 import gov.nasa.jpl.mbee.util.Random;
 
@@ -49,13 +51,16 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                             ParameterListener,
                                             HasOwner,
                                             AspenTimelineWritable,
-                                            HasDomain {
+                                            HasDomain,
+                                            UsesClock {
 
   protected static boolean checkConsistency = false;
 
   private static final long serialVersionUID = -2428504938515591538L;
 
   public static Set<String> resourcePaths = Collections.synchronizedSet( new LinkedHashSet<String>());
+  
+  public static Map<Parameter<Long>, Set<TimeVaryingMap<?>>> parameterUsers = Collections.synchronizedMap( new LinkedHashMap<>() );
   
   public static Interpolation STEP = new TimeVaryingMap.Interpolation(TimeVaryingMap.Interpolation.STEP);
   public static Interpolation LINEAR = new TimeVaryingMap.Interpolation(TimeVaryingMap.Interpolation.LINEAR);
@@ -77,9 +82,20 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       setValue( Timepoint.getHorizonTimepoint(), 1L );
     }
   };
-  public static final TimeVaryingMap<Double> time = one.integrate();
-  public static final TimeVaryingMap<Long> longTime = longOne.integrate();
+  public static final TimeVaryingMap<Double> timeDouble = one.integrate();
+  public static final TimeVaryingMap<Long> time = longOne.integrate();
   protected static boolean notDeconstructing = true;
+
+  protected long lastUpdated = LamportClock.tick();
+  @Override public long update() {
+    return lastUpdated = LamportClock.tick();
+  }
+  @Override public long getLastUpdated() {
+    return lastUpdated;
+  }
+  @Override public long getLastUpdated(Set<UsesClock> seen) {
+    return lastUpdated;
+  }
 
   public static class Interpolation  {
     public static final byte STEP = 0; // value for key = get(floorKey( key ))
@@ -203,7 +219,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     this.interpolation = TimeVaryingMap.LINEAR;
   }
 
-  public class TimeValue extends Pair< Parameter< Long>, V >
+  public class TimeValue extends Pair< Parameter< Long >, V >
                                implements HasParameters {
 
     protected final int id = HasIdImpl.getNext();
@@ -319,7 +335,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
     @Override
     public String toShortString() {
-      return MoreToString.Helper.toShortString( this, null, true );
+      return MoreToString.Helper.toShortString( this, null, false );
     }
 
     @Override
@@ -358,6 +374,42 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   public static int compareTo( Parameter< Long > o1, Parameter< Long > o2 ) {
     return TimeComparator.instance.compare( o1, o2 );
+  }
+  
+  // acts as a guard value to avoid infinite recursion when using the static setStale methods
+  protected static final HasParameters staticSeenGuard = new TimeVaryingMap<Object>();
+  
+  public static void setStaleAnyReferencesToForTimeVarying( Parameter<?> param, Set< HasParameters > seen ) {
+    Pair< Boolean, Set< HasParameters > > p = Utils.seen( staticSeenGuard, true, seen );
+    if (p.first) return;
+    seen = p.second;
+    
+    Set<TimeVaryingMap<?>> pUsers = parameterUsers.get( param );
+    if (pUsers != null) {
+      // copy the pUsers set into a list, iterate over the list (since we *might* change the pUsers set
+      for (TimeVaryingMap<?> tvm : new LinkedList<>( pUsers )) {
+        tvm.setStaleAnyReferencesTo( tryCastTimepoint( param, true ), seen );
+      }
+    }
+  }
+
+  public static void handleValueChangeEventForTimeVarying( Parameter< ? > parameter,
+                                                           Set< HasParameters > seen ) {
+    Pair< Boolean, Set< HasParameters > > p = Utils.seen( staticSeenGuard, true, seen );
+    if (p.first) return;
+    seen = p.second;
+
+    Set<TimeVaryingMap<?>> pUsers = parameterUsers.get( parameter );
+    if (pUsers != null) {
+      // copy the pUsers set into a list, iterate over the list (since we *might* change the pUsers set
+      for (TimeVaryingMap<?> tvm : new LinkedList<>( pUsers )) {
+        tvm.handleValueChangeEvent( tryCastTimepoint( parameter, true ), seen );
+      }
+    }
+  }
+
+    public static void reset() {
+    parameterUsers.clear();
   }
   
   public static class TimeComparator implements Comparator< Parameter< Long > > {
@@ -546,11 +598,21 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @param obj object to cast from
    * @return obj cast to V or {@code null} if the cast fails
    */
-  @SuppressWarnings( "unchecked" )
   public static Parameter< Long> tryCastTimepoint( Object obj ) {
+    return tryCastTimepoint( obj, false );
+  }
+  /**
+   * @param obj object to cast from
+   * @return obj cast to V or {@code null} if the cast fails
+   */
+  @SuppressWarnings( "unchecked" )
+  public static Parameter< Long> tryCastTimepoint( Object obj, boolean nullValueOk ) {
     if ( obj instanceof Parameter ) {
       Parameter<?> p = (Parameter< ? >)obj;
       Object val = p.getValueNoPropagate();
+      if ( val == null && nullValueOk ) {
+        return (Parameter< Long >)obj;
+      }
       if ( val instanceof Long ) {
         return (Parameter< Long >)obj;
       } else if (val instanceof Integer) {
@@ -885,13 +947,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( call instanceof TimeVaryingFunctionCall ) {
         Object oo = null;
         try {
-          oo = call.evaluateArg( a, pType, true );
+          oo = call.evaluateArg( a, TimeVaryingMap.class, true);
+          if(oo == null || !(oo instanceof TimeVaryingMap)) {
+            oo = call.evaluateArg( a, pType, true );
+          }
         } catch (Throwable e ) {
         }
         if ( oo != null ) a = oo;
-//        if ( a instanceof TimeVaryingMap ) {
-//          objectMap = (TimeVaryingMap< ? >)obj;
-//        }
+
       }
       if ( a instanceof TimeVaryingMap ) {
         TimeVaryingMap<?> tv = (TimeVaryingMap<?>)a;
@@ -921,6 +984,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       }
   
       // Get the arguments.
+      // TODO -- argsForTime and newCall below need not be reconstructed every time;
+      // TODO -- pull them outside of the loop!
       Object[] argsForTime = new Object[args.length];
       i = 0;
       for ( Object arg : args ) {
@@ -951,7 +1016,12 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       } catch ( IllegalAccessException e ) {
         e.printStackTrace();
       } catch ( InvocationTargetException e ) {
-        e.printStackTrace();
+        if(e.getCause() instanceof IndexOutOfBoundsException) {
+          Debug.error(true, false, e.getCause().getLocalizedMessage());
+        } else {
+          e.printStackTrace();
+        }
+
       } catch ( InstantiationException e ) {
         e.printStackTrace();
       }      
@@ -1098,6 +1168,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      * this, so it is not needed when an EffectFunction is changing this map.
      */
     public void setStaleAnyReferencesToTimeVarying() {
+        if ( LamportClock.usingLamportClock ) {
+          lastUpdated = LamportClock.tick();
+          return;
+        }
         //System.out.println("setStaleAnyReferencesToTimeVarying(): " + toShortString() );
         Pair<Parameter<?>, ParameterListener> pair = getTimeVaryingMapOwners();
         if ( pair != null && pair.first != null && pair.second != null ) {
@@ -1111,6 +1185,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      * is changing this map.
      */
     public void handleChangeToTimeVaryingMap() {
+        // REVIEW -- should we do this is not usingLamportClock?
         Pair<Parameter<?>, ParameterListener> pair = getTimeVaryingMapOwners();
         if ( pair != null && pair.second != null ) {
             pair.second.handleValueChangeEvent( pair.first, null );
@@ -1334,7 +1409,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     public Parameter< Long> makeTempTimepoint( Long t, boolean maxName ) {
     //if ( t == null ) return null;
     String n = ( maxName ? StringDomain.typeMaxValue : null );
-    Parameter< Long> tp = new Parameter< Long>( n, null, t, this );
+//    Parameter< Long> tp = new Parameter< Long>( n, null, t, this );
+    Parameter< Long> tp = new SimpleTimepoint(n, t, this); // marking this as simpleTP helps with parameter caching
     return tp;
   }
 
@@ -1395,6 +1471,62 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( Debug.isOn() || checkConsistency ) isConsistent();
   }
 
+  /**
+   * Tests whether the given parameter counts as a "real parameter".
+   * Currently, a "real parameter" is any Parameter which is not an instanceof SimpleTimepoint
+   * @param t The Parameter to test
+   * @return !(t instanceof SimpleTimepoint)
+   */
+  protected boolean isRealParameter( Parameter<Long> t ) {
+    return !(t instanceof SimpleTimepoint);
+  }
+  
+  /**
+   * Tests whether this TimeVaryingMap should add its real Parameters to the parameterUsers map
+   * @return True if this TimeVaryingMap, in its current state, should do so
+   */
+  protected boolean shouldAddToParamUsers() {
+    return owner == null || owner instanceof Parameter || owner == ParameterListener.instance;
+  }
+  
+  /**
+   * Adds all of the keys, including those currently floating, to the parameterUsers map
+   */
+  protected void addAllKeysToParamUsers() {
+    for ( Parameter<Long> key : keySet() ) {
+      if (isRealParameter( key )) {
+        Utils.add( parameterUsers, key, this );
+      }
+    }
+    for ( TimeValue tv : floatingEffects ) {
+      if (isRealParameter( tv.first )) {
+        Utils.add( parameterUsers, tv.first, this );
+      }
+    }
+  }
+  
+  /**
+   * Removes all of the keys, including those currently floating, from the parameterusers map
+   */
+  protected void removeAllKeysFromParamUsers() {
+    for ( Parameter<Long> key : keySet() ) {
+      if (isRealParameter( key )) {
+        Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( key );
+        if (keyUsers != null) {
+          keyUsers.remove( this );
+        }
+      }
+    }
+    for ( TimeValue tv : floatingEffects ) {
+      if (isRealParameter( tv.first )) {
+        Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( tv.first );
+        if (keyUsers != null) {
+          keyUsers.remove( this );
+        }
+      }
+    }
+  }
+  
   @Override
   public void handleDomainChangeEvent( Parameter< ? > param, Set< HasParameters > seen ) {
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
@@ -1423,7 +1555,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   @Override
   public void setOwner( Object owner ) {
+    boolean wasAddingToParamUsers = shouldAddToParamUsers();
     this.owner = owner;
+    boolean isAddingToParamUsers = shouldAddToParamUsers();
+    if (!wasAddingToParamUsers && isAddingToParamUsers) {
+      addAllKeysToParamUsers();
+    } else if (wasAddingToParamUsers && !isAddingToParamUsers) {
+      removeAllKeysFromParamUsers();
+    }
   }
   public List< TimeValue > getFloatingEffects() {
     return floatingEffects;
@@ -1550,12 +1689,17 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Pair< Boolean, Set< HasParameters > > p = Utils.seen( this, true, seen );
     if (p.first) return;
     seen = p.second;
+    
+    // back to using this method to handle floating effects of a changedParameter
+//    if ( LamportClock.usingLamportClock ) {
+//      Debug.error( "ERROR!  Should not be calling setStaleAnyReferencesTo() when using Lamport clock!!" );
+//    }
 
     if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + ")" );
     if ( changedParameter == null ) return;
     if ( containsKey( changedParameter ) ) {
       if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + "): does contain" );
-      floatEffects( tryCastTimepoint( changedParameter ) );
+      floatEffects( tryCastTimepoint( changedParameter, true ) );
     } else {
       if ( Debug.isOn() ) Debug.outln( getName() + ".setStaleAnyReferencesTo(" + changedParameter + "): does not contain" );
     }
@@ -1578,14 +1722,41 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   @Override
   public V put(Parameter<Long> key, V value) {
+    if (shouldAddToParamUsers() && isRealParameter( key )) {
+      Utils.add( parameterUsers, key, this );
+    }
     return super.put(key, value);
+  }
+
+  @Override
+  public void putAll( Map< ? extends Parameter<Long>, ? extends V > map ) {
+    super.putAll( map );
+    if (shouldAddToParamUsers()) {
+      addAllKeysToParamUsers();
+    }
+  }
+  
+  @Override
+  public V remove( Object key ) {
+    // being extra-vigorous in removing keys this doesn't use, to avoid clutter
+    Set<TimeVaryingMap<?>> keyUsers = parameterUsers.get( key );
+    if (keyUsers != null) {
+      keyUsers.remove( this );
+    }
+    return super.remove( key );
+  }
+  
+  @Override
+  public void clear() {
+    removeAllKeysFromParamUsers();
+    super.clear();
   }
 
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.event.ParameterListener#refresh(gov.nasa.jpl.ae.event.Parameter)
    */
   @Override
-  public boolean refresh( Parameter< ? > parameter ) {
+  public boolean refresh( Parameter<?> parameter, Set<ParameterListener> seen ) {
     // TODO -- REVIEW -- do nothing? owner's responsibility?
     // TODO -- TimeVaryingMap should own the values if they are Parameters and
     // maybe any Parameters the value has itself, unless the value is a
@@ -1732,23 +1903,24 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return v;
   }
 
-  public Long interpolatedTime(Parameter< Long> t1, Parameter< Long> t2, V v1, V v, V v2 ) {
-    Long l1 = t1.getValue( false );
-    Long l2 = t2.getValue( false );
-    if ( Utils.valuesEqual( v1, v2 ) ) return l1;
+  public Double interpolatedTime(Parameter< Long> t1, Parameter< Long> t2, V v1, V v, V v2 ) {
     if ( t1 == null ) return null;
-    if ( t2 == null ) return l1;
+    Long l1 = t1.getValue( false );
+    if ( t2 == null ) return new Double(l1);
+    if ( Utils.valuesEqual( v1, v2 ) ) return new Double(l1);
+    Long l2 = t2.getValue( false );
     // floorVal+(ceilVal-floorVal)*(key-floorKey)/(ceilKey-floorKey)
     return interpolatedTime( l1, l2, v1, v, v2 );
   }
 
   // t = t1 + ((v - v1) / (v2 - v1)) + (t2 - t1)
-  public Long interpolatedTime(Long t1, Long t2, V v1, V v, V v2 ) {
+  public Double interpolatedTime(Long t1, Long t2, V v1, V v, V v2 ) {
     Object x = null;
     try {
-      x = Functions.plus( t1, Functions.divide(
+      x = Functions.plus( new Double(t1),
+                          Functions.divide(
                                       Functions.times(
-                                              Functions.minus( t2, t1 ),
+                                              Functions.minus( new Double(t2), new Double(t1) ),
                                               Functions.minus( v, v1 ) ),
                                       Functions.minus( v2, v1 ) ) );
     } catch ( ClassCastException e ) {
@@ -1761,7 +1933,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       e.printStackTrace();
     }
     if ( x instanceof Number ) {
-      return ( (Number)x ).longValue();
+      return ( (Number)x ).doubleValue();
     }
     return null;
   }
@@ -1948,10 +2120,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
       if ( valueBefore != value ) {
         String warningMsg = null;
         if ( value != null && !getType().isAssignableFrom( value.getClass() ) ) {
-          Debug.error( false, warningMsg1(valueBefore, value) );
+          //Debug.error( false, warningMsg1(valueBefore, value) );
         } else {
           if ( Debug.isOn() ) {
-            Debug.errln( warningMsg1(valueBefore, value) );
+            //Debug.errln( warningMsg1(valueBefore, value) );
           }
         }
       }
@@ -2014,6 +2186,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     }
     return (Parameter< Long >)tp;
   }
+
+  public TimeVaryingMap<V> floor()
+          throws IllegalAccessException, InstantiationException,
+                 InvocationTargetException {
+    if ( isEmpty() ) return this.clone();
+    return floor( firstKey(), null );
+  }
+
 
   /**
    * @param n the number by which this map is multiplied
@@ -2159,7 +2339,31 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return this;
   }
 
-  
+  public <VV> TimeVaryingMap< VV > floor( Parameter< Long > fromKey,
+                                          Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
+    TimeVaryingMap< VV > newTvm = (TimeVaryingMap<VV>)clone();
+    newTvm.setName( getName() + "_floor" );
+
+    newTvm.floorInPlace( fromKey, toKey );
+
+    return newTvm;
+  }
+
+  public void floorInPlace(Parameter< Long > fromKey,
+                           Parameter< Long > toKey) {
+    Map< Parameter< Long >, V > map = null;
+    if ( toKey == null ) {
+      toKey = lastKey();
+      map = subMap( fromKey, true, toKey, true );
+    } else {
+      boolean same = toKey.equals(fromKey);  // include the key if same
+      map = subMap( fromKey, true, toKey, same );
+    }
+    for ( Map.Entry< Parameter< Long >, V > e : map.entrySet() ) {
+      e.setValue( (V)Functions.floor( e.getValue() ) );
+    }
+  }
+
   /**
    * @param n the number by which the map is multiplied
    * @param fromKey the first key whose value is multiplied by {@code n}
@@ -3472,6 +3676,11 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     return add( n, fromKey, null );
   }
 
+  public V integral() {
+    return integral(new SimpleTimepoint("",0L, this),
+                    new SimpleTimepoint("", Timepoint.horizonDuration, this));
+  }
+
   public V integral(Parameter< Long > fromKey, Parameter< Long > toKey) {
     TimeVaryingMap< V > tvm = integrate(fromKey, toKey, null);
     if ( tvm == null || tvm.isEmpty() ) return tryCastValue( 0 );
@@ -3575,7 +3784,7 @@ String n = owner instanceof HasName
     if ( insertedToKey != null ) {
       remove(insertedToKey);
     }
-    System.out.println( "%%%%  " + n + ".integrate(): " + MoreToString.Helper.toLongString( this ) + ".integrate() = " + MoreToString.Helper.toLongString( tvm ) );
+//    System.out.println( "%%%%  " + n + ".integrate(): " + MoreToString.Helper.toLongString( this ) + ".integrate() = " + MoreToString.Helper.toLongString( tvm ) );
     //if (succeededSomewhere) appliedSet.add(  )
     return tvm;
   }
@@ -4589,6 +4798,24 @@ String n = owner instanceof HasName
   public static enum Inequality { EQ, NEQ, LT, LTE, GT, GTE }; 
   public static enum BoolOp { AND, OR, XOR, NOT }; 
 
+  public static Inequality commute(Inequality i) {
+    switch(i) {
+      case EQ:
+      case NEQ:
+        return i;
+      case LT:
+        return Inequality.GT;
+      case GT:
+        return Inequality.LT;
+      case LTE:
+        return Inequality.GTE;
+      case GTE:
+        return Inequality.LTE;
+      default:
+        return null;
+    }
+  }
+
   public static TimeVaryingMap<Boolean> equals(TimeVaryingMap<?> map, Number n) {
     return compare(map, n, false, Inequality.EQ);
   }
@@ -4650,6 +4877,9 @@ String n = owner instanceof HasName
   
   public static TimeVaryingMap<Boolean> compare(TimeVaryingMap<?> map, Number n, boolean reverse, Inequality i) {
     if ( map == null ) return null;
+    if ( map.getInterpolation().isLinear() && Number.class.isAssignableFrom( map.type ) ) {
+      return compareUsingInterpolation(new TimeVaryingMap<>( map, Number.class ), n, reverse, i);
+    }
     TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
     // handle time zero
     if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
@@ -4657,7 +4887,7 @@ String n = owner instanceof HasName
       Boolean value = null;
       if ( (mapVal != null && n != null) || i == Inequality.EQ || i == Inequality.NEQ ) {
         value = reverse ? doesInequalityHold( n, mapVal, i )
-                : doesInequalityHold( mapVal, n, i );
+                        : doesInequalityHold( mapVal, n, i );
       }
       result.setValue( SimpleTimepoint.zero, value );
     }
@@ -4695,6 +4925,60 @@ String n = owner instanceof HasName
                         : doesInequalityHold( mapVal, o, i );
       }
       result.setValue( e.getKey(), value );
+    }
+    result.removeDuplicates();
+    return result;
+  }
+  
+  public static <V extends Number> TimeVaryingMap<Boolean> compareUsingInterpolation(TimeVaryingMap<V> map, V n, boolean reverse, Inequality i) {
+    if (map == null) return null;
+    TimeVaryingMap<Boolean> result = new TimeVaryingMap< Boolean >();  // REVIEW -- give it a name?
+    Parameter<Long> previousTimepoint = null;
+    V previousValue = null;
+    boolean isEqOrNeq = i == Inequality.EQ || i == Inequality.NEQ;
+    boolean isStrict  = i == Inequality.GT || i == Inequality.LT;
+    // handle time zero
+    if ( map.isEmpty() || map.firstKey().getValueNoPropagate() != 0L) {
+      V mapVal = map.getValue( 0L );
+      Boolean value = null;
+      if ( (mapVal != null && n != null) || isEqOrNeq ) {
+        value = reverse ? doesInequalityHold( n, mapVal, i )
+                        : doesInequalityHold( mapVal, n, i );
+      }
+      result.setValue( SimpleTimepoint.zero, value );
+      previousTimepoint = SimpleTimepoint.zero;
+      previousValue  = mapVal;
+    }
+    for ( Map.Entry< Parameter< Long >, ? > e : map.entrySet() ) {
+      V mapVal = map.getValue( e.getKey() );
+      Boolean compValue = reverse ? doesInequalityHold( n, mapVal, i )
+                              : doesInequalityHold( mapVal, n, i );
+      if ( (mapVal == null || n == null) && !isEqOrNeq ) {
+        result.setValue( e.getKey(), null );
+      } else if (previousTimepoint == null || previousValue == null ||
+            ((mapVal == null || n == null) && isEqOrNeq) ) {
+        result.setValue( e.getKey(), compValue );
+      } else {
+        if (CompareUtils.compare( previousValue, n ) != CompareUtils.compare( mapVal, n )) {
+          // crossed n
+          Double changeTimeExact = map.interpolatedTime( previousTimepoint, e.getKey(), previousValue, n, mapVal );
+          if (changeTimeExact == null) {
+            System.err.println( "AHHHH!" );
+          }
+          Parameter<Long> changeTimeDiscrete = new SimpleTimepoint(
+                new Double(isStrict ? Math.floor( changeTimeExact + 1 ) : Math.ceil( changeTimeExact )).longValue());
+          if (isEqOrNeq) {
+            result.setValue( changeTimeDiscrete, i == Inequality.EQ ); // true at map = n when using equality to compare
+            result.setValue( new SimpleTimepoint(changeTimeDiscrete.getValue() + 1), i != Inequality.EQ ); // opposite of what it is at map = n
+          } else {
+            // this is an inequality, use endpoint value to make comparison stable, but set at transition point
+            result.setValue( changeTimeDiscrete, compValue );
+          }
+        }
+        result.setValue( e.getKey(), compValue );
+      }
+      previousTimepoint = e.getKey();
+      previousValue = mapVal;
     }
     result.removeDuplicates();
     return result;
@@ -6571,8 +6855,19 @@ String n = owner instanceof HasName
 //    if ( v instanceof Double && ((Double)v) >= -Float.MAX_VALUE && ((Double)v) <= Float.MAX_VALUE && Math.abs( ((Double)v).doubleValue() ) > Float.MIN_VALUE ) {
 //      vString = String.format( "%f", ((Double)v).floatValue() );
 //    } else {
-      vString = MoreToString.Helper.toShortString( v );
+//      vString = MoreToString.Helper.toShortString( v );
 //    }
+
+    if ( v instanceof ParameterListenerImpl &&
+        ( (ParameterListenerImpl)v ).getOwner() instanceof Parameter ) {
+      // handles singleton classes like this:
+      // class SwitchPosition
+      // val Open
+      // val Closed
+      vString = ( (Parameter)( ( (ParameterListenerImpl)v ).getOwner() ) ).getName();
+    } else {
+      vString = MoreToString.Helper.toShortString( v );
+    }
     String line = timeString + "," + vString + "\n";
     return line;
   }
@@ -7557,7 +7852,6 @@ String n = owner instanceof HasName
   public TimeVaryingMap<V> translate( Long timeDelta ) {
     if ( timeDelta == null ) return null;
     TimeVaryingMap<V> tvm = emptyClone();
-    Iterator< Entry<Parameter<Long>, V > > i = timeDelta < 0 ? entrySet().iterator() : descendingMap().entrySet().iterator();
     
     // Determine value at time zero
     if ( timeDelta > 0 && interpolation != TimeVaryingMap.NONE && !isEmpty() ) {
@@ -7570,6 +7864,10 @@ String n = owner instanceof HasName
         put( zero, v );
       }
     }
+    
+    // Need to copy entries before iterating, to avoid concurrent modification
+    List<Entry<Parameter<Long>, V>> entryList = new LinkedList<>( timeDelta < 0 ? entrySet() : descendingMap().entrySet() );
+    Iterator< Entry<Parameter<Long>, V > > i = entryList.iterator();
     
     while ( i.hasNext() ) {
       Entry<Parameter<Long>, V > e = i.next();
@@ -7671,6 +7969,46 @@ String n = owner instanceof HasName
     deltaMap.interpolation = NONE;
     return deltaMap;
   }
+ 
+ public TimeVaryingMap< Double > differentiate() {
+   TimeVaryingPlottableMap< Double > diffMap = 
+       new TimeVaryingPlottableMap< Double >( "diff_" + name );
+   Parameter<Long> lastTime = null;
+   Double lastValue = 0.0;
+   diffMap.put( SimpleTimepoint.zero, 0.0 ); // all maps start with a constant extrapolation from the first datum
+   for ( Entry<Parameter<Long>, V> e : entrySet() ) {
+     Double thisValue = 0.0;
+     if ( e.getValue() instanceof Number ) {
+       thisValue = ((Number) e.getValue()).doubleValue();
+     } else if ( e.getValue() instanceof Boolean ) {
+       thisValue = ( Boolean.TRUE.equals( e.getValue() ) ? 1.0 : 0.0 );
+     }
+     if (lastTime != null) {
+       if (interpolation == null || 
+           interpolation.type == Interpolation.NONE || 
+           interpolation.type == Interpolation.STEP) {
+         // all change happens instantaneously
+         diffMap.put( e.getKey(), thisValue - lastValue );
+         diffMap.put( new SimpleTimepoint( 1 + e.getKey().getValue(false) ), 0.0 );
+       } else if ( interpolation != null &&
+                   (interpolation.type == Interpolation.LINEAR || 
+                    interpolation.type == Interpolation.RAMP) ) {
+         // calculate the slope of the segment from lastTime to now
+         diffMap.put( lastTime, (thisValue - lastValue) / (e.getKey().getValue() - lastTime.getValue()) );
+       }
+     }
+     lastTime = e.getKey();
+     lastValue = thisValue;
+   }
+   if ( lastTime != null &&
+        interpolation != null &&
+        (interpolation.type == Interpolation.LINEAR || 
+         interpolation.type == Interpolation.RAMP) ) {
+     diffMap.put( lastTime, 0.0 ); // finish a linear diffMap with a constant segment
+   }
+   diffMap.interpolation = STEP;
+   return diffMap;
+ }
  
  
  public TimeVaryingMap< Boolean > validTime(Call call, int argIndexOfValue, Object[] otherArgs) {
@@ -8325,7 +8663,7 @@ String n = owner instanceof HasName
       }
       prevVal = val;
       prevTime = tp.getValue();
-      if ( totalSoFar >= durationTarget ) {
+      if ( totalSoFar >= durationTarget && Utils.valuesEqual( prevVal, value ) ) {
         prevTime -= ( totalSoFar - durationTarget );
         break;
       }
