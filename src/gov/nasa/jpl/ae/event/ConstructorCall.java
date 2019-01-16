@@ -20,6 +20,8 @@ import java.util.*;
  */
 public class ConstructorCall extends Call {
 
+  protected static boolean isAlwaysNotStaleByDefault = true;
+
   protected Class<?> thisClass = null;
   protected Constructor<?> constructor = null;
   //protected Object newObject = null;
@@ -59,7 +61,7 @@ public class ConstructorCall extends Call {
                           Class<?> returnType ) {
     this.constructor = constructor; // the constructor must be static
     this.returnType = returnType;
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
   }
 
   /**
@@ -72,7 +74,7 @@ public class ConstructorCall extends Call {
     thisClass = cls;
     this.returnType = returnType;
     setConstructor( ClassUtils.getConstructorForArgTypes( cls, (Class<?>[])null ) );
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
   }
 
   /**
@@ -84,7 +86,7 @@ public class ConstructorCall extends Call {
     this.object = object;
     this.returnType = returnType;
     setConstructor( constructor );
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
   }
 
   public ConstructorCall( Object object, Class<?> cls,
@@ -105,7 +107,7 @@ public class ConstructorCall extends Call {
     setConstructor( constructor );
     this.arguments = arguments;
     this.returnType = returnType;
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
     hasTypeErrors();
   }
 
@@ -123,7 +125,7 @@ public class ConstructorCall extends Call {
     this.arguments = arguments;
     this.constructor = getConstructor();
     this.returnType = returnType;
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
     hasTypeErrors();
   }
 
@@ -196,7 +198,7 @@ public class ConstructorCall extends Call {
       }
     }
     this.returnType = returnType;
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
     hasTypeErrors();
   }
 
@@ -219,7 +221,7 @@ public class ConstructorCall extends Call {
     }
     this.constructor = getConstructor();
     this.returnType = returnType;
-    //this.alwaysNotStale = true;
+    this.alwaysNotStale = isAlwaysNotStaleByDefault;
     hasTypeErrors();
   }
 

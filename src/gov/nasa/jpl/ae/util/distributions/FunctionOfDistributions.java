@@ -1415,7 +1415,8 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T>
     }
 
     @Override public boolean isStale() {
-        return call != null && call.isStale();
+        // HACK -- temporary fix to avoid repeated sampling
+        return false;//call != null && call.isStale();
         // TODO -- bias?
     }
 

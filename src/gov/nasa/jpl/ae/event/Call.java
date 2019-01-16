@@ -1359,12 +1359,6 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // check clock for arguments.
     if ( arguments != null ) {
       for ( Object arg : arguments ) {
-        if ( arg instanceof LazyUpdate ) {
-          if ( ( (LazyUpdate)arg ).isStale() ) {
-            setStale( true );
-            return true;
-          }
-        }
         if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
           setStale( true );
           return true;
