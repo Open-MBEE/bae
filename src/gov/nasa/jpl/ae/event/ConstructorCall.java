@@ -20,7 +20,7 @@ import java.util.*;
  */
 public class ConstructorCall extends Call {
 
-  protected static boolean isAlwaysNotStaleByDefault = true;
+  protected static boolean isAlwaysNotStaleByDefault = false;
 
   protected Class<?> thisClass = null;
   protected Constructor<?> constructor = null;
