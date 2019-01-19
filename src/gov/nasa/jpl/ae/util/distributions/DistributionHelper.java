@@ -32,6 +32,62 @@ tf2 = tf1 + df2
 public class DistributionHelper {
     // Anonymous class
 
+    /**
+     * Try to determine if the object is a {@link Distribution} or evaluates to a
+     * {@link Distribution} without actually evaluating it.
+     * @param o
+     * @return
+     */
+    public static boolean isDistributionType(Object o) {
+        if ( o == null ) return false;
+        if ( o instanceof Distribution ) {
+            return true;
+        }
+        if ( o instanceof Class &&
+             ( Distribution.class.isAssignableFrom( (Class<?>)o ) ||
+               DistributionFunctionCall.class.isAssignableFrom( (Class<?>)o ) ) ) {
+            return true;
+        }
+        if ( o instanceof DistributionFunctionCall ) {
+            return true;
+        }
+        if ( o instanceof Collection ) {
+            Collection c = (Collection)o;
+            for ( Object oo : c ) {
+                if ( isDistributionType( oo ) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if ( o instanceof Expression ) {
+            return isDistributionType( ( (Expression)o ).expression );
+        }
+        if ( o instanceof Call ) {
+            Call c = (Call)o;
+            Class<?> t = c.getReturnType();
+            boolean d =  t != null && isDistributionType( t );
+            if ( d ) return true;
+            if ( !isDistributionType( c.getObject() ) && !isDistributionType( c.getArguments() ) ) {
+                return false;
+            }
+        }
+        if ( o instanceof Wraps ) {
+            Class<?> t = ( (Wraps)o ).getType();
+            boolean d =  t != null && isDistributionType( t );
+            if ( d ) return true;
+            d = isDistributionType( ( (Wraps)o ).getValue( false ) );
+            if ( d ) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Determine if the object is a {@link Distribution} or evaluates to a
+     * {@link Distribution} by evaluating it.
+     * @param o
+     * @return
+     */
     public static boolean isDistribution(Object o) {
         Distribution d = getDistribution( o );
         return d != null;
@@ -49,8 +105,8 @@ public class DistributionHelper {
     }
 
     /**
-     * This compares the distributions as discrete distributions by finding the probability of success for every
-     * k for each distributions and sums their probabilities. It will return a boolean distribution with the summed
+     * This compares the {@link Distribution}s as discrete distributions by finding the probability of success for every
+     * value in both distributions and sums their probabilities. It will return a {@link BooleanDistribution} with the summed
      * probability.
      *
      * @param o1
@@ -609,6 +665,8 @@ public class DistributionHelper {
 
 
     public static Distribution getDistribution( Object o ) {
+        // check first since evaluating
+        if ( !isDistributionType( o ) ) return null;
         Distribution<?> d = null;
         try {
             d = Expression.evaluate( o, Distribution.class, true );

@@ -217,49 +217,54 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T>
         getSamples().recordCombinedValues = true;
         getSamples().recordingSamples = false;
         System.out.println( "xxxxxxxxx   Sampling " + this );
-        long batchSize = sampleBatchSize(maxSamples, totalSamples);
-        long batchLimit = totalSamples + batchSize;
-        while ( !this.samplingConverged && totalSamples < batchLimit &&
+        while ( !this.samplingConverged &&
                 totalSamples < maxSamples && totalFailedSamples < 4 ) {
-            Sample<T> s = null;
-            try {
-                s = sample();
-            } catch ( Throwable e ) {
-                e.printStackTrace();
+            long batchSize = sampleBatchSize( maxSamples, totalSamples );
+            long batchLimit = totalSamples + batchSize;
+            while ( !this.samplingConverged && totalSamples < batchLimit
+                    && totalSamples < maxSamples && totalFailedSamples < 4 ) {
+                Sample<T> s = null;
+                try {
+                    s = sample();
+                } catch ( Throwable e ) {
+                    e.printStackTrace();
+                }
+                if ( s == null ) {
+                    System.out.println( "xxxxxxxxx   Sample failed!" );
+                    ++totalFailedSamples;
+                    continue;
+                }
+                T v = s.value();
+                boolean isBool =
+                        Boolean.class.equals( getType() ) || Boolean.class.isInstance( v );
+                ++totalSamples;
+                if ( totalSamples <= 10 || totalSamples % 10000 == 0 ) {
+                    System.out.println(
+                            totalSamples + " samples with combined value " + this.combinedValue );
+                    System.out.println( "latest sample: " + s );
+                }
+                if ( lastCombinedValue != null && Expression
+                        .valuesEqual( lastCombinedValue, this.combinedValue ) ) {
+                    ++matchCount;
+                } else {
+                    matchCount = 0;
+                }
+                lastCombinedValue = this.combinedValue;
+                //            if ( matchCount >= (isBool ?
+                //                                (combinedValue == 0.0 ||
+                //                                 combinedValue == 1.0 ? 1000000 : 10)
+                //                                       : 10) ) {
+                //                System.out.println( "~~~~~~~~   Sampling converged!!" );
+                //                this.samplingConverged = true;
+                //            }
             }
-            if ( s == null ) {
-                System.out.println( "xxxxxxxxx   Sample failed!" );
-                ++totalFailedSamples;
-                continue;
-            }
-            T v = s.value();
-            boolean isBool = Boolean.class.equals( getType() ) || Boolean.class.isInstance( v );
-            ++totalSamples;
-            if ( totalSamples <= 10 || totalSamples % 10000 == 0) {
-                System.out.println( totalSamples + " samples with combined value " + this.combinedValue );
-                System.out.println( "latest sample: " + s );
-            }
-            if ( lastCombinedValue != null && Expression
-                    .valuesEqual( lastCombinedValue, this.combinedValue ) ) {
-                ++matchCount;
-            } else {
-                matchCount = 0;
-            }
-            lastCombinedValue = this.combinedValue;
-//            if ( matchCount >= (isBool ?
-//                                (combinedValue == 0.0 ||
-//                                 combinedValue == 1.0 ? 1000000 : 10)
-//                                       : 10) ) {
-//                System.out.println( "~~~~~~~~   Sampling converged!!" );
-//                this.samplingConverged = true;
-//            }
-        }
 
-        // If batch did not complete the set, then make sure this gets called again.
-        if ( totalSamples < maxSamples && getOwner() instanceof Parameter ) {
-            ((Parameter)getOwner()).update();
+            // If batch did not complete the set, then make sure this gets called again.
+            if ( totalSamples < maxSamples && getOwner() instanceof Parameter ) {
+                ( (Parameter)getOwner() ).update();
+                break;
+            }
         }
-
 
         if (this.combinedValue == null ) {
             System.out.println( "~~~~~~~~   No combined value!  " +

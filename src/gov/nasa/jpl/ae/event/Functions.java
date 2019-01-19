@@ -793,7 +793,8 @@ public class Functions {
   public static < T > Object ifThenElse( Object condition, T thenT, T elseT ) {
     if ( condition == null ) {
       //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning elseT = " + elseT);
-      return elseT;
+      //return elseT;
+      return null;
     }
 
     Pair< Object, TimeVaryingMap< ? > > p = booleanOrTimelineOrDistribution( condition );
@@ -801,8 +802,11 @@ public class Functions {
       //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning null");
       return null;
     }
-    if ( p != null && p.first != null && !(p.first instanceof Distribution) ) {
-      Boolean b = Utils.isTrue( p.first );
+
+    // Handle simple case
+    if ( p != null && p.first != null && !(p.first instanceof Distribution) &&
+         p.second == null ) {
+      Boolean b = getBoolean( p.first );
       if ( b != null ) {
         if ( b ) {
           //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning thenT = " + thenT);
@@ -820,6 +824,7 @@ public class Functions {
     Object argThen = pThen != null && pThen.first != null ? pThen.first : thenT;
     Object argElse = pElse != null && pElse.first != null ? pElse.first : elseT;
 
+    // Handle Distribution
     if ( argCond instanceof Distribution ||
          argThen instanceof Distribution ||
          argElse instanceof Distribution ) {
@@ -828,23 +833,82 @@ public class Functions {
       return d;
     }
 
+    // Handle timeline
     TimeVaryingMap< ? > tvm = p.second;
     if ( tvm == null ) return elseT;
-    // if (tvm.size() == 1) {
-    // Object o = tvm.values().iterator().next();
-    // Boolean b = tryToGetBooleanQuick( o );
-    // if ( b != null ) {
-    // return ifThenElse(b, thenT, elseT);
-    // }
-    // }
     Object t = tvm.ifThenElse( thenT, elseT );
     //System.out.println("ifThenElse(" + condition + ", " + thenT + ", " + elseT + ") returning t = " + t);
     return t;
   }
 
+  public static  Boolean getBoolean( Object o ) {
+    if ( o == null ) return null;
+    if ( o instanceof Boolean ) return (Boolean) o;
+    if ( o instanceof Collection ) {
+      Collection c = (Collection)o;
+      if ( c.isEmpty() ) return null;
+      boolean allTrue = true;
+      boolean allFalse = true;
+      for ( Object oo : (Collection)o ) {
+        Boolean b = getBoolean( oo );
+        if ( b == null ) return null;
+        if ( b.booleanValue() ) {
+          allFalse = false;
+          if ( !allTrue ) return null;
+        } else {
+          allTrue = false;
+          if ( !allFalse ) return null;
+        }
+      }
+      if ( allTrue ) return true;
+      if ( allFalse ) return false;
+      return null;
+    }
+    if ( o instanceof Map ) {
+      return getBoolean(((Map)o).values());
+    }
+    if ( o.getClass().isArray() ) {
+      Object[] oa = (Object[])o;
+      List<Object> list = Utils.arrayAsList( oa );
+      return getBoolean( list );
+    }
+    Object b = null;
+    try {
+      b = Expression.evaluate( o, Boolean.class, true );
+    } catch ( Throwable t ) {
+      // ignore
+    }
+    if ( b instanceof Boolean ) {
+      return (Boolean)b;
+    }
+    Distribution d = DistributionHelper.getDistribution( o );
+    if ( d != null ) {
+      double pTrue = d.probability( true );
+      boolean mustBeTrue = Utils.valuesEqual( pTrue, 1.0 );
+      boolean mustBeFalse = Utils.valuesEqual( pTrue, 0.0 );
+      if ( mustBeTrue ) {
+        return true;
+      }
+      if ( mustBeFalse ) {
+        return false;
+      }
+      return null;
+    }
+    return null;
+  }
+
   /**
-   * Evaluate if-then-else conditional function. If the condition evaluates to
-   * null, it is interpreted as "false."
+   * <p>
+   *     Evaluate if-then-else conditional function. If the condition evaluates
+   *     to null, it is interpreted as "false."
+   * </p>
+   * <p>
+   *     We want to avoid evaluating both the thenExpr and elseExpr if we can for
+   *     performance reasons.
+   *     If a recursive function call is made in the thenExpr, the conditionExpr
+   *     may determine the termination of the recursion by the elseExpr.  Thus.
+   *     limited evaluation is important for avoiding infinite recursion.
+   * </p>
    * 
    * @param conditionExpr
    * @param thenExpr
@@ -860,41 +924,99 @@ public class Functions {
                      Expression< T > elseExpr ) throws IllegalAccessException,
                                                 InvocationTargetException,
                                                 InstantiationException {
-    if ( conditionExpr == null && elseExpr == null ) return null;
+
+    if ( conditionExpr == null ) return null;
+
+    // Try not to evaluate both then and else expressions.
+    Boolean b = getBoolean( conditionExpr.expression );
+
     Pair< Object, TimeVaryingMap< ? > > p =
         booleanOrTimelineOrDistribution( conditionExpr.expression );
+
+//    boolean mustBeTrue = false;
+//    boolean mustBeFalse = false;
+//
+//    Distribution d1 = p == null || p.second != null
+//                      ? null
+//                      : DistributionHelper.getDistribution( p.first );
+//    if ( d1 != null ) {
+//      double pTrue = d1.probability( true );
+//      mustBeTrue = Utils.valuesEqual( pTrue, 1.0 );
+//      mustBeFalse = Utils.valuesEqual( pTrue, 0.0 );
+//    } else if ( p != null && p.second != null ) {
+//      // condition is a timeline
+//      Collection<?> vals = p.second.values();
+//      if ( !Utils.isNullOrEmpty( vals ) ) {
+//        boolean allTrue = true;
+//        boolean allFalse = true;
+//        for ( Object v : vals ) {
+//          Object o = Expression.evaluate( v, Boolean.class, true );
+//          if ( !( o instanceof Boolean ) ) {
+//            allTrue = false;
+//            allFalse = false;
+//            break;
+//          }
+//          if ( )
+//        }
+//      }
+//    }
+//
+//    Object o = Expression.evaluate( conditionExpr, Boolean.class, true );
+//    if ( o == null
+//         || ( !( o instanceof Boolean ) && o.getClass() != boolean.class ) ) {
+//      Debug.error( true, false,
+//                   "Could not evaluate condition of if-then-else as true/false; got "
+//                   + o );
+//      return null;
+//    }
+//
+//
+    boolean evalThen = thenExpr != null && (b == null || b);
+    boolean evalElse = elseExpr != null && (b == null || !b);
+
+    // Handle timeline
     if ( p != null && p.second != null ) {
-      Object thenObj = thenExpr.evaluate( true );
-      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
+      Object thenObj = evalThen ? thenExpr.evaluate( true ) : null;
+      Object elseObj = evalElse ? elseExpr.evaluate( true ) : null;
       T result =
           (T)( new TimeVaryingPlottableMap() ).ifThenElse( p.second, thenObj,
-                                                           elseObject );
-      // T result = (T)p.second.ifThenElse( thenObj, elseObject );
+                                                           elseObj );
       return result;
     }
-    // Handle distributions separately
-    Distribution d1 = DistributionHelper.getDistribution( conditionExpr );
-    Distribution d2 = DistributionHelper.getDistribution( thenExpr );
-    Distribution d3 = DistributionHelper.getDistribution( elseExpr );
 
-    if ( //p != null && DistributionHelper.isDistribution( p.first ) ||
-         d1 != null || d2 != null || d3 != null ) {
-      Object thenObj = thenExpr.evaluate( true );
-      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
-      return ifThenElse( d1 == null ? p.first : d1, thenObj, elseObject );
+    // Handle distributions
+    boolean isCondDist = p == null
+                         ? false
+                         : DistributionHelper.isDistributionType( p.first );
+    boolean isThenDist = thenExpr == null
+                         ? false
+                         : DistributionHelper.isDistributionType( thenExpr.expression );
+    boolean isElseDist = elseExpr == null
+                         ? false
+                         : DistributionHelper.isDistributionType( elseExpr.expression );
+    if ( isCondDist || isThenDist || isElseDist ) {
+      Object thenObj = evalThen ? thenExpr.evaluate( true ) : null;
+      Object elseObj = evalElse ? elseExpr.evaluate( true ) : null;
+      return ifThenElse( p == null ? null : p.first, thenObj, elseObj );
     }
-    Object o = Expression.evaluate( conditionExpr, Boolean.class, true );
-    if ( o == null
-         || ( !( o instanceof Boolean ) && o.getClass() != boolean.class ) ) {
-      Debug.error( true, false,
-                   "Could not evaluate condition of if-then-else as true/false; got "
-                          + o );
+
+    //Distribution d2 = DistributionHelper.getDistribution( thenExpr );
+    //Distribution d3 = DistributionHelper.getDistribution( elseExpr );
+
+//    if ( //p != null && DistributionHelper.isDistribution( p.first ) ||
+//         d1 != null || d2 != null || d3 != null ) {
+//      Object thenObj = thenExpr.evaluate( true );
+//      Object elseObject = elseExpr == null ? null : elseExpr.evaluate( true );
+//      return ifThenElse( d1 == null && p != null ? p.first : d1, thenObj, elseObject );
+//    }
+
+    if ( b == null ) {
+//      Debug.error( true, false,
+//                   "Could not evaluate condition of if-then-else as true/false" );
       return null;
     }
-    Boolean b = (Boolean)o;
-    // Boolean b = (conditionExpr == null ? null : conditionExpr.evaluate( false
-    // ) );
-    if ( b == null || !b.booleanValue() ) {
+
+    if ( !b ) {
       T elseT = null;
       try {
         elseT = (T)( elseExpr == null ? null : elseExpr.evaluate( false ) );
@@ -910,7 +1032,6 @@ public class Functions {
       e.printStackTrace();
     }
     return thenT;
-
   }
 
   public static class ArgMin< R, T > extends SuggestiveFunctionCall
@@ -4166,7 +4287,7 @@ public class Functions {
 //    T r1 = (T)o1.evaluate( false );
 //    TT r2 = (TT)o2.evaluate( false );
       T r1 = Expression.evaluateDeep(o1, null, false, false);
-      TT r2 = Expression.evaluateDeep(o2, null, false, false);
+        TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
     return times( r1, r2 );
   }
