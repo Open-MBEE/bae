@@ -67,7 +67,7 @@ ClassData {
     /** 
      * Only the name and type are compared.
      * (non-Javadoc)
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
+     * @see Comparable#compareTo(Object)
      */
     @Override
     public int compareTo( Param o ) {
@@ -77,7 +77,7 @@ ClassData {
     /** 
      * Only the name and type are compared.
      * (non-Javadoc)
-     * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+     * @see Comparator#compare(Object, Object)
      */
     @Override
     public int compare( Param o1, Param o2 ) {
@@ -142,8 +142,8 @@ ClassData {
   /**
    * Parameters may be created for evaluation at parse time.
    */
-  protected Map< ClassData.Param, Parameter< ? > > parameterMap =
-      new TreeMap< ClassData.Param, Parameter<?> >();
+  protected Map< Param, Parameter< ? > > parameterMap =
+      new TreeMap< Param, Parameter<?> >();
   
   protected Map< String, ParameterListenerImpl > aeClasses = // REVIEW -- rename to aeObjects??!
       new TreeMap< String, ParameterListenerImpl >();
@@ -154,6 +154,8 @@ ClassData {
   protected String currentClass = null;
 
   protected ParameterListenerImpl currentAeClass = null;
+
+  protected String currentMethod = null;
 
   private int counter = 0;
 
@@ -735,8 +737,8 @@ ClassData {
     return typesAndArgs;
   }
 
-  public ClassData.PTA
-  convertToEventParameterTypeAndConstructorArguments( ClassData.Param p,
+  public PTA
+  convertToEventParameterTypeAndConstructorArguments( Param p,
                                                       String classNameOfParameter,
                                                       String enclosingObject) {
     return convertToParameterTypeAndConstructorArguments( p.name, p.type,
@@ -810,15 +812,27 @@ ClassData {
                             + ", " + paramName + ")", scope, paramName ) ) {
       return null;
     }
-    if ( scope.equals( "this" ) ) {
+    if ( scope == null || scope.equals( "this" ) ) {
       scope = currentClass;
     }
+
+    String classNameWithScope = null;
 
     ArrayList< Map< String, Param > > functionParamMaps = new ArrayList<>();
     Map< String, Param > params = null;
     // Check if the scope is a function parameter
     Map<Object, Map<String, Param>> functionDeclMap =
             functionParamTable.get( scope );
+    if ( Utils.isNullOrEmpty( functionDeclMap ) && getCurrentMethod() != null ) {
+      functionDeclMap = functionParamTable.get( scope + "." + getCurrentMethod() );
+    }
+    if ( Utils.isNullOrEmpty( functionDeclMap ) ) {
+      if ( classNameWithScope == null ) classNameWithScope = getClassNameWithScope( scope );
+      functionDeclMap = functionParamTable.get( classNameWithScope );
+      if ( Utils.isNullOrEmpty( functionDeclMap ) && getCurrentMethod() != null ) {
+        functionDeclMap = functionParamTable.get( classNameWithScope + "." + getCurrentMethod() );
+      }
+    }
     if ( !Utils.isNullOrEmpty( functionDeclMap ) ) {
       functionParamMaps.addAll( functionDeclMap.values() );
     }
@@ -832,7 +846,7 @@ ClassData {
       }
     }
 
-    String classNameWithScope = getClassNameWithScope( scope );
+    if ( classNameWithScope == null ) classNameWithScope = getClassNameWithScope( scope );
     if ( p == null ) {
       // Check if the className is known.
       params = paramTable.get( scope );
@@ -1420,7 +1434,7 @@ ClassData {
   /**
    * @return the parameterMap
    */
-  public Map< ClassData.Param, Parameter< ? >> getParameterMap() {
+  public Map< Param, Parameter< ? >> getParameterMap() {
     return parameterMap;
   }
 
@@ -1428,7 +1442,7 @@ ClassData {
    * @param parameterMap the parameterMap to set
    */
   public void
-      setParameterMap( Map< ClassData.Param, Parameter< ? >> parameterMap ) {
+      setParameterMap( Map< Param, Parameter< ? >> parameterMap ) {
     this.parameterMap = parameterMap;
   }
 
@@ -1473,6 +1487,14 @@ ClassData {
   public void setCurrentAeClass( ParameterListenerImpl currentAeClass ) {
     this.currentAeClass = currentAeClass;
     setCurrentClass( ( currentAeClass == null ? null : currentAeClass.getName() ) );
+  }
+
+  public void setCurrentMethod( String currentMethod ) {
+    this.currentMethod = currentMethod;
+  }
+
+  public String getCurrentMethod() {
+    return currentMethod;
   }
 
   public static String typeToParameterType( String type ) {
