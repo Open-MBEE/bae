@@ -1273,11 +1273,16 @@ ClassData {
    * @return a matching ClassOrInterfaceDeclaration object
    */
   public static ClassOrInterfaceDeclaration getClassDeclaration( String className,
-                                                                 ClassOrInterfaceDeclaration classDecl ) {
+                                                                 ClassOrInterfaceDeclaration classDecl,
+                                                                 String qualifiedNameOfClassDecl ) {
     // First check and see if this is "the one."
     // only need to check simple name; this gets called by getClassDeclaration(String) which will find the enclosing class
     // using a fully qualified name. This will only search within an enclosing class
-    if ( classDecl.getName().equals( ClassUtils.simpleName(className) ) ) {
+    if ( className.equals( qualifiedNameOfClassDecl ) || className.equals( classDecl.getName() ) ) {
+//      System.out.println( "oooooooo getClassDeclaration(" + className + ", " + classDecl.getName() + ", " + qualifiedNameOfClassDecl );
+//    }
+//    if ( classDecl.getName().equals( ClassUtils.simpleName(className) ) ) {
+//      System.out.println( "xxxxxxxx getClassDeclaration(" + className + ", " + classDecl.getName() + ", " + qualifiedNameOfClassDecl );
       return classDecl;
     } else {
       // Now check nested classes.
@@ -1288,7 +1293,8 @@ ClassData {
             ClassOrInterfaceDeclaration nestedClassDecl = (ClassOrInterfaceDeclaration)bd;
 
             // will likely only recurse one level because getEnclosingClass from getDeclaration(String) only goes up one level
-            nestedClassDecl = getClassDeclaration( className, nestedClassDecl );
+            String newQualifiedName = qualifiedNameOfClassDecl + "." + nestedClassDecl.getName();
+            nestedClassDecl = getClassDeclaration( className, nestedClassDecl, newQualifiedName );
             if ( nestedClassDecl != null ) return nestedClassDecl;
           }
         }
@@ -1309,9 +1315,10 @@ ClassData {
     // iterate through the types in the compilation unit
     for ( TypeDeclaration t : cu.getTypes() ) {
       if ( t instanceof ClassOrInterfaceDeclaration ) {
+        ClassOrInterfaceDeclaration cd = (ClassOrInterfaceDeclaration)t;
         // look inside each ClassOrInterface object for the given class name
         ClassOrInterfaceDeclaration classDecl = 
-            getClassDeclaration( className, (ClassOrInterfaceDeclaration)t );
+            getClassDeclaration( className, cd, cd.getName() );  // top-level declarations are not nested, so name is same as qualified name
         if ( classDecl != null ) return classDecl;
       }
     }
@@ -1339,7 +1346,7 @@ ClassData {
 
         //once enclosing class declaration is found, look within it for className
         if ( enclosingDecl != null && enclosingDecl.getMembers() != null ) {
-          classDecl = getClassDeclaration( className, enclosingDecl );
+          classDecl = getClassDeclaration( className, enclosingDecl, enclosingClassName );
           return classDecl;
         }
       }
