@@ -12,6 +12,9 @@ import org.apache.commons.math3.random.JDKRandomGenerator;
 public interface Distribution<T> extends HasOwner {  // TODO -- implements Domain or HasDomain
 
     public static JDKRandomGenerator random = new JDKRandomGenerator( (int)Random.getSeed() );
+    public static void reset() {
+        random.setSeed( (int)Random.getSeed() );
+    }
 
     double probability(T t);
     double pdf(T t);
