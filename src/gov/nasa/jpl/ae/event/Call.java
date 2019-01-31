@@ -1332,7 +1332,8 @@ public abstract class Call extends HasIdImpl implements HasParameters,
             return true;
           }
         }
-        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+        UsesClock usesClock = getUsesClock( arg );
+        if ( usesClock != null && usesClock.getLastUpdated() > getLastUpdated() ) {
           setStale( true );
           return true;
         }
@@ -1359,7 +1360,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     // check clock for arguments.
     if ( arguments != null ) {
       for ( Object arg : arguments ) {
-        if ( arg instanceof UsesClock && ( (UsesClock)arg ).getLastUpdated() > getLastUpdated() ) {
+        UsesClock usesClock = getUsesClock(arg);
+
+        if ( usesClock != null && usesClock.getLastUpdated() > getLastUpdated() ) {
           setStale( true );
           return true;
         }
@@ -1396,6 +1399,32 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( possiblyStale( returnValue ) )
       return true;
     return false;
+  }
+
+  protected static UsesClock getUsesClock( Object arg ) {
+    if ( arg instanceof UsesClock ) {
+      return (UsesClock)arg;
+    }
+
+    if (true) return null;
+    // If code below is executed bias.k fails.  randomIfThenElse.k may also fail.
+
+    Object val = null;
+    if ( arg instanceof Expression ) {
+      val = ( (Expression)arg ).expression;
+    } else if ( arg instanceof Variable ) {
+      val = ( (Variable)arg ).getValue( false );
+    } else if ( arg instanceof Call ) {
+      val = ((Call)arg).returnValue;
+    }
+    //if ( arg instanceof Wraps && ( (Wraps)arg ).hasValue() ) {
+    //  Object val = ((Wraps)arg).getValue( false );
+      if ( val != null && val != arg ) {
+        UsesClock usesClock = getUsesClock( val );
+        if ( usesClock != null ) return usesClock;
+      }
+    //}
+    return null;
   }
 
   public boolean areArgsStale() {

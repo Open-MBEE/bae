@@ -7027,7 +7027,12 @@ String n = owner instanceof HasName
   }
 
   public V firstValue() {
-    V value = this.firstEntry().getValue();
+    if ( isEmpty() ) return null;
+    Entry<Parameter<Long>, V> fe = this.firstEntry();
+    if ( fe == null ) {
+      return null;
+    }
+    V value = fe.getValue();
     return value;
   }
 
@@ -7074,9 +7079,9 @@ String n = owner instanceof HasName
    */
   @Override
   public boolean hasValue() {
-    // We have to always have a value in order to not equal a null parameter.  An effect variable will not initialize if the empty map equals null.
-    return true;
-    //return !isEmpty();
+    // // We have to always have a value in order to not equal a null parameter.  An effect variable will not initialize if the empty map equals null.
+    // return true;
+    return isEmpty() || allValuesSame();
   }
 
   /*  Getting the average is painful.  Should probably integrate.  TODO
