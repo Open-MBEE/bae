@@ -4,6 +4,7 @@ import gov.nasa.jpl.ae.event.ConstraintExpression;
 import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.Parameter;
 import gov.nasa.jpl.ae.event.StringParameter;
+import gov.nasa.jpl.ae.util.Math;
 import gov.nasa.jpl.mbee.util.*;
 
 import java.lang.reflect.InvocationTargetException;
@@ -68,83 +69,6 @@ public class RegexDomain<T> implements Domain<List<T>> {
         }
     }
 
-    protected static class AnyDomainLong extends HasIdImpl implements Domain<Object> {
-        static final AnyDomain instance = new AnyDomain();
-
-        @Override public Domain<Object> clone() {
-            return new AnyDomain();
-        }
-        @Override public long magnitude() {
-            return Long.MAX_VALUE;
-        }
-        @Override public boolean isEmpty() {
-            return false;
-        }
-        @Override public boolean clearValues() {
-            // TODO -- Warning?  Error?
-            return false;
-        }
-        @Override public boolean contains( Object o ) {
-            return true;
-        }
-        @Override public Object pickRandomValue() {
-            return new Object();
-        }
-        @Override public Object pickRandomValueNotEqual( Object o ) {
-            return pickRandomValue();
-        }
-        @Override public boolean isInfinite() {
-            return true;
-        }
-        @Override public boolean isNullInDomain() {
-            return true;
-        }
-        @Override public boolean setNullInDomain( boolean b ) {
-            return false;
-        }
-        @Override public Domain<Object> getDefaultDomain() {
-            return instance;
-        }
-        @Override public boolean restrictToValue( Object v ) {
-            // TODO -- Warning?  Error?
-            return false;
-        }
-        @Override public <TT> boolean restrictTo( Domain<TT> domain ) {
-            // TODO -- Warning?  Error?
-            return false;
-        }
-        @Override public <TT> Domain<TT> subtract( Domain<TT> domain ) {
-            // TODO -- Warning?  Error?
-            return null;
-        }
-        @Override public <T> T evaluate( Class<T> cls, boolean propagate ) {
-            // TODO -- Warning?  Error?
-            return null;
-        }
-        @Override public Class<?> getType() {
-            return Object.class;
-        }
-        @Override public String getTypeNameForClassName( String className ) {
-            return "Object";
-        }
-        @Override public Class<?> getPrimitiveType() {
-            return null;
-        }
-        @Override public Object getValue( boolean propagate ) {
-            // TODO -- Warning?  Error?
-            return null;
-        }
-        @Override public void setValue( Object value ) {
-            // TODO -- Warning?  Error?
-        }
-        @Override public boolean hasValue() {
-            return false;
-        }
-        @Override public boolean hasMultipleValues() {
-            return false;
-        }
-    }
-
     protected static class ManyDomain<V> extends HasIdImpl implements Domain<List<V>> {
         public static final ManyDomain<Object> defaultDomain = new ManyDomain<Object>(Object.class);
         IntegerDomain multiplicity = new IntegerDomain( 0,Integer.MAX_VALUE );
@@ -157,10 +81,10 @@ public class RegexDomain<T> implements Domain<List<T>> {
             super();
             this.domainForEach = domainForEach;
         }
-//        public ManyDomain(Class<V> cls) {
-//            super();
-//            domainForEach = new AnyDomain(cls);
-//        }
+        public ManyDomain(Class<V> cls) {
+            super();
+            domainForEach = new AnyDomain(cls);
+        }
 //        public ManyDomain(Class<V> cls, int minNumber, int maxNumber) {
 //            super();
 //            multiplicity.setBounds( minNumber, maxNumber );
@@ -331,8 +255,19 @@ public class RegexDomain<T> implements Domain<List<T>> {
             if ( multiplicity.magnitude() == 1 && domainForEach != null &&
                  domainForEach.magnitude() == 1 ) {
                 List<V> list = new ArrayList<>();
-                return domainForEach.getValue();
+                if ( multiplicity.lowerBound > 10000 ) {
+                    Debug.error(true,
+                                "Trying to create too many objects for " +
+                                getClass().getSimpleName() + ".getValue()");
+                    return null;
+                }
+                V obj = domainForEach.getValue( propagate );
+                for ( int i = 0; i < multiplicity.lowerBound; ++i ) {
+                    list.add(obj);
+                }
+                return list;
             }
+            // multiple possible values, so return null;
             return null;
         }
 
@@ -342,7 +277,9 @@ public class RegexDomain<T> implements Domain<List<T>> {
          * @param value the new value to be wrapped
          */
         @Override public void setValue( List<V> value ) {
-
+            Debug.error(true,
+                        "setValue() not supported for " +
+                        getClass().getSimpleName());
         }
 
         /**
@@ -352,7 +289,8 @@ public class RegexDomain<T> implements Domain<List<T>> {
          * @return true if there is a wrapped value
          */
         @Override public boolean hasValue() {
-            return false;
+            return multiplicity.magnitude() > 0 &&
+                   ( domainForEach == null || domainForEach.hasValue() );
         }
 
         /**
@@ -362,166 +300,19 @@ public class RegexDomain<T> implements Domain<List<T>> {
          * @return true if there are multiple wrapped values
          */
         @Override public boolean hasMultipleValues() {
-            return false;
+            return multiplicity.magnitude() > 1 ||
+                   ( domainForEach == null || domainForEach.hasMultipleValues() );
         }
     }
 
-    //
-    static final SimpleDomain begin = new SimpleDomain();
-    static final SimpleDomain end = new SimpleDomain();
-    static final SimpleDomain any = new AnyDomain();
-    static final ObjectDomain begin = new ObjectDomain((Object)null);
-    static final SimpleWrap end = new SimpleWrap();
+//    static final SimpleDomain begin = new SimpleDomain();
+//    static final SimpleDomain end = new SimpleDomain();
+//    static final SimpleDomain any = new AnyDomain();
+//    static final ObjectDomain begin = new ObjectDomain((Object)null);
+//    static final SimpleWrap end = new SimpleWrap();
 
-    protected static class OrDomain<V> extends LinkedHashSet<Domain<V>>
-            implements Domain<V>{
-        /**
-         * @return the number of elements in the domain. If the domain is infinite,
-         * Long.MAX_VALUE (which is to be interpreted as infinity).<p>
-         */
-        @Override public long magnitude() {
-            return 0;
-        }
+    protected static class OrDomain<V> extends RegexDomain<V> {
 
-        /**
-         * Make the domain empty, containing no values, not even null.
-         *
-         * @return whether any domain changed as a result of this call
-         */
-        @Override public boolean clearValues() {
-            return false;
-        }
-
-        @Override public V pickRandomValue() {
-            return null;
-        }
-
-        @Override public V pickRandomValueNotEqual( V v ) {
-            return null;
-        }
-
-        @Override public boolean isInfinite() {
-            return false;
-        }
-
-        @Override public boolean isNullInDomain() {
-            return false;
-        }
-
-        @Override public boolean setNullInDomain( boolean b ) {
-            return false;
-        }
-
-        @Override public Domain<V> getDefaultDomain() {
-            return null;
-        }
-
-        /**
-         * Restrict the object's domain to only include the input value or an empty
-         * domain if v is not contained in the current domain. If it is not possible,
-         * the object's domain remains unaffected.
-         *
-         * @param v the value
-         * @return whether the domain of any object changed as a result of this call
-         */
-        @Override public boolean restrictToValue( V v ) {
-            return false;
-        }
-
-        /**
-         * Restrict the object's domain to largest subset that is included by the
-         * input domain. This will be the empty domain if there is no intersection
-         * between the object's prior domain and the input domain.
-         *
-         * @param domain
-         * @return whether the domain of any object changed as a result of this call
-         */
-        @Override public <TT> boolean restrictTo( Domain<TT> domain ) {
-            return false;
-        }
-
-        /**
-         * Exclude elements in the input domain from this domain.
-         *
-         * @param domain
-         * @return whether the domain of any object changed as a result of this call
-         */
-        @Override public <TT> Domain<TT> subtract( Domain<TT> domain ) {
-            return null;
-        }
-
-        @Override public <T> T evaluate( Class<T> cls, boolean propagate ) {
-            return null;
-        }
-
-        @Override public Integer getId() {
-            return null;
-        }
-
-        /**
-         * @return the type of the object that this object wraps
-         */
-        @Override public Class<?> getType() {
-            return null;
-        }
-
-        /**
-         * @param className the name of {@code this} class (which should be the class
-         *                  redefining this method or a subclass) with generic parameters
-         * @return the name of the type for the object that would be wrapped by an
-         * object with a class name of {@code className}; this should be the
-         * type of the return value for {@link Wraps<V>.getValue(boolean)}.
-         */
-        @Override public String getTypeNameForClassName( String className ) {
-            return null;
-        }
-
-        /**
-         * @return the primitive class corresponding to the object wrapped by this
-         * object (possibly in several layers)
-         */
-        @Override public Class<?> getPrimitiveType() {
-            return null;
-        }
-
-        /**
-         * @param propagate whether or not to propagate dependencies in order to determine
-         *                  what object is wrapped
-         * @return the object that is wrapped by this object or null if there is no
-         * object or if there are multiple objects wrapped.
-         */
-        @Override public V getValue( boolean propagate ) {
-            return null;
-        }
-
-        /**
-         * Set the value of the object that is wrapped by this object.
-         *
-         * @param value the new value to be wrapped
-         */
-        @Override public void setValue( V value ) {
-
-        }
-
-        /**
-         * Return true if there is an object wrapped.  If getValue() returns null, this call distinguishes whether null is a
-         * valid value or not.  If multiple objects are wrapped, then getValue() may return null also in this case.
-         *
-         * @return true if there is a wrapped value
-         */
-        @Override public boolean hasValue() {
-            return false;
-        }
-
-        /**
-         * Return true if there is more than one object wrapped.  getValue() should
-         * return null if this is true unless all of the objects are the same.
-         *
-         * @return true if there are multiple wrapped values
-         */
-        @Override public boolean hasMultipleValues() {
-            return false;
-        }
         //        public OrDomain( ObjectDomain<V> objectDomain ) {
 //            super( objectDomain );
 //        }
@@ -532,9 +323,17 @@ public class RegexDomain<T> implements Domain<List<T>> {
 
     List<Domain<T>> seq = new ArrayList<>();
 
+    public RegexDomain() {
+    }
+
+    public RegexDomain( RegexDomain<T> rd ) {
+        for ( Domain<T> d : rd.seq ) {
+            this.seq.add(d.clone());
+        }
+    }
 
     @Override public Domain<List<T>> clone() {
-        return null;
+        return new RegexDomain<T>(this);
     }
 
     /**
@@ -542,14 +341,27 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * Long.MAX_VALUE (which is to be interpreted as infinity).<p>
      */
     @Override public long magnitude() {
-        return 0;
+        long num = 1;  // 1 instead of 0 since an empty seq matches an empty list
+        for ( Domain<T> d : seq ) {
+            num = Math.times( num, d.magnitude() );
+            if (num == 0 || Math.isInfinity( num ) ) {
+                return num;
+            }
+            if ( num < 0 ) {
+                Debug.error(true,
+                            getClass().getSimpleName() +
+                            ".magnitude() is negative! Returning 0.");
+                return 0L;
+            }
+        }
+        return num;
     }
 
     /**
      * @return whether the domain contains no values (including null)
      */
     @Override public boolean isEmpty() {
-        return false;
+        return magnitude() <= 0;
     }
 
     /**
@@ -558,23 +370,41 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether any domain changed as a result of this call
      */
     @Override public boolean clearValues() {
+        if ( seq.size() > 0 ) {
+            seq.clear();
+            return true;
+        }
         return false;
     }
 
     @Override public boolean contains( List<T> ts ) {
+        // TODO -- HERE!!!!
         return false;
     }
 
     @Override public List<T> pickRandomValue() {
-        return null;
+        List<T> v = new ArrayList<>();
+        for ( Domain<T> d : seq ) {
+            T t = d.pickRandomValue();
+            v.add(t);
+        }
+        return v;
     }
 
     @Override public List<T> pickRandomValueNotEqual( List<T> ts ) {
+        List<T> pick1 = pickRandomValue();
+        if ( CompareUtils.compare( pick1,  ts ) == 0 ) {
+            pick1 = pickRandomValue();
+            if ( CompareUtils.compare( pick1,  ts ) == 0 ) {
+                return null;
+            }
+            return pick1;
+        }
         return null;
     }
 
     @Override public boolean isInfinite() {
-        return false;
+        return Math.isInfinity( magnitude() );
     }
 
     @Override public boolean isNullInDomain() {
@@ -582,10 +412,12 @@ public class RegexDomain<T> implements Domain<List<T>> {
     }
 
     @Override public boolean setNullInDomain( boolean b ) {
+        // TODO -- ERROR?
         return false;
     }
 
     @Override public Domain<List<T>> getDefaultDomain() {
+        // TODO -- ERROR?
         return null;
     }
 
@@ -598,6 +430,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public boolean restrictToValue( List<T> v ) {
+        // TODO!!  HERE!!
         return false;
     }
 
@@ -610,6 +443,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public <TT> boolean restrictTo( Domain<TT> domain ) {
+        // TODO!!  HERE!!
         return false;
     }
 
@@ -620,7 +454,12 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public <TT> Domain<TT> subtract( Domain<TT> domain ) {
+        // TODO
         return null;
+    }
+
+    public <TT> Domain<TT> minusPrefix( RegexDomain<TT> domain ) {
+        // HERE!!
     }
 
     //
@@ -794,9 +633,9 @@ public class RegexDomain<T> implements Domain<List<T>> {
         Parameter<String> p1 = new StringParameter("p1", rds1, null);
         Parameter<String> p2 = new StringParameter("p2", rds2, null);
 
-        Parameter<String> p3 = new StringParameter("p3", (Domain)null, null);)
+        Parameter<String> p3 = new StringParameter("p3", (Domain)null, null);
 
-        ConstraintExpression eq;
+        ConstraintExpression eq = null; // TODO!!
 
         eq.restrictDomain( new BooleanDomain( true, true ), false, null );
 

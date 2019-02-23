@@ -1,6 +1,7 @@
 package gov.nasa.jpl.ae.solver;
 
 import gov.nasa.jpl.mbee.util.Utils;
+import gov.nasa.jpl.mbee.util.Wraps;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +48,7 @@ public class RegexDomainString implements Domain<String> {
 
     public boolean contains( String characters ) {
         List<Character> charList =toChars( characters );
-        return super.contains( charList );
+        return charListDomain.contains( charList );
     }
 
     @Override public String pickRandomValue() {
@@ -145,7 +146,7 @@ public class RegexDomainString implements Domain<String> {
      *                  redefining this method or a subclass) with generic parameters
      * @return the name of the type for the object that would be wrapped by an
      * object with a class name of {@code className}; this should be the
-     * type of the return value for {@link Wraps<V>.getValue(boolean)}.
+     * type of the return value for {@link Wraps<String>.getValue(boolean)}.
      */
     @Override public String getTypeNameForClassName( String className ) {
         return null;
