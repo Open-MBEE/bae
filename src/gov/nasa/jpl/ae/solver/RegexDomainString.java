@@ -1,5 +1,6 @@
 package gov.nasa.jpl.ae.solver;
 
+import gov.nasa.jpl.ae.util.Math;
 import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
 
@@ -7,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RegexDomainString implements Domain<String> {
-    RegexDomain<Character> charListDomain;
+    public RegexDomain<Character> charListDomain;
 
     public RegexDomainString() {
         charListDomain = new RegexDomain<>();
@@ -17,9 +18,29 @@ public class RegexDomainString implements Domain<String> {
         charListDomain = new RegexDomain<>();
         charListDomain.seq = toCharDomains( literal );
     }
+    public RegexDomainString(Domain domain) {
+        if ( domain == null ) return;
+        if ( domain instanceof RegexDomainString ) {
+            charListDomain = ((RegexDomainString)domain).charListDomain.clone();
+        }
+        if ( domain instanceof RegexDomain ) {
+            charListDomain = (RegexDomain)domain;
+            return;
+        }
+        charListDomain = new RegexDomain<>();
+        if ( domain.magnitude() == 1 ) {
+            charListDomain.seq = toCharDomains( "" + domain.getValue( true ) );
+        } else { // TODO -- if it's not really *, we should do something difft.
+            charListDomain.seq.add(new RegexDomain.ManyDomain<>() );
+        }
+    }
+
+    public RegexDomainString(RegexDomainString rds) {
+        charListDomain = rds.charListDomain.clone();
+    }
 
     @Override public Domain<String> clone() {
-        return null;
+        return new RegexDomainString( this );
     }
 
     /**
@@ -27,14 +48,14 @@ public class RegexDomainString implements Domain<String> {
      * Long.MAX_VALUE (which is to be interpreted as infinity).<p>
      */
     @Override public long magnitude() {
-        return 0;
+        return charListDomain.magnitude();
     }
 
     /**
      * @return whether the domain contains no values (including null)
      */
     @Override public boolean isEmpty() {
-        return false;
+        return charListDomain.isEmpty();
     }
 
     /**
@@ -43,7 +64,7 @@ public class RegexDomainString implements Domain<String> {
      * @return whether any domain changed as a result of this call
      */
     @Override public boolean clearValues() {
-        return false;
+        return charListDomain.clearValues();
     }
 
     public boolean contains( String characters ) {
@@ -51,16 +72,35 @@ public class RegexDomainString implements Domain<String> {
         return charListDomain.contains( charList );
     }
 
+    public boolean contains( RegexDomainString rds ) {
+        return charListDomain.contains( rds.charListDomain );
+    }
+
     @Override public String pickRandomValue() {
-        return null;
+        List<Character> x = charListDomain.pickRandomValue();
+        String s = charsToString(x);
+        return s;
     }
 
     @Override public String pickRandomValueNotEqual( String s ) {
-        return null;
+        List<Character> chars = toChars( s );
+        List<Character> x = charListDomain.pickRandomValueNotEqual( chars );
+        String ss = charsToString(x);
+        return ss;
+    }
+
+    public static String charsToString( List<Character> x ) {
+        if ( x == null ) return null;
+        StringBuffer sb = new StringBuffer();
+        for ( Character c :  x ) {
+            sb.append( c );
+        }
+        String s = sb.toString();
+        return s;
     }
 
     @Override public boolean isInfinite() {
-        return false;
+        return Math.isInfinity( magnitude() );
     }
 
     @Override public boolean isNullInDomain() {
@@ -72,7 +112,7 @@ public class RegexDomainString implements Domain<String> {
     }
 
     @Override public Domain<String> getDefaultDomain() {
-        return null;
+        return StringDomain.defaultDomain;
     }
 
     /**
@@ -84,7 +124,9 @@ public class RegexDomainString implements Domain<String> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public boolean restrictToValue( String v ) {
-        return false;
+        List<Character> charList = toChars( v );
+        boolean changed = charListDomain.restrictToValue( charList );
+        return changed;
     }
 
     /**
@@ -96,7 +138,7 @@ public class RegexDomainString implements Domain<String> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public <TT> boolean restrictTo( Domain<TT> domain ) {
-        return false;
+        return charListDomain.restrictTo( domain );
     }
 
     /**
@@ -106,12 +148,12 @@ public class RegexDomainString implements Domain<String> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public <TT> Domain<TT> subtract( Domain<TT> domain ) {
-        return null;
+        return charListDomain.subtract( domain );
     }
 
-    protected List<Domain<Character>> toCharDomains( String characters ) {
+    protected List<Domain<?>> toCharDomains( String characters ) {
         List<Character> charList = toChars( characters );
-        List<Domain<Character>> domains = new ArrayList<>(characters.length());
+        List<Domain<?>> domains = new ArrayList<>(characters.length());
         for ( int i=0; i < characters.length(); ++i ) {
             domains.add(new RegexDomain.SimpleDomain<>( charList.get(i) ) );
         }
@@ -127,18 +169,18 @@ public class RegexDomainString implements Domain<String> {
     }
 
     @Override public <T> T evaluate( Class<T> cls, boolean propagate ) {
-        return null;
+        return charListDomain.evaluate( cls, propagate );
     }
 
     @Override public Integer getId() {
-        return null;
+        return charListDomain.getId();
     }
 
     /**
      * @return the type of the object that this object wraps
      */
     @Override public Class<?> getType() {
-        return null;
+        return String.class;
     }
 
     /**
@@ -149,7 +191,7 @@ public class RegexDomainString implements Domain<String> {
      * type of the return value for {@link Wraps<String>.getValue(boolean)}.
      */
     @Override public String getTypeNameForClassName( String className ) {
-        return null;
+        return charListDomain.getTypeNameForClassName( className );
     }
 
     /**
@@ -157,7 +199,7 @@ public class RegexDomainString implements Domain<String> {
      * object (possibly in several layers)
      */
     @Override public Class<?> getPrimitiveType() {
-        return null;
+        return String.class;
     }
 
     /**
@@ -167,7 +209,9 @@ public class RegexDomainString implements Domain<String> {
      * object or if there are multiple objects wrapped.
      */
     @Override public String getValue( boolean propagate ) {
-        return null;
+        List<Character> v = charListDomain.getValue( false );
+        String s = charsToString( v );
+        return s;
     }
 
     /**
@@ -176,7 +220,7 @@ public class RegexDomainString implements Domain<String> {
      * @param value the new value to be wrapped
      */
     @Override public void setValue( String value ) {
-
+        restrictToValue( value );
     }
 
     /**
@@ -186,7 +230,7 @@ public class RegexDomainString implements Domain<String> {
      * @return true if there is a wrapped value
      */
     @Override public boolean hasValue() {
-        return false;
+        return charListDomain.hasValue();
     }
 
     /**
@@ -196,6 +240,14 @@ public class RegexDomainString implements Domain<String> {
      * @return true if there are multiple wrapped values
      */
     @Override public boolean hasMultipleValues() {
-        return false;
+        return charListDomain.hasMultipleValues();
+    }
+
+    public static void main(String[] args) {
+        RegexDomainString rds1 = new RegexDomainString( "hello" );
+        RegexDomainString rds2 = new RegexDomainString( "hello" );
+        boolean test1 = rds1.contains( "hello" );
+        boolean test2 = rds2.contains( rds1 );
+        System.out.println("test1 = " + test1 + "; test2 = " + test2);
     }
 }

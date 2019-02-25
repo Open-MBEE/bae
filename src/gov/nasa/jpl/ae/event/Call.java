@@ -866,7 +866,9 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     return r;
   }
 
-
+  @Override public boolean hasMultipleValues() {
+    return false;  // REVIEW
+  }
 
   @Override
   public void setValue( Object value ) {

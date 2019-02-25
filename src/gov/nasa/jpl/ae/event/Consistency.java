@@ -18,6 +18,7 @@ import gov.nasa.jpl.ae.solver.Domain;
 import gov.nasa.jpl.ae.solver.DoubleDomain;
 import gov.nasa.jpl.ae.solver.IntegerDomain;
 import gov.nasa.jpl.ae.solver.Variable;
+import gov.nasa.jpl.mbee.util.HasId;
 import gov.nasa.jpl.mbee.util.MoreToString;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Utils;
@@ -95,6 +96,12 @@ public class Consistency {
     return sb.toString();
   }
 
+  private static String lp( HasId h ) {
+    return MoreToString.Helper.toLongString( h ) + "@" + h.getId();
+  }
+
+  private LinkedHashSet<Integer> domainCopiedSet = new LinkedHashSet<>();
+
   public Map< Variable< ? >, Domain< ? > > getDomainState() {
     LinkedHashMap< Variable< ? >, Domain< ? > > domains = new LinkedHashMap< Variable< ? >, Domain< ? > >();
     Set< Variable< ? > > vars = getVariables();
@@ -103,6 +110,14 @@ public class Consistency {
       if ( d != null ) {
         Domain< ? > copy = d.clone();
         v.setDomain( (Domain)copy );
+        // Copy the original once to make sure that we don't overwrite a
+        // shared default domain, like [true, false].
+        if ( !domainCopiedSet.contains( d.getId() ) ) {
+          d = d.clone();
+          domainCopiedSet.add( d.getId() );
+        }
+//        System.out.println("saving " + v.getName() + "@" + v.getId() +
+//                           ".domain = " + lp(copy) + " copied from " + lp(d) );
         domains.put( v, d );
       }
     }
@@ -111,6 +126,7 @@ public class Consistency {
   }
   
   public void saveDomains() {
+    System.out.println("--->>>>  SAVE DOMAIN");
     savedDomains = getDomainState();
   }
 
@@ -118,11 +134,14 @@ public class Consistency {
     //System.out.println( "restoring from : " + MoreToString.Helper.toLongString( savedDomains ) );
     for (  Entry< Variable< ? >, Domain< ? > > e : domains.entrySet() ) {
       Variable v = e.getKey();
+//      System.out.println("restoring " + v.getName() + "@" + v.getId() +
+//                         ".domain = " + lp(e.getValue()) );
       v.setDomain( e.getValue() );
     }
   }
   
   public void restoreDomains() {
+    System.out.println("<<<<---- RESTORE DOMAIN");
     restoreDomains(savedDomains);
   }
 

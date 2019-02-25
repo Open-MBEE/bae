@@ -14,6 +14,10 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
 //    public abstract Distribution<Double> dividedBy( Distribution<?> otherDist );
 
     @Override public double probability( Double t ) {
+        if ( d == null ) {
+            // TODO -- Error?!
+            return -1.0;
+        }
         return d.probability( t );
     }
 
@@ -50,6 +54,15 @@ public class AbstractRealDistribution<D extends RealDistribution> extends Abstra
 
     @Override public Class<Double> getType() {
         return Double.class;
+    }
+
+    /**
+     * Set the value of the object that is wrapped by this object.
+     *
+     * @param value the new value to be wrapped
+     */
+    @Override public void setValue( Double value ) {
+       // TODO -- throw exception?
     }
 
     @Override public Double mean() {

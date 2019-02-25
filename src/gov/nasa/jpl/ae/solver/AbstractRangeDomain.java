@@ -113,7 +113,12 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
       }
       return false;
     }
-    boolean restricted = setBounds( v, v );
+    boolean restricted = false;
+    if ( v == null && !nullInDomain ) {
+      nullInDomain = true;
+      restricted = true;
+    }
+    restricted = setBounds( v, v );
     return restricted;
   }
 
@@ -137,6 +142,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
 	
   @Override
 	public boolean isEmpty() {
+    if ( nullInDomain ) return false;
     if ( getLowerBound() == null || getUpperBound() == null ) {
       return true;
     }
@@ -190,6 +196,10 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   @Override
   public boolean hasValue() {
     return !isEmpty();
+  }
+
+  @Override public boolean hasMultipleValues() {
+    return size() > 1;
   }
 
   /* (non-Javadoc)
@@ -386,6 +396,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     }
     lowerIncluded = false;
     upperIncluded = false;
+    nullInDomain = false;
   }
 
   public T min( T t1, T t2 ) {
@@ -570,7 +581,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
   
 	@Override
   public boolean contains( T t ) {
-	  if ( t == null ) return lowerBound == null && upperBound == null;
+	  if ( t == null ) return nullInDomain || (lowerBound == null && upperBound == null);
 	  if ( magnitude() == 0 ) return false;
 	  if ( equals(t, lowerBound) ) return isLowerBoundIncluded();
     if ( equals(t, upperBound) ) return isUpperBoundIncluded();
@@ -774,14 +785,26 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
     Object v = domain.getValue( true );
     T t = (T)ClassUtils.evaluate( v, getType(), true );
     boolean changed = false;
-    if ( t != null ) {
+    if ( t != null || domain.hasValue() ) {
       changed = this.restrictToValue( t );
     }
     return changed;
   }
 
   public < TT > boolean restrictTo( MultiDomain< TT > domain ) {
+    if ( domain == null ) return false;
     boolean changed = false;
+    if ( domain.isEmpty() ) {
+      if ( !isEmpty() ) {
+        clearValues();
+        return true;
+      }
+      return false;
+    }
+    if ( nullInDomain && !domain.isNullInDomain() ) {
+      nullInDomain = false;
+      changed = true;
+    }
     // The restricted set is the union of restrictions with each domain in the
     // flattened set.
     Set< Domain< TT > > s = domain.getFlattenedSet();
@@ -794,7 +817,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
         }
       } else {
         // It was not restricted at all by part of the flattened set
-        return false;
+        return changed;
       }
     }
     MultiDomain< T > md =
@@ -1140,6 +1163,16 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
    * @see gov.nasa.jpl.ae.solver.RangeDomain#setBounds(java.lang.Object, java.lang.Object)
    */
   public boolean setBounds( T lowerBound, T upperBound ) {
+    if ( nullInDomain && lowerBound == null && upperBound == null &&
+         ( less( this.lowerBound, this.upperBound ) ||
+           ( equals( this.lowerBound, this.upperBound ) &&
+             ( lowerIncluded || upperIncluded ) ) ) ) {
+      this.lowerBound = lowerBound;
+      this.upperBound = upperBound;
+      lowerIncluded = true;
+      upperIncluded = true;
+      return true;
+    }
     if ( lessEquals( lowerBound, upperBound )
          && ( !equals(lowerBound, this.lowerBound) || !equals(upperBound, this.upperBound)
               || !this.lowerIncluded || !this.upperIncluded ) ) {

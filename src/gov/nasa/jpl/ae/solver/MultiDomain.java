@@ -315,6 +315,10 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
     return !isEmpty();
   }
 
+  @Override public boolean hasMultipleValues() {
+    return isInfinite() || magnitude() > 1;
+  }
+
   @Override
   public void setValue( T value ) {
     includeSet = new LinkedHashSet< Domain< T > >();
@@ -482,7 +486,7 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
     if ( this.nullInDomain != null ) {
       return nullInDomain;
     }
-    boolean isIncluded = Utils.isNullOrEmpty( includeSet );
+    boolean isIncluded = false;//Utils.isNullOrEmpty( includeSet );
     
     if ( !isIncluded ) {
       for ( Domain< T > d : includeSet ) {
@@ -501,7 +505,10 @@ public class MultiDomain< T >  extends HasIdImpl implements Domain< T > {
         }
       }
     }
-    
+
+    // Don't set nullInDomain here.  It's value overrides the includeSet and
+    // excludeSet.
+
     return isIncluded;
   }
 

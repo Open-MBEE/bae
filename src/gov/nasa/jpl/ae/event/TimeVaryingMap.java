@@ -87,6 +87,8 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   protected static boolean notDeconstructing = true;
 
   protected long lastUpdated = LamportClock.tick();
+  protected boolean skipListeners = false;
+
   @Override public long update() {
     return lastUpdated = LamportClock.tick();
   }
@@ -1061,11 +1063,17 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     appliedSet.clear();
     appliedSet.addAll( tvm.appliedSet );
     clear(); // clears the default value.
-    for ( Map.Entry< Parameter< Long >, VV > e : tvm.entrySet() ) {
-      V v = tryCast( e.getValue(), cls );
-      if ( v != null || e.getValue() == null ) {
-        setValue( e.getKey(), v );
+    final boolean oldSkipListeners = skipListeners;
+    skipListeners = true;
+    try {
+      for ( Map.Entry<Parameter<Long>, VV> e : tvm.entrySet() ) {
+        V v = tryCast( e.getValue(), cls );
+        if ( v != null || e.getValue() == null ) {
+          setValue( e.getKey(), v );
+        }
       }
+    } finally{
+      skipListeners = oldSkipListeners;
     }
   }
 
@@ -1168,6 +1176,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      * this, so it is not needed when an EffectFunction is changing this map.
      */
     public void setStaleAnyReferencesToTimeVarying() {
+        if ( skipListeners ) return;
         if ( LamportClock.usingLamportClock ) {
           lastUpdated = LamportClock.tick();
           return;
@@ -1186,6 +1195,7 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
      */
     public void handleChangeToTimeVaryingMap() {
         // REVIEW -- should we do this is not usingLamportClock?
+        if ( skipListeners ) return;
         Pair<Parameter<?>, ParameterListener> pair = getTimeVaryingMapOwners();
         if ( pair != null && pair.second != null ) {
             pair.second.handleValueChangeEvent( pair.first, null );
@@ -2341,7 +2351,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
 
   public <VV> TimeVaryingMap< VV > floor( Parameter< Long > fromKey,
                                           Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
-    TimeVaryingMap< VV > newTvm = (TimeVaryingMap<VV>)clone();
+    //TimeVaryingMap< VV > newTvm = (TimeVaryingMap<VV>)clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>( (TimeVaryingMap<VV>)this );
     newTvm.setName( getName() + "_floor" );
 
     newTvm.floorInPlace( fromKey, toKey );
@@ -2496,7 +2508,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                      Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
     Class<VV> cls = (Class<VV>)ClassUtils.dominantTypeClass( getType(), n.getClass() );
     //TimeVaryingMap< VV > newTvm = new TimeVaryingMap< VV >(getName() + "_times_" + n, this, cls); 
-    TimeVaryingMap< VV > newTvm = clone(cls);
+    //TimeVaryingMap< VV > newTvm = clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>( this, cls );
     newTvm.setName( getName() + "_times_" + n );
     newTvm.multiply( n, fromKey, toKey );
     return newTvm;
@@ -2640,7 +2654,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @throws ClassCastException 
    */
   public < VV > TimeVaryingMap< V > powOld( TimeVaryingMap< VV > tvm ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
-    TimeVaryingMap< V > newTvm = this.clone();
+    //TimeVaryingMap< V > newTvm = this.clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> newTvm = new TimeVaryingMap<V>( this );
+
     newTvm.power( tvm );
     return newTvm;
   }
@@ -2687,7 +2704,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public <VV> TimeVaryingMap< VV > pow( Number n, Parameter< Long > fromKey,
                                   Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
     Class<VV> cls = (Class<VV>)ClassUtils.dominantTypeClass( getType(), n.getClass() );    
-    TimeVaryingMap< VV > newTvm = this.clone(cls);
+    //TimeVaryingMap< VV > newTvm = this.clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>( this, cls );
     newTvm.setName( "pow_" + getName() + "_" + n );
     //TimeVaryingMap< VV > newTvm = new TimeVaryingMap< VV >("pow_" + getName() + "_" + n, this, cls); 
     newTvm.power( n, fromKey, toKey );
@@ -2828,7 +2847,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @throws ClassCastException 
    */
   public < VV > TimeVaryingMap< V > npow( TimeVaryingMap< VV > tvm ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
-    TimeVaryingMap< V > newTvm = this.clone();
+    //TimeVaryingMap< V > newTvm = this.clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> newTvm = new TimeVaryingMap<V>( this );
     newTvm.npower( tvm );
     return newTvm;
   }
@@ -2850,7 +2871,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                   Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
     Class<VV> cls = (Class<VV>)ClassUtils.dominantTypeClass( getType(), n.getClass() );    
     //TimeVaryingMap< VV > newTvm = new TimeVaryingMap< VV >("now_" + getName() + "_" + n, this, cls); 
-    TimeVaryingMap< VV > newTvm = this.clone(cls);
+    //TimeVaryingMap< VV > newTvm = this.clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>( this, cls );
     newTvm.setName( "now_" + getName() + "_" + n );
     newTvm.npower( n, fromKey, toKey );
     return newTvm;
@@ -2926,7 +2949,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   }
   public < VV, VVV > TimeVaryingMap< VVV > applyOperation( TimeVaryingMap< VV > map, MathOperation op, Class<VVV> resultType ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
     //Class<VVV> cls = (Class< VVV >)ClassUtils.dominantTypeClass( getType(), map.getType() );
-    TimeVaryingMap< VVV > newTvm = emptyClone(resultType);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VVV> newTvm = new TimeVaryingMap<VVV>(this.name, resultType);
+    //TimeVaryingMap< VVV > newTvm = emptyClone(resultType);
     newTvm.setType( resultType );
     newTvm.clear();
     Set< Parameter< Long > > keys =
@@ -3095,7 +3120,10 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     if ( isEmpty() ) return (TimeVaryingMap< TT >)this.clone();
     Call c = getCallForThisMethod( n );
     if ( TimeVaryingMap.class.isAssignableFrom( getType() ) ) {
-      TimeVaryingMap<TT> newTvm = (TimeVaryingMap<TT>)this.clone();
+      //TimeVaryingMap<TT> newTvm = (TimeVaryingMap<TT>)this.clone();
+      // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+      TimeVaryingMap<TT> newTvm = new TimeVaryingMap<TT>((TimeVaryingMap<TT>)this);
+
       newTvm.applyToSubMaps( c );
       return newTvm;
     }
@@ -3200,7 +3228,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
                                         Parameter< Long > toKey ) throws IllegalAccessException, InvocationTargetException, InstantiationException {
     Class<VV> cls = (Class<VV>)ClassUtils.dominantTypeClass( getType(), n.getClass() );    
     //TimeVaryingMap< VV > newTvm = new TimeVaryingMap< VV >(getName() + "_div_" + n, this, cls); 
-    TimeVaryingMap< VV > newTvm = clone(cls);
+    //TimeVaryingMap< VV > newTvm = clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>(this, cls);
     newTvm.setName( getName() + "_div_" + n );
     newTvm.divide( n, fromKey, toKey );
     return newTvm;
@@ -3220,7 +3250,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
    * @throws ClassCastException 
    */
   public < VV extends Number > TimeVaryingMap< V > dividedByOld( TimeVaryingMap< VV > tvm ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
-    TimeVaryingMap< V > newTvm = this.clone();
+    //TimeVaryingMap< V > newTvm = this.clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> newTvm = new TimeVaryingMap<V>((TimeVaryingMap<V>)this);
     newTvm.divide( tvm );
     return newTvm;
   }
@@ -3274,7 +3306,9 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
   public static < VV1 extends Number, VV2, VV3 > TimeVaryingMap< VV3 > dividedBy( VV1 o1,
                                                                              TimeVaryingMap< VV2 > tvm2 ) throws ClassCastException, IllegalAccessException, InvocationTargetException, InstantiationException {
     if ( o1 == null ) return null;
-    TimeVaryingMap<VV3> tvm1 = (TimeVaryingMap< VV3 >)tvm2.emptyClone();
+    //TimeVaryingMap<VV3> tvm1 = (TimeVaryingMap< VV3 >)tvm2.emptyClone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV3> tvm1 = new TimeVaryingMap<VV3>(tvm2.name, (Class<VV3>)tvm2.type);
     tvm1.setValue( new SimpleTimepoint( "", 0L, tvm1 ), (VV3)o1 );
     return dividedBy(tvm1, tvm2);
   }
@@ -4419,8 +4453,9 @@ String n = owner instanceof HasName
   public <VV> TimeVaryingMap< VV > plus( Number n, Parameter< Long > fromKey,
                                     Parameter< Long > toKey ) {
     Class<VV> cls = (Class< VV >)ClassUtils.dominantTypeClass( getType(), n.getClass() );
-    //TimeVaryingMap< VV > newTvm = new TimeVaryingMap<VV>(getName() + "_plus_" + n, this, cls);//this.clone();
-    TimeVaryingMap< VV > newTvm = clone(cls);
+    // Not using clone since we don't want baggage from subclasses of TimeVaryingMap, like Consumable that preserves the caps.
+    TimeVaryingMap< VV > newTvm = new TimeVaryingMap<VV>(getName() + "_plus_" + n, this, cls);
+    //TimeVaryingMap< VV > newTvm = clone(cls);
     newTvm.setName( getName() + "_plus_" + n );
     newTvm.add( n, fromKey, toKey );
     return newTvm;
@@ -4580,7 +4615,9 @@ String n = owner instanceof HasName
   public <VV> TimeVaryingMap< VV > minClone( Number n, Parameter< Long > fromKey,
                                              Parameter< Long > toKey ) {
     Class<VV> cls = (Class< VV >)ClassUtils.dominantTypeClass( getType(), n.getClass() );
-    TimeVaryingMap< VV > newTvm = this.clone(cls);
+    //TimeVaryingMap< VV > newTvm = this.clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>(this, (Class<VV>)cls );
     newTvm.min( n, fromKey, toKey );
     return newTvm;
   }
@@ -4590,7 +4627,9 @@ String n = owner instanceof HasName
    * @return a copy of this TimeVaryingMap with {@code map} min'd with it
    */
   public <VV extends Number> TimeVaryingMap< V > minCloneOld( TimeVaryingMap< VV > map ) {
-    TimeVaryingMap< V > newTvm = this.clone();
+    //TimeVaryingMap< V > newTvm = this.clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> newTvm = new TimeVaryingMap<V>(this );
     newTvm.min( map );
     return newTvm;
   }
@@ -4637,7 +4676,8 @@ String n = owner instanceof HasName
                                        Parameter< Long > toKey ) {
     Class<VV> cls = (Class< VV >)ClassUtils.dominantTypeClass( getType(), n.getClass() );
     //TimeVaryingMap< VV > newTvm = this.clone(cls);
-    TimeVaryingMap< VV > newTvm = this.clone(cls);
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<VV> newTvm = new TimeVaryingMap<VV>(this, cls );
     newTvm.setName( "max_" + getName() + "_" + n );
     //TimeVaryingMap< VV > newTvm = new TimeVaryingMap< VV >("max_" + getName() + "_" + n, this, cls); 
     newTvm.max( n, fromKey, toKey );
@@ -4653,7 +4693,9 @@ String n = owner instanceof HasName
   }
 
   public <VV extends Number> TimeVaryingMap< V > maxCloneOld( TimeVaryingMap< VV > map ) {
-    TimeVaryingMap< V > newTvm = this.clone();
+    //TimeVaryingMap< V > newTvm = this.clone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> newTvm = new TimeVaryingMap<V>(this );
     newTvm.max( map );
     return newTvm;
   }
@@ -5222,7 +5264,11 @@ String n = owner instanceof HasName
 
   protected TimeVaryingMap<Object> getEmptyMap( Object thenObj, Object elseObj ) {
     TimeVaryingMap<?> mapToClone = mapToClone(thenObj, elseObj);
-    TimeVaryingMap<Object> newTvm = (TimeVaryingMap< Object >)( mapToClone == null ? new TimeVaryingMap<Object>() : mapToClone.emptyClone() );
+    // Not using clone below to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<Object> newTvm =
+            (TimeVaryingMap< Object >)( mapToClone == null ?
+                                        new TimeVaryingMap<Object>() :
+                                        new TimeVaryingMap( mapToClone.name, mapToClone.type ) );
     return newTvm;
   }
   
@@ -6879,6 +6925,10 @@ String n = owner instanceof HasName
     }
     Parameter< Long > lastKey = null;
     for ( java.util.Map.Entry< Parameter< Long >, V > e : entrySet() ) {
+      if ( e.getKey().getValueNoPropagate() == null ||
+           e.getKey().getValueNoPropagate() > Timepoint.getHorizonDuration() ) {
+          continue;
+      }
       String line = getCsvLine( e.getKey(), e.getValue(), dateFormat, cal );
       if ( line == null ) continue;
       sb.append( line );
@@ -7081,32 +7131,36 @@ String n = owner instanceof HasName
   public boolean hasValue() {
     // // We have to always have a value in order to not equal a null parameter.  An effect variable will not initialize if the empty map equals null.
     // return true;
-    return isEmpty() || allValuesSame();
+    return !isEmpty();// && allValuesSame();
+  }
+
+  @Override public boolean hasMultipleValues() {
+    return size() > 1 && !allValuesSame();
   }
 
   /*  Getting the average is painful.  Should probably integrate.  TODO
-   * 
-  public Number zero() {
-    if ( getType() == null ) return null;
-    if (Number.class.isAssignableFrom( getType() )) {
-      return (Number)tryCast(0, getType());
+     *
+    public Number zero() {
+      if ( getType() == null ) return null;
+      if (Number.class.isAssignableFrom( getType() )) {
+        return (Number)tryCast(0, getType());
+      }
+      return null;
     }
-    return null;
-  }
-  public Number sum() {
-    Number sum = zero();
-    if ( sum == null ) return null;
-    Functions.plus( o1, o2 );
-     gov.nasa.jpl.ae.util.Math.plus()
-  }
+    public Number sum() {
+      Number sum = zero();
+      if ( sum == null ) return null;
+      Functions.plus( o1, o2 );
+       gov.nasa.jpl.ae.util.Math.plus()
+    }
 
-  public Number avg() {
-    Number sum = zero();
-    if ( sum == null ) return null;
-    Functions.plus( o1, o2 );
-     gov.nasa.jpl.ae.util.Math.plus()
-  }
-  */
+    public Number avg() {
+      Number sum = zero();
+      if ( sum == null ) return null;
+      Functions.plus( o1, o2 );
+       gov.nasa.jpl.ae.util.Math.plus()
+    }
+    */
   public Number min() {
     return getMinValue(null, null);
   }
@@ -7895,7 +7949,9 @@ String n = owner instanceof HasName
   
   public TimeVaryingMap<V> sample( Long period, Interpolation interpolation ) {
     if ( period == null || period == 0L ) return null;
-    TimeVaryingMap<V> tvm = emptyClone();
+    //TimeVaryingMap<V> tvm = emptyClone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> tvm = new TimeVaryingMap<V>(this.name, this.type );
     tvm.interpolation = interpolation;
     Long lastTime = null;
     Long nextTime = null;
@@ -7932,7 +7988,9 @@ String n = owner instanceof HasName
 
   public TimeVaryingMap<V> snapToTimeIncrement( Long timeIncrement, boolean earlier ) {
     if ( timeIncrement == null || timeIncrement == 0L ) return null;
-    TimeVaryingMap<V> tvm = emptyClone();
+    //TimeVaryingMap<V> tvm = emptyClone();
+    // Not using clone to avoid baggage of subclasses of TimeVaryingMap, like Consumable's caps.
+    TimeVaryingMap<V> tvm = new TimeVaryingMap<V>(this.name, this.type );
     for ( Map.Entry< Parameter<Long>, V > e : entrySet() ) {
       Long t = e.getKey().getValueNoPropagate();
       Long offset = t % timeIncrement;

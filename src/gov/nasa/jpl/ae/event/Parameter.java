@@ -274,6 +274,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return value != null || (domain != null && domain.isNullInDomain());
   }
 
+  @Override public boolean hasMultipleValues() {
+    return false;
+  }
+
   public T getValue() {
     if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() start: " + this );
     if ( Debug.isOn() ) assert mayPropagate;
@@ -324,6 +328,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public <T1> boolean valueEquals( T1 otherValue ) {
     if ( this == otherValue ) return true;
+    if ( value == null && otherValue != null ) {
+      return false;
+    }
+    if ( true ) {
+      return Utils.valuesLooselyEqual( this, otherValue, true, false );
+    }
     if ( !hasValue() ) {
       if ( otherValue instanceof Wraps ) {
         return !((Wraps) otherValue).hasValue();
@@ -470,8 +480,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
 
       if (printOnSetValue) {
+        if ( "SOC".equals(name) || "voltage".equals(name) )
         System.out.println( "Set value of Parameter " + getQualifiedName( null ) + 
-                            " from " + MoreToString.Helper.toShortString( oldValue ) + 
+                            " from " + MoreToString.Helper.toLongString( oldValue ) +
+                            " to " + MoreToString.Helper.toLongString( val ) );
+        else
+        System.out.println( "Set value of Parameter " + getQualifiedName( null ) +
+                            " from " + MoreToString.Helper.toShortString( oldValue ) +
                             " to " + MoreToString.Helper.toShortString( val ) );
       }
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
@@ -560,6 +575,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return true;
   }
 
+  //public static boolean pickedValueMustBeInDomain = true;
+
   @Override
   public boolean pickValue() {
     if ( Random.global.nextBoolean() ) {
@@ -569,9 +586,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     T value = pickRandomValue();
     if ( value != null ) {
       if ( !valueEquals( value ) ) {
-        if ( Debug.isOn() ) Debug.outln( "////////////////////   picking " + value + " for " + this );
-        setValue( value );
-        return true;
+        //if ( !pickedValueMustBeInDomain || domain == null || domain.contains( value ) ) {
+          if ( Debug.isOn() ) Debug.outln( "////////////////////   picking " + value + " for " + this );
+          setValue( value );
+          return true;
+        //}
       }
     }
     return false;

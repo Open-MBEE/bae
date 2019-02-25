@@ -4,12 +4,13 @@ import gov.nasa.jpl.ae.event.HasOwner;
 import gov.nasa.jpl.ae.solver.HasDomain;
 import gov.nasa.jpl.mbee.util.Pair;
 import gov.nasa.jpl.mbee.util.Random;
+import gov.nasa.jpl.mbee.util.Wraps;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 
 /**
  * Created by dank on 6/29/17.
  */
-public interface Distribution<T> extends HasOwner {  // TODO -- implements Domain or HasDomain
+public interface Distribution<T> extends HasOwner, Wraps<T> {  // TODO -- implements Domain or HasDomain
 
     public static JDKRandomGenerator random = new JDKRandomGenerator( (int)Random.getSeed() );
     public static void reset() {

@@ -1179,6 +1179,15 @@ public class FunctionOfDistributions<T> extends AbstractDistribution<T>
         return type;
     }
 
+    /**
+     * Set the value of the object that is wrapped by this object.
+     *
+     * @param value the new value to be wrapped
+     */
+    @Override public void setValue( T value ) {
+        // TODO -- throw exception?
+    }
+
     @Override public String toString() {
         String o = "";
         if ( getOwner() instanceof HasName ) {

@@ -97,7 +97,13 @@ public class ClassDomain< T > implements Domain< T > {
    */
   @Override
   public boolean hasValue() {
-    return false;
+    return this.type != null || isNullInDomain();
+  }
+
+  @Override public boolean hasMultipleValues() {
+    return this.type != null &&
+           ( isNullInDomain() || this.type.isArray() ||
+             Utils.isNullOrEmpty( this.type.getFields() ) );
   }
 
   /* (non-Javadoc)

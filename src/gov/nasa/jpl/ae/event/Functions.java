@@ -345,19 +345,21 @@ public class Functions {
       Object o1 = this.arguments.get( 0 );
       Object o2 = this.arguments.get( 1 );
       boolean changed = false;
-      if ( o1 instanceof HasDomain && o2 instanceof HasDomain ) {
-        HasDomain hd1 = (HasDomain)o1;
-        HasDomain hd2 = (HasDomain)o2;
-        Domain d1 = inverseDomain( domain, o1 );
-        Pair< Domain< ? >, Boolean > p =
-            hd1.restrictDomain( d1, propagate, seen );
-        if ( p != null && Boolean.TRUE.equals(p.second) ) changed = true;
+      if ( o1 instanceof HasDomain || o2 instanceof HasDomain ) {
+        HasDomain hd1 = o1 instanceof HasDomain ? (HasDomain)o1 : null;
+        HasDomain hd2 = o2 instanceof HasDomain ? (HasDomain)o2 : null;
+        Pair<Domain<?>, Boolean> p = null;
+        if ( hd1 != null ) {
+          Domain d1 = inverseDomain( domain, o1 );
+          p = hd1.restrictDomain( d1, propagate, seen );
+          if ( p != null && Boolean.TRUE.equals( p.second ) ) changed = true;
+        }
         if ( p != null && p.first != null && p.first.isEmpty() ) {
           if ( this.domain != null ) {
             this.domain.clearValues();
           }
           // return new Pair( this.domain, changed );
-        } else {
+        } else if ( hd2 != null ) {
           Domain d2 = inverseDomain( domain, o2 );
           p = hd2.restrictDomain( d2, propagate, seen );
           if ( p != null && Boolean.TRUE.equals(p.second) ) {
@@ -1291,20 +1293,18 @@ public class Functions {
       return new Sum< T, R >( this );
     }
 
-    @Override
-    public // < T1 extends Comparable< ? super T1 > >
-    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
-      if ( arguments == null || arguments.size() != 2 ) return null;
-      boolean isFirstArg = arg == arguments.get( 0 );
-      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
-      if ( returnValue == null || otherArg == null ) return null; // arg can be
-                                                                  // null!
+    protected boolean argumentsAreString(Object returnValue) {
+      if ( arguments == null || arguments.size() != 2 ) return false;
+
       Object deepReturnValue = returnValue;
+      Object arg = arguments.get( 0 );
+      Object otherArg = arguments.get( 1 );
       Object deepArg = arg;
       Object deepOtherArg = otherArg;
-      
+
       try {
-        deepReturnValue = Expression.evaluateDeep( returnValue, null, false, false );
+        deepReturnValue =
+                Expression.evaluateDeep( returnValue, null, false, false );
       } catch ( Throwable e ) {
         // fail quietly, revert to using the unevaluated form
       }
@@ -1318,8 +1318,24 @@ public class Functions {
       } catch ( Throwable e ) {
         // fail quietly, revert to using the unevaluated form
       }
-      
-      if (deepReturnValue instanceof String || deepArg instanceof String || deepOtherArg instanceof String) {
+
+      if ( deepReturnValue instanceof String || deepArg instanceof String
+           || deepOtherArg instanceof String ) {
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public // < T1 extends Comparable< ? super T1 > >
+    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+                                                                  // null!
+      boolean areString = argumentsAreString( returnValue );
+      if ( areString ) {
         if (isFirstArg) {
           return new MinusSuffix( returnValue, otherArg );
         } else {
@@ -1329,7 +1345,29 @@ public class Functions {
       
       return new Minus< T, T >( returnValue, otherArg );
     }
-    
+
+    @Override
+    public Domain<?> inverseDomain( Domain<?> returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
+      if ( returnValue == null || otherArg == null ) return null; // arg can be null!
+
+      boolean areString = argumentsAreString( returnValue );
+      if ( !areString ) {
+        return super.inverseDomain( returnValue, arg );
+      }
+
+      Call call = null;
+      if (isFirstArg) {
+        call = new MinusSuffix( returnValue, otherArg );
+      } else {
+        call = new MinusPrefix( returnValue, otherArg );
+      }
+
+      return call.getDomain( true, null );
+    }
+
   }
 
   public static class Add< T, R > extends Sum< T, R > {
@@ -1577,69 +1615,30 @@ public class Functions {
             ) {
       return StringDomain.defaultDomain;
     }
-    AbstractRangeDomain<Object> rd1 = null;
-    AbstractRangeDomain<Object> rd2 = null;
-    if ( d1 instanceof AbstractRangeDomain ) {
-      rd1 = (AbstractRangeDomain<Object>)d1;
-    }
-    if ( d2 instanceof AbstractRangeDomain ) {
-      rd2 = (AbstractRangeDomain<Object>)d2;
-    }
-    StringDomain sd1 = null;
-    StringDomain sd2 = null;
-    if ( d1 instanceof StringDomain ) {
-      sd1 = (StringDomain)d1;
-    }
-    if ( d2 instanceof StringDomain ) {
-      sd2 = (StringDomain)d2;
-    }
 
-    boolean single1 = d1.magnitude() == 1;
-    boolean single2 = d2.magnitude() == 1;
-    boolean multiple1 = d1.magnitude() > 1 && !d1.isInfinite() && rd1 != null;
-    boolean multiple2 = d2.magnitude() > 1 && !d2.isInfinite();
+
+    // Now do it the right way.
+    RegexDomainString rd1 = null;
+
+    RegexDomainString rd2 = null;
+    if ( d1 instanceof StringDomain ) {
+      rd1 = new RegexDomainString( (StringDomain)d1 );
+    } // TODO - else
+    if ( d2 instanceof StringDomain ) {
+      rd2 = new RegexDomainString( (StringDomain)d2 );
+    } // TODO - else
+    //RegexDomainString d3 = null;
+
 
     boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
-    if ( single1 && single2 ) {
-      String s = null;
-      if  ( isPrefix ) {
-        s = minusPrefix( "" + d1.getValue( false ),
-                         "" + d2.getValue( false ) );
-      } else {
-        s = minusSuffix( "" + d1.getValue( false ),
-                         "" + d2.getValue( false ) );
-      }
-      return new StringDomain( s, s );
+    RegexDomain.OrDomain<Character> d3;
+    if ( isPrefix ) {
+      d3 = RegexDomain.minusPrefix( rd1.charListDomain, rd2.charListDomain );
+    } else{
+      d3 = RegexDomain.minusSuffix( rd1.charListDomain, rd2.charListDomain );
     }
 
-    ArrayList<Object> domains = new ArrayList<>();
-    if ( sd2 != null && //sd2.treatAsPrefixOrSuffix() &&
-         rd1 != null ) {
-      ArrayList<String> dom1Values = new ArrayList<>();
-      if ( rd1.isInfinite() ) {
-        String dom1Val = "" + rd1.getLowerBound();
-        Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-        if ( dx != null ) domains.add( dx );
-        dom1Val = "" + rd1.getLowerBound();
-        dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-        if ( dx != null ) domains.add( dx );
-      } else {
-        for ( long n = 0; n < rd1.size(); ++n ) {
-          String dom1Val = "" + rd1.getNthValue( n );
-          Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-          if ( dx != null ) domains.add( dx );
-        }
-      }
-      if ( !domains.isEmpty() ) {
-        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
-        Domain<?> d = DomainHelper.combineDomains( domains, null, false );
-        return d;
-      }
-    }
-    SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
-    Domain<?> d = DomainHelper.combineDomains( minusPrefixOrSuffix.arguments,
-                                               fc, false );
-    return d;
+    return d3;
   }
 
 
@@ -4214,7 +4213,7 @@ public class Functions {
   public static String minusSuffix( String s1, String s2 ) {
     if (s1.endsWith( s2 )) {
       String s =  s1.substring( 0, s1.length() - s2.length() );
-      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
+//      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
       return s;
     } else {
       return s1;
@@ -4224,7 +4223,7 @@ public class Functions {
   public static String minusPrefix( String s1, String s2 ) {
     if (s1.startsWith( s2 )) {
       String s = s1.substring( s2.length() );
-      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
+//      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
       return s;
     } else {
       return s1;
@@ -6314,7 +6313,10 @@ public class Functions {
                                                InvocationTargetException,
                                                InstantiationException {
     Object result = null;
-    if ( o1 == null || o2 == null ) result = null;
+    if ( o1 == null || o2 == null ) {
+      result = TimeVaryingMap.doesInequalityHold( o1, o2, i );
+      //result = null;
+    }
     else if ( o1 instanceof String || o2 instanceof String ) {
       Number n1 = toNumber( o1, true );
       Number n2 = toNumber( o2, true );
@@ -6340,10 +6342,17 @@ public class Functions {
       Distribution<?> d1 = null;
       Distribution<?> d2 = null;
 
+      Boolean b1 = null;
+      Boolean b2 = null;
+
       Object arg1 = null;
       Object arg2 = null;
 
       Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+      if ( p1.first == null && p1.second == null ) {
+        Pair<Boolean, TimeVaryingMap<?>> pb1 = booleanOrTimeline( o1 );
+        if ( pb1 != null ) b1 = pb1.first;
+      }
       map1 = p1.second;
       if ( p1.first instanceof Distribution ) {
         d1 = (Distribution)p1.first;
@@ -6351,9 +6360,15 @@ public class Functions {
       } else if ( p1.first instanceof Number ) {
         r1 = (Number)p1.first;
         arg1 = map1 == null ? r1 : map1;
+      } else if ( b1 != null ) {
+        arg1 = b1;
       }
       if ( arg1 == null ) arg1 = o1;
       Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      if ( p2.first == null && p2.second == null ) {
+        Pair<Boolean, TimeVaryingMap<?>> pb2 = booleanOrTimeline( o2 );
+        if ( pb2 != null ) b2 = pb2.first;
+      }
       map2 = p2.second;
       if ( p2.first instanceof Distribution ) {
         d2 = (Distribution)p2.first;
@@ -6361,6 +6376,8 @@ public class Functions {
       } else if ( p2.first instanceof Number ) {
         r2 = (Number)p2.first;
         arg2 = map2 == null ? r2 : map2;
+      } else if ( b2 != null ) {
+        arg2 = b2;
       }
       if ( arg2 == null) arg2 = o2;
 
@@ -6375,8 +6392,26 @@ public class Functions {
           result = (V1)compare( arg1, map2, i );
         }
       }
+
+      // make boolean into number
+      if ( b1 != null || b2 != null ) {
+        // We assign 1 to true and 2 to false because Boolean domain has true < false.
+        if ( b1 != null && b2 != null ) {
+          arg1 = b1 ? 1 : 2;
+          arg2 = b2 ? 1 : 2;
+        } else {
+          // If only one of them is boolean, treat it like a bit: 0 for false, 1 for true.
+          if ( b1 != null ) {
+            arg1 = b1 ? 1 : 0;
+          }
+          if ( b2 != null ) {
+            arg2 = b2 ? 1 : 0;
+          }
+        }
+      }
+
       if ( result == null ) {
-        result = TimeVaryingMap.doesInequalityHold( r1, r2, i );
+        result = TimeVaryingMap.doesInequalityHold( arg1, arg2, i );
       }
     }
     if ( Debug.isOn() ) Debug.outln( o1 + " i " + o2 + " = " + result );
@@ -8168,8 +8203,8 @@ public class Functions {
 
       if ( result instanceof Collection ) {
         Collection< T1 > coll = (Collection< T1 >)result;
-        T1 t11 = get( coll, Random.global.nextInt( coll.size() ) );
-//        if ( t11 instanceof Domain ) {
+        T1 t11 = coll.isEmpty() ? null : get( coll, Random.global.nextInt( coll.size() ) );
+//        if ( t11 instanceof Domain ) {xs
 //          if ( !( Domain.class.isAssignableFrom( arg.getType() ) ) ) {
 //            return (T1)( (Domain)t11 ).getValue( true );
 //          }

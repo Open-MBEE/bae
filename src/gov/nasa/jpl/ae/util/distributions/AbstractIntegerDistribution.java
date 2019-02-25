@@ -46,7 +46,16 @@ public class AbstractIntegerDistribution<D extends IntegerDistribution> extends 
         return Integer.class;
     }
 
-//    @Override public Object getOwner() {
+    /**
+     * Set the value of the object that is wrapped by this object.
+     *
+     * @param value the new value to be wrapped
+     */
+    @Override public void setValue( Integer value ) {
+        // TODO -- throw exception?
+    }
+
+    //    @Override public Object getOwner() {
 //        return null;
 //    }
 //

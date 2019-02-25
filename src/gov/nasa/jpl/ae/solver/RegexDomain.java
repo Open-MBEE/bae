@@ -6,13 +6,12 @@ import gov.nasa.jpl.ae.event.Parameter;
 import gov.nasa.jpl.ae.event.StringParameter;
 import gov.nasa.jpl.ae.util.Math;
 import gov.nasa.jpl.mbee.util.*;
+import org.omg.CORBA.Any;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.*;
 
+import static javax.swing.text.html.HTML.Tag.TT;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -28,6 +27,13 @@ public class RegexDomain<T> implements Domain<List<T>> {
         public SimpleDomain(V v) {
             super( (Class<V>)null );
             add(v);
+        }
+        public SimpleDomain(ObjectDomain v) {
+            super( v );
+        }
+
+        @Override public ObjectDomain<V> clone() {
+            return new SimpleDomain<V>( this );
         }
     }
 
@@ -67,6 +73,10 @@ public class RegexDomain<T> implements Domain<List<T>> {
         public AnyDomain( Class<V> cls) {
             super( cls );
         }
+
+        @Override public AnyDomain<V> clone() {
+            return new AnyDomain(this.type);
+        }
     }
 
     protected static class ManyDomain<V> extends HasIdImpl implements Domain<List<V>> {
@@ -95,7 +105,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
             multiplicity = (IntegerDomain)d.multiplicity.clone();
             domainForEach = d.domainForEach.clone();
         }
-        @Override public Domain<List<V>> clone() {
+        @Override public ManyDomain<V> clone() {
             return new ManyDomain<V>( this );
         }
         @Override public long magnitude() {
@@ -311,28 +321,105 @@ public class RegexDomain<T> implements Domain<List<T>> {
 //    static final ObjectDomain begin = new ObjectDomain((Object)null);
 //    static final SimpleWrap end = new SimpleWrap();
 
-    protected static class OrDomain<V> extends RegexDomain<V> {
+    public static class OrDomain<V> extends RegexDomain<V> {
+        public OrDomain() {
+            super();
+        }
 
-        //        public OrDomain( ObjectDomain<V> objectDomain ) {
-//            super( objectDomain );
-//        }
-//        public OrDomain( Collection<V> objects ) {
-//            super( objects );
-//        }
+        public OrDomain( List<Domain<?>> seq ) {
+            super( seq );
+        }
+
+        public OrDomain( OrDomain<V> rd ) {
+            super( rd );
+        }
+
+        @Override public OrDomain<V> clone() {
+            return new OrDomain< V >( this );
+        }
+
+        @Override public long magnitude() {
+            long num = 0;
+            for ( Domain<?> d : seq ) {
+                num = Math.plus( num, d.magnitude() );
+                if ( Math.isInfinity( num ) ) {
+                    return num;
+                }
+                if ( num < 0 ) {
+                    Debug.error(true,
+                                getClass().getSimpleName() +
+                                ".magnitude() is negative! Returning 0.");
+                    return 0L;
+                }
+            }
+            return num;
+        }
+
+        // TODO -- redefine minusPrefix()?
+
+        @Override public boolean hasEmptyList() {
+            if ( seq == null ) {
+                return true;
+            }
+            // Just one has to have an empty list for OrDomain.
+            for ( Domain<?> d : seq ) {
+                if ( d instanceof RegexDomain && ((RegexDomain)d).hasEmptyList() ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // TODO -- override toValueList() and hasRegex()???
+
+        @Override public OrDomain<V> reverse() {
+            RegexDomain<V> rdr = super.reverse();
+            if ( rdr == null ) return null;  // TODO -- ERROR?
+            if ( rdr instanceof OrDomain ) {
+                return (OrDomain<V>)rdr;
+            }
+            Debug.error(true,
+                        "OrDomain.reverse(): expected OrDomain as result! Got " +
+                        rdr + ".  Returning original OrDomain without reversing." );
+            return this;
+        }
+
+        @Override public boolean restrictToValue( List<V> v ) {
+            boolean changed = false;
+            for ( Domain d : seq ) {
+                if ( d.restrictToValue( v ) ) {
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        @Override public boolean contains( List<V> vs ) {
+            for ( Domain alt : this.seq ) {
+                if ( alt.contains( vs ) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
-    List<Domain<T>> seq = new ArrayList<>();
+    public List<Domain<?>> seq = new ArrayList<Domain<?>>();
 
     public RegexDomain() {
     }
 
+    public RegexDomain(List<Domain<?>> seq) {
+        this.seq = seq;
+    }
+
     public RegexDomain( RegexDomain<T> rd ) {
-        for ( Domain<T> d : rd.seq ) {
+        for ( Domain<?> d : rd.seq ) {
             this.seq.add(d.clone());
         }
     }
 
-    @Override public Domain<List<T>> clone() {
+    @Override public RegexDomain<T> clone() {
         return new RegexDomain<T>(this);
     }
 
@@ -342,7 +429,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
      */
     @Override public long magnitude() {
         long num = 1;  // 1 instead of 0 since an empty seq matches an empty list
-        for ( Domain<T> d : seq ) {
+        for ( Domain<?> d : seq ) {
             num = Math.times( num, d.magnitude() );
             if (num == 0 || Math.isInfinity( num ) ) {
                 return num;
@@ -361,7 +448,17 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether the domain contains no values (including null)
      */
     @Override public boolean isEmpty() {
-        return magnitude() <= 0;
+        // An empty list is not an empty domain.
+        if ( seq.size() == 0 ) return false;
+
+        for ( Domain d : seq ) {
+            if ( seq.isEmpty() ) {
+                return true;
+            }
+        }
+        return false;
+
+        //return magnitude() <= 0; // This is too much computation.
     }
 
     /**
@@ -370,23 +467,82 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether any domain changed as a result of this call
      */
     @Override public boolean clearValues() {
-        if ( seq.size() > 0 ) {
-            seq.clear();
+        if ( isEmpty() ) {
+            return false;
+        }
+        seq.clear();
+        seq.add( new OrDomain() );
+        return true;
+    }
+
+    protected List<Domain<?>> toDomains( List<T> ts ) {
+        List<Domain<?>> domains = new ArrayList<Domain<?>>(ts.size());
+        for ( int i=0; i < ts.size(); ++i ) {
+            domains.add(new RegexDomain.SimpleDomain<>( ts.get(i) ) );
+        }
+        return domains;
+    }
+
+    public boolean hasEmptyList() {
+        if ( seq == null ) {
             return true;
         }
+        // All must be an empty list for the sequence to be empty.
+        for ( Domain<?> d : seq ) {
+            if ( !( d instanceof RegexDomain && ((RegexDomain)d).hasEmptyList()) ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    @Override public boolean contains( List<T> ts ) {
+        List<Domain<?>> domains = toDomains( ts );
+        RegexDomain<T> rd = new RegexDomain<T>(domains);
+        OrDomain<T> suffixes = minusPrefix( this, rd );
+        if ( suffixes == null ) return false;
+        if ( suffixes.hasEmptyList() ) return true;
         return false;
     }
 
-    @Override public boolean contains( List<T> ts ) {
-        // TODO -- HERE!!!!
-        return false;
+    public boolean contains( RegexDomain rd ) {
+        // TODO -- Should remove at least one of these at some point.
+        OrDomain<T> suffixes = minusPrefix( this, rd );
+        boolean contains1 = suffixes != null && suffixes.hasEmptyList();
+
+        Domain newRd = intersect( this, rd, null );
+        boolean contains2 = newRd != null && newRd.equals( rd );
+
+        if ( contains1 != contains2 ) {
+            Debug.error(true, false,
+                        "WARNING! contains() using minusPrefix() is " +
+                        contains1 + ", but using intersect() is " + contains2);
+        }
+
+        contains2 = false;  // ignore the intersect for now
+        return contains1 || contains2;
     }
 
     @Override public List<T> pickRandomValue() {
         List<T> v = new ArrayList<>();
-        for ( Domain<T> d : seq ) {
-            T t = d.pickRandomValue();
-            v.add(t);
+        for ( Domain<?> d : seq ) {
+            Object o = d.pickRandomValue();
+            if (o instanceof List && (getType() == null || !(getType().isInstance( o )))) {
+                v.addAll(Utils.asList((Collection)o, getType()));
+            } else {
+                Pair<Boolean, ?> p = ClassUtils.coerce( o, getType(), false );
+                T t = null;
+                if ( p != null && p.first != null && p.first ) {
+                    t = (T)p.second;
+                    v.add( t );
+                } else {
+                    try {
+                        t = (T)o;
+                        v.add( t );
+                    } catch (Throwable e) {}
+                }
+            }
         }
         return v;
     }
@@ -430,23 +586,440 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public boolean restrictToValue( List<T> v ) {
-        // TODO!!  HERE!!
+        if ( !contains(v) ) {
+            if ( magnitude() > 0 ) {
+                clearValues();
+                return true;
+            }
+            return false;
+        }
+        List<Domain<?>> domains = toDomains( v );
+        RegexDomain<T> rd = new RegexDomain<>( domains );
+        if ( !this.equals( rd ) ) {
+            this.seq = domains;
+            return true;
+        }
         return false;
     }
 
+    public static <TT> List<TT> toValueList( Domain<?> d ) {
+        // TODO -- what if an OrDomain has a single alternative?
+        if ( d instanceof SimpleDomain ) {
+            SimpleDomain sd = (SimpleDomain)d;
+            if ( sd.hasValue() ) {
+                return (List<TT>)Utils.newList( sd.getValue( false ));
+            }
+            return Utils.getEmptyList();
+        }
+        if ( d instanceof RegexDomain ) {
+            ArrayList<TT> values = new ArrayList<>();
+            RegexDomain<TT> rd = (RegexDomain)d;
+            for ( Domain<?> dd : rd.seq ) {
+                List<Object> list = toValueList( dd );
+                List<TT> list2 = (List<TT>)Utils.asList( list, rd.getType() );
+                values.addAll(list2);
+            }
+            return values;
+        }
+        return null;
+    }
+
+    public static boolean hasRegex( Domain<?> d ) {
+        if ( d instanceof OrDomain ) {
+            return true;
+        }
+        if ( !(d instanceof RegexDomain ) ) {
+            if ( d instanceof MultiDomain ) {
+                return true;
+            }
+            if ( d instanceof AnyDomain ) {
+                return true;
+            }
+            return false;
+        }
+        RegexDomain<?> rd = (RegexDomain)d;
+        for ( Domain subd : rd.seq ) {
+            if ( hasRegex( subd ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected static class SeenDomain extends RegexDomain<Domain> {
+        Domain d1 = null;
+        Domain d2 = null;
+//        public SeenDomain( ObjectDomain<Domain> objectDomain ) {
+//            super( objectDomain );
+//        }
+//        public SeenDomain( Collection<Domain> objects ) {
+//            super();
+//            addAll(objects);
+//        }
+        public SeenDomain( Domain d1, Domain d2, Domain result ) {
+            super();
+            if ( result != null ) {
+                seq.add(result);
+            }
+            this.d1 = d1;
+            this.d2 = d2;
+//            add( d1 );
+//            add( d2 );
+        }
+        public SeenDomain( SeenDomain sd ) {
+            super(sd);
+            this.d1 = sd.d1;
+            this.d2 = sd.d2;
+        }
+    }
+
+    // Pseudocode and notes by dlegg on intersecting RegexDomains
+    //
+    // Problem:
+    //  If both arguments of Intersect have a KleeneStar element, this can lead to loops in the matching / intersecting process.
+    //  This is both a problem of making sure that Intersect terminates and that it gives back an expression that appropriately captures this behavior.
+    //
+    //Proposed Solution:
+    //  When Intersect is called, it squirrels away its arguments in a "seen set".
+    //  When a loop is detected, return a special tag on output, with the arguments that are looping, and let the level that matches those arguments add the star to the patterns it gets back. For example:
+    //
+    //a = "(xyx)*x"
+    //b = "x(yxx)*"
+    //Solution: "(xyx)*x"
+    //Call stack:
+    //Intersect("(xyx)*x", "x(yxx)*")  - Refer to this as Call 1
+    //  Intersect("x", "x(yxx)*")
+    //    Intersect("", "(yxx)*")
+    //      Intersect("(yxx)*", "")
+    //        Intersect("", "")
+    //          ""
+    //        Intersect("yxx(yxx)*", "")
+    //          No solution
+    //        ""   (computed as alternation of "" alone)
+    //      ""
+    //    "x"
+    //  Intersect("xyx(xyx)*x", "x(yxx)*")
+    //    Intersect("yx(xyx)*x", "(yxx)*")
+    //      Intersect("(yxx)*", "yx(xyx)*x")
+    //        Intersect("", "yx(xyx)*x")
+    //          No solution
+    //        No solution
+    //      Intersect("yxx(yxx)*", "yx(xyx)*x")
+    //        Intersect("xx(yxx)*", "x(xyx)*x")
+    //          Intersect("x(yxx)*", "(xyx)*x")
+    //            Intersect("(xyx)*x", "x(yxx)*")
+    //              "" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //            "" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //          "x" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //        "yx" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //      "yx" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //    "xyx" - Repeat on ("(xyx)*x", "x(yxx)*")
+    //  Call 1 notes that "(xyx)*" is pattern to consume its initial (xyx)* KleeneStar token.
+    //  From this, deduces that "(xyx)*x" is final answer, by appending initial "skip *" solution to "use *" solution
+    //
+    //
+    //Intersect(RDS a, RDS b, LinkedHashSet<Tuple<RDS, RDS>> seen) {
+    //    // recursion base cases:
+    //    // there might be a way to collapse these to make them more elegant
+    //    if (a is "" && b is "") {
+    //        return "";
+    //    } else if (head(a) exists and is KleeneStar) {
+    //        return "";
+    //    } else if (head(b) exists and is KleeneStar) {
+    //        return "";
+    //    }
+    //
+    //    if ( (a, b) in seen ) {
+    //        return "" tagged with (a, b);
+    //    }
+    //
+    //    output = empty Alternation;
+    //
+    //    ha = head(a); // first element of a
+    //    hb = head(b); // first element of b
+    //
+    //    if (ha is Literal and hb is Literal) {
+    //        if (ha == hb) {
+    //            output.addAll(ha + each of Intersect(tail(a), tail(b)));
+    //        }
+    //    } else if (ha is Literal) {
+    //        // break symmetry, by only "working" on argument a
+    //        return Intersect(b, a);
+    //    } else if (ha is Alternation) {
+    //        // expand alternations:
+    //        for (a_alt in ha) {
+    //            output.addAll(Intersect(a_alt + tail(a), b);
+    //        }
+    //    } else if (ha is KleeneStar) {
+    //        // skip repeated content:
+    //        withoutRepeat = Intersect(tail(a), b);
+    //        output.addAll(withoutRepeat);
+    //        // use at least once:
+    //        withRepeat = Intersect(ha.innerElement + a, b);
+    //        for ( elem in withRepeat ) {
+    //            if ( elem is tagged with (a,b) ) {
+    //                output.add(KleeneStar(elem) + withoutRepeat);
+    //            } else {
+    //                output.add(elem);
+    //            }
+    //        }
+    //        // NOTE: there's redundancy here when we add a tagged element, since the withoutRepeat case is represented explicitly and implicitly when the KleeneStar(elem) part matches ""
+    //    }
+    //
+    //    // Catch redundancy, like specifying "x|(xyx)*x" instead of "(xyx)*x"
+    //    output.simplify();
+    //
+    //    return output;
+    //}
     /**
-     * Restrict the object's domain to largest subset that is included by the
+     * Restrict this domain to largest subset that is included by the
      * input domain. This will be the empty domain if there is no intersection
-     * between the object's prior domain and the input domain.
+     * between this domain and the input domain.
+     *
+     * @param domain
+     * @return whether the domain of any object changed as a result of this call
+     */
+    public static Domain intersect( RegexDomain domain1, Domain domain2,
+                                    TreeMap< Domain, Map< Domain, Domain> > seen ) {
+        // check for recursion
+        if ( seen == null ) {
+            seen = new TreeMap< Domain, Map< Domain, Domain> >(CompareUtils.GenericComparator.instance());
+        } else if ( seen.containsKey( domain1 ) ) {
+            Map<Domain, Domain> s = seen.get( domain1 );
+            if ( s != null && s.containsKey( domain2 ) ) {
+                Domain result = s.get( domain2 );
+                return new SeenDomain(domain1, domain2, result);
+            }
+        }
+        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(CompareUtils.GenericComparator.instance());
+        tm.put(domain2, null);
+        seen.put(domain1, tm);
+
+
+        if ( domain1 == null || domain2 == null ) return null;
+
+        OrDomain alternation = new OrDomain();
+
+        tm.put(domain2, alternation);
+        // FIXME? -- empty might mean empty list, which is something.
+        if ( domain1.isEmpty() ) return alternation;
+        if ( domain2.isEmpty() ) return alternation;
+
+//        // do easy stuff
+//        if ( !hasRegex( domain2 ) ) {
+//            List values = toValueList( domain2 );
+//            RegexDomain result = domain1.clone();
+//            result.restrictToValue( values );
+//            tm.put(domain2, result);
+//            return result;
+//        }
+
+        // head and tail of domain1
+        Domain head1 = domain1 instanceof OrDomain ? domain1 :
+                       (Domain)domain1.seq.get( 0 );
+        RegexDomain tail1 = null;
+        if ( domain1.seq.size() > 1 ) {
+            tail1 = domain1 instanceof OrDomain ? null :
+                    new RegexDomain<>( domain1.seq.subList( 1,domain1.seq.size() ) );
+        }
+
+        // head and tail of domain2
+        Domain head2 = domain2;
+        Domain tail2 = null;
+        RegexDomain prd = null;
+        if ( domain2 instanceof RegexDomain && !(domain2 instanceof OrDomain) ) {
+            prd = (RegexDomain)domain2;
+            if ( prd.seq.size() > 0 ) {
+                head2 = (Domain)prd.seq.get( 0 );
+                if ( prd.seq.size() > 1 ) {
+                    tail2 = new RegexDomain( prd.seq.subList( 1, prd.seq.size() ) );
+                }
+            }
+        }
+
+        if ( head1 == null || head2 == null ) {
+            Debug.error(true, "RegexDomain.intersect(): unexpected null values!");
+            tm.put(domain2, null);
+            return null;
+        }
+
+        if ( head1 instanceof SimpleDomain && head2 instanceof SimpleDomain ) {
+            if ( Utils.valuesEqual( head1.getValue( false ), head2.getValue( false ) ) ) {
+                OrDomain result = doTail(head1, tail1, tail2, seen);
+                alternation.seq.addAll( result.seq );
+                return alternation;
+            }
+            OrDomain od = new OrDomain();
+            tm.put(domain2, od);
+            return od;
+        }
+
+        if ( head1 instanceof SimpleDomain ) {
+            // break symmetry, by only "working" on domain1
+            RegexDomain newDomain2 = makeAndDomain(domain2);
+            Domain i = intersect( newDomain2, domain1, seen );
+            tm.put(domain2, i);
+            return i;
+        }
+
+        if ( head1 instanceof AnyDomain ) {
+            if ( head2 instanceof AnyDomain || head2 instanceof SimpleDomain) {
+                OrDomain result = doTail(head2, tail1, tail2, seen);
+                alternation.seq.addAll( result.seq );
+                return alternation;
+            } else {
+                RegexDomain newDomain2 = makeAndDomain(domain2);
+                Domain i = intersect( newDomain2, domain1, seen );
+                tm.put(domain2, i);
+                return i;
+            }
+        }
+
+        if ( head1 instanceof OrDomain ) {
+            OrDomain od1 = (OrDomain)head1;
+            for ( Object o : od1.seq ) {
+                if ( o instanceof Domain ) {
+                    Domain d = (Domain)o;
+                    RegexDomain newDomain1 = concat( d, tail1 );
+                    Domain i = intersect( newDomain1, domain2, seen );
+//                    if ( i instanceof SeenDomain ) {
+//                        i = seen.get(newDomain1).get(domain2);
+//                    }
+                    if ( i != null ) {
+                        alternation.seq.add( i );
+                    }
+                } else {
+                    Debug.error(true, "RegexDomain.intersect(): unexpected non-domain! " + o);
+                }
+            }
+        }
+
+        if ( head1 instanceof ManyDomain ) {
+            // skip repeated content
+            ManyDomain md1 = (ManyDomain)head1;
+            Domain withoutRepeat = intersect( tail1, domain2, seen );
+//            if ( withoutRepeat instanceof SeenDomain ) {
+//                withoutRepeat = seen.get(tail1).get(domain2);
+//            }
+            if ( withoutRepeat instanceof OrDomain ) {
+                OrDomain od = (OrDomain)withoutRepeat;
+                for ( Object o : od.seq ) {
+                    if ( o instanceof Domain ) {
+                        alternation.seq.add( (Domain)o );
+                    }
+                }
+            } else {
+                Debug.error(true, "RegexDomain.intersect() no case for domain: " + withoutRepeat);
+            }
+
+            // use at least once
+            RegexDomain newDomain1 = concat( md1.domainForEach, domain1 );
+            Domain withRepeat = intersect( newDomain1, domain2, seen );
+//            if ( withRepeat instanceof SeenDomain ) {
+//                withRepeat = seen.get(newDomain1).get(domain2);
+//            }
+            if ( withRepeat instanceof OrDomain ) {
+                OrDomain od = (OrDomain)withoutRepeat;
+                for ( Object o : od.seq ) {
+                    // if o is tagged with (domain1, domain2) then
+                    //   alternation.add(ManyDomain(o) + withoutRepeat);
+                    // else
+                    //   alternation.add(o)
+                    if ( o instanceof Domain ) {
+                        boolean tagged = false;
+                        if ( o instanceof SeenDomain ) {
+                            SeenDomain sd = (SeenDomain)o;
+                            if ( Utils.valuesEqual( sd.d1, domain1 ) && Utils.valuesEqual( sd.d2, domain2 ) ) {
+                                tagged = true;
+                                ManyDomain mdo = new ManyDomain(sd);
+                                RegexDomain alt = concat( mdo, withoutRepeat );
+                                if ( alt != null) {
+                                    alternation.seq.add( alt );
+                                }
+                            }
+                        }
+                        if (!tagged) {
+                            alternation.seq.add( (Domain)o );
+                        }
+                    }
+                }
+            }
+
+        }
+
+        return alternation;
+    }
+
+    public static RegexDomain makeAndDomain( Domain domain ) {
+        if ( domain instanceof RegexDomain && !(domain instanceof OrDomain ) ) {
+            return (RegexDomain)domain;
+        }
+        RegexDomain newDomain = new RegexDomain();
+        newDomain.seq.add(domain);
+        return newDomain;
+    }
+
+    protected static OrDomain doTail( Domain head1, RegexDomain tail1, Domain tail2, TreeMap<Domain, Map<Domain, Domain>> seen ) {
+        OrDomain alternation = new OrDomain();
+        Domain i = intersect( tail1, tail2, seen );
+        //                if ( i instanceof SeenDomain ) {
+        //                    i = seen.get(tail1).get(tail2);
+        //                }
+        if ( i instanceof OrDomain ) {
+            OrDomain od = (OrDomain)i;
+            for ( Object o : od.seq ) {
+                if ( o instanceof Domain ) {
+                    RegexDomain ho = concat( head1, (Domain)o );
+                    if ( ho != null ) {
+                        alternation.seq.add( ho );
+                    }
+                } else {
+                    Debug.error(true, "RegexDomain.intersect(): unexpected non-domain! " + o);
+                }
+            }
+        } else {
+            RegexDomain hi = concat( head1, i );
+            if ( hi != null ) {
+                alternation.seq.add( hi );
+            }
+        }
+        return alternation;
+    }
+
+    /**
+     * Restrict this domain to largest subset that is included by the
+     * input domain. This will be the empty domain if there is no intersection
+     * between this domain and the input domain.
      *
      * @param domain
      * @return whether the domain of any object changed as a result of this call
      */
     @Override public <TT> boolean restrictTo( Domain<TT> domain ) {
+        // First try a shortcut.
+        if ( !hasRegex( domain ) ) {
+            List<T> values = toValueList( domain );
+            if ( !contains( values ) ) {
+                if ( !isEmpty() ) {
+                    clearValues();
+                    return true;
+                }
+                return false;
+            }
+            // Else, is contained, so we need to intersect the two
+        }
+
+        // See if they happen to be the same.
+        if ( this.equals( domain ) ) {
+            return false;
+        }
+
+        // Do the complicated intersection
+
+
         // TODO!!  HERE!!
+        Debug.error(true, "RegexDomain.restrictTo(): not fully implemented!");
         return false;
     }
-
     /**
      * Exclude elements in the input domain from this domain.
      *
@@ -455,77 +1028,370 @@ public class RegexDomain<T> implements Domain<List<T>> {
      */
     @Override public <TT> Domain<TT> subtract( Domain<TT> domain ) {
         // TODO
+        Debug.error(true, "RegexDomain.subtract(): not yet implemented!");
         return null;
     }
 
-    public <TT> Domain<TT> minusPrefix( RegexDomain<TT> domain ) {
-        // HERE!!
+    /**
+     * Reverse the order of the list of T elements in seq.
+     * @return a new RegexDomain with the elements reversed
+     */
+    public RegexDomain<T> reverse() {
+        RegexDomain<T> rdr = this.clone();
+        Collections.reverse( rdr.seq );
+        // now reverse any nested lists
+        for ( Domain<?> d : rdr.seq ) {
+            if ( d instanceof RegexDomain ) {
+                ((RegexDomain)d).reverse();
+            }
+        }
+        return rdr;
     }
 
-    //
-
-    // Image functions (given domains, compute output domain):
-    //    Concatenate(RDS1, RDS2) = RDS(RDS1.seq, RDS2.seq)
-    //        Concatenate the elements in each domain's seq
-    //
-    //    MinusPrefix(RDS_result, RDS_prefix) /* check parameter ordering */   // MinusPrefix("abc", "a") = "bc"
-    //        Basically, match RDS_prefix against RDS_result, and return an alternation (OrDomain) of the suffix resulting by subtracting each prefix. Pseudocode:
-    //
-    //        // I'm calling SimpleDomain, OrDomain, or ManyDomain a "RegexDomainElement"
-    //
-    //        if (RDS_prefix is empty) {
-    //            return RDS_result;
-    //        }
-    //
-    //        RegexDomainElement result_elem = first elem of RDS_result;
-    //        RegexDomainElement prefix_elem = first elem of RDS_prefix;
-    //
-    //        switch (type_of(prefix_elem)) {
-    //            case Literal:
-    //                switch (type_of(result_elem)) {
-    //                    case Literal:
-    //                        if (prefix_elem == result_elem) {
-    //                            collect MinusPrefix(tail of RDS_result, tail of RDS_prefix);
-    //                        }
-    //                    case Alternation:    (x | xy | xyz) ~ "xyfoo"
-    //                        if (result_elem.contains(prefix_elem)) {
-    //                            collect MinusPrefix(tail of RDS_result, tail of RDS_prefix);
-    //                        }
-    //                    case KleeneStar:   "x*x" ~ "xxx"
-    //                        // can either match or not match prefix
-    //                        collect MinusPrefix(tail of RDS_result, RDS_prefix);
-    //                        if (result_elem matches prefix_elem) {
-    //                            also collect MinusPrefix(RDS_result, tail of RDS_prefix);
-    //                            // note that this captures the case when RDS_prefix is the last character matched, when the next level has a branch that doesn't match the KleeneStar against prefix
-    //                        }
-    //                }
-    //
-    //            case Alternation:
-    //                switch (type_of(result_elem)) {
-    //                    case Literal:
-    //                        // symmetric with above
-    //                    case Alternation:
-    //                        if (prefix_elem intersects result_elem) {
-    //                            collect MinusPrefix(tail of RDS_result, tail of RDS_prefix);
-    //                        }
-    //                    case KleeneStar:
-    //                        // can either match or not match prefix
-    //                        collect MinusPrefix(tail of RDS_result, RDS_prefix);
-    //                        if (result_elem matches any in prefix_elem)) {
-    //                            also collect MinusPrefix(RDS_result, tail of RDS_prefix);
-    //                        }
-    //                }
-    //
-    //            case KleeneStar:
-    //                // all cases are symmetric with one above
-    //                switch (type_of(result_elem)) {
-    //                    case Literal:
-    //                    case Alternation:
-    //                    case KleeneStar:
-    //                }
-    //        }
-    public <TT> Domain<TT> minusPrefix( Domain<TT> domain ) {
+    public static <TT> OrDomain<TT> minusSuffix( RegexDomain<TT> rd, Domain<?> suffix ) {
+//    public static <TT> RegexDomain<TT> minusSuffix( RegexDomain<TT> rd, Domain<TT> suffix ) {
+        // Reverse both args, pass to minusPrefix, reverse the result.
+        RegexDomain<TT> rdr = rd.reverse();
+        Domain<?> rSuffix = suffix;
+        if ( suffix instanceof RegexDomain ) {
+            rSuffix = (Domain<TT>)( (RegexDomain<TT>)suffix ).reverse();
+        }
+        OrDomain<TT> result = minusPrefix( rdr, rSuffix );
+        if ( result != null ) result = result.reverse();
         return null;
+    }
+
+    @Override public boolean equals( Object obj ) {
+        if ( obj instanceof RegexDomain ) {
+            // REVIEW -- could be smarter; for instance (xy)z should equals x(yz)
+            int comp = CompareUtils.compare( seq, ((RegexDomain)obj).seq );
+            return comp == 0;
+        }
+        return super.equals( obj );
+    }
+
+    //    MinusPrefix(RDS result, RDS prefix) {
+    //
+    //        if (prefix is "") {
+    //
+    //            return {result};
+    //
+    //        }
+    //
+    //
+    //
+    //        // output should act a bit like a set, discarding duplicates.
+    //
+    //        Alternation output = empty alternation;
+    //
+    //
+    //
+    //        hr = head(result); // first element of result pattern
+    //
+    //        hp = head(prefix); // first element of prefix pattern
+    //
+    //
+    //
+    //        if (hp is Literal and hr is Literal) {
+    //
+    //            if (hp == hr) {
+    //
+    //                output.addAll(MinusPrefix(tail(result), tail(prefix)));
+    //
+    //            }
+    //
+    //        } else if (hr is Alternation) {
+    //
+    //            // expand hr and exhaustively search possibilities
+    //
+    //            for (alt in hr) {
+    //
+    //                output.addAll(MinusPrefix(alt + tail(result), tail(prefix)));
+    //
+    //            }
+    //
+    //        } else if (hp is Alternation) {
+    //
+    //            // expand hp and exhaustively search possibilities
+    //
+    //            for (alt in hp) {
+    //
+    //                output.addAll(MinusPrefix(tail(result), alt + tail(prefix)));
+    //
+    //            }
+    //
+    //        } else if (hr is KleeneStar) {
+    //
+    //            // Compute this by matching the star against 0 or more elements of prefix,
+    //
+    //            //   then using what's left of the prefix to match back against the result.
+    //
+    //            for (suffix in MinusPrefix(prefix, hr)) { // note the order of arguments; this is intentional
+    //
+    //                output.addAll(MinusPrefix(tail(result), suffix));
+    //
+    //            }
+    //
+    //        } else if (hp is KleeneStar) {
+    //
+    //            output.addAll(MinusPrefix(result, tail(prefix))); // take 0 copies
+    //
+    //            // otherwise, match 1 copy, then match each resulting suffix against the full prefix
+    //
+    //            for (suffix in MinusPrefix(result, hp.innerElement)) {
+    //
+    //                output.addAll(MinusPrefix(suffix, prefix));
+    //
+    //            }
+    //
+    //        } // else we're in a case we don't know how to handle, like groups. Whoops.
+    //
+    //
+    //
+    //        // may want to apply some kind of "simplify" to output at this point
+    //
+    //
+    //
+    //        return output;
+    //
+    //    }
+    public static <TT> OrDomain<TT> minusPrefix( RegexDomain<TT> rd, Domain<?> prefix ) {
+        if ( rd == null ) return null;
+
+        OrDomain<TT> alternation = new OrDomain<>();
+
+        if ( prefix == null || isEmptyList(prefix) ) {
+            return new OrDomain<>( Utils.newList( rd.clone() ) );
+        }
+
+        if ( prefix.isEmpty() ) {
+            return alternation;
+        }
+
+        // TODO -- make like a set
+        // output should act a bit like a set, discarding duplicates.
+        //RegexDomain<TT> result = new RegexDomain<>();
+
+        if ( rd.isEmpty() ) return alternation;
+
+        if ( isEmptyList(rd) ) {
+            if ( isEmptyList( prefix ) ) {
+                alternation.seq.add(rd.clone());
+            }
+            return alternation;
+        }
+
+        // head and tail of rd
+        Domain<?> hr = rd instanceof OrDomain ? rd : rd.seq.get( 0 );
+        RegexDomain<TT> tr = null;
+        tr = rd instanceof OrDomain ? null :
+             new RegexDomain<>( rd.seq.subList( 1, rd.seq.size() ) );
+
+        // head and tail of prefix
+        Domain<?> hp = prefix;
+        Domain<?> tp = null;
+        RegexDomain<TT> prd = null;
+        if ( prefix instanceof RegexDomain && !(prefix instanceof OrDomain) ) {
+            prd = (RegexDomain<TT>)prefix;
+            hp = prd.seq.get( 0 );
+            tp = new RegexDomain<TT>( prd.seq.subList( 1, prd.seq.size() ) );
+        }
+
+        if ( hr instanceof SimpleDomain && hp instanceof SimpleDomain ) {
+            if ( Utils.valuesEqual( hp.getValue( false ), hr.getValue( false ) ) ) {
+                OrDomain<TT> p = minusPrefix( tr, tp );
+                return p;
+            }
+            return null;
+        }
+
+        if ( hr instanceof AnyDomain ) {
+            if ( hp instanceof AnyDomain || hp instanceof SimpleDomain ) {
+                OrDomain<TT> p = minusPrefix( tr, tp );
+                return p;
+            }
+        } else if ( hp instanceof AnyDomain ) {
+            if ( hr instanceof SimpleDomain ) {
+                OrDomain<TT> p = minusPrefix( tr, tp );
+                return p;
+            }
+        }
+
+        if ( hr instanceof OrDomain ) {
+            // Expand alternation hr and exhaustively search possibilities.
+            for ( Object d : ((OrDomain)hr).seq ) { // Why does the compiler not let me declare d as a Domain????!
+                if ( d == null ) continue;
+                if ( d instanceof Domain ) {
+                    OrDomain<TT> a = minusPrefix( concat( (Domain)d, tr ), tp );
+                    if ( a != null ) {
+                        alternation.seq.addAll( a.seq );
+                    }
+                } else {
+                    Debug.error(true,
+                                "minusPrefix(): non-Domain in RegexDomain.seq!!! " +
+                                d.getClass().getSimpleName() + " : " + d);
+                }
+            }
+        } else if ( hp instanceof OrDomain ) {
+            // Expand alternation hr and exhaustively search possibilities.
+            for ( Object d : ((OrDomain)hp).seq ) { // Why does the compiler not let me declare d as a Domain????!
+                if ( d == null ) continue;
+                if ( d instanceof Domain ) {
+                    OrDomain<TT> a = minusPrefix( tr, concat( (Domain)d, tp ) );
+                    if ( a != null ) {
+                        alternation.seq.addAll( a.seq );
+                    }
+                } else {
+                    Debug.error(true,
+                                "minusPrefix(): non-Domain in RegexDomain.seq!!! " +
+                                d.getClass().getSimpleName() + " : " + d);
+                }
+            }
+        } else if ( hr instanceof ManyDomain ) {
+            // Compute this by matching the star against 0 or more elements of prefix,
+            // then using what's left of the prefix to match back against the result.
+            RegexDomain<TT> regexPrefix = null;
+            if ( prefix instanceof RegexDomain ) {
+                regexPrefix = (RegexDomain<TT>)prefix;
+            } else {
+                regexPrefix = new RegexDomain<>( Utils.newList( prefix ) );
+            }
+            OrDomain<TT> suffixes = minusPrefix( regexPrefix, hr );
+            for ( Domain<?> suffix : suffixes.seq ) {
+                OrDomain<TT> alts = minusPrefix( tr, suffix );
+                if ( alts != null ) {
+                    alternation.seq.addAll( alts.seq );
+                }
+            }
+        } else if ( hp instanceof ManyDomain ) {
+            // take 0 copies
+            OrDomain<TT> alts = minusPrefix( rd, tp );
+            if ( alts != null ) {
+                alternation.seq.addAll( alts.seq );
+            }
+
+            // otherwise, match 1 copy, then match each resulting suffix against the full prefix
+            OrDomain<TT> suffixes = minusPrefix( rd, ( (ManyDomain)hp ).domainForEach );
+            for ( Domain<?> suffix : suffixes.seq ) {
+                RegexDomain<TT> regexSuffix = null;
+                if ( prefix instanceof RegexDomain ) {
+                    regexSuffix = (RegexDomain<TT>)suffix;
+                } else {
+                    regexSuffix = new RegexDomain<>( Utils.newList( suffix ) );
+                }
+                OrDomain<TT> malts = minusPrefix( regexSuffix, prefix );
+                if ( malts != null ) {
+                    alternation.seq.addAll( malts.seq );
+                }
+            }
+        } else {
+            // else we're in a case we don't know how to handle, like groups. Whoops.
+            Debug.error(true, "Unexpected arguments: minusPrefix(" + rd + ", " + prefix + ")" );
+        }
+
+
+        return alternation;
+    }
+
+    public static boolean isEmptyList( Domain d ) {
+        if ( d == null ) return false;
+        if ( d instanceof SimpleDomain ) {
+            return false;
+        }
+        if ( d instanceof AnyDomain ) {
+            return false;
+        }
+        if ( d instanceof ManyDomain ) {
+            return isEmptyList( ( (ManyDomain)d ).domainForEach );
+        }
+        if ( d instanceof OrDomain ) {
+            OrDomain<?> od = (OrDomain<?>)d;
+            if (od.seq.isEmpty() ) {
+                return false;
+            }
+            for ( Domain dd : od.seq ) {
+                if ( !isEmptyList( dd ) ) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if ( d instanceof RegexDomain ) {
+            for ( Domain dd : ((RegexDomain<?>)d).seq ) {
+                if ( !isEmptyList( dd ) ) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // TODO -- You should really put this back in.
+//    public boolean isEmptyList() {
+//        if ( seq.isEmpty() ) return true;
+//        for ( Domain d : seq ) {
+//            if ( d instanceof  RegexDomain ) {
+//                if ( !( (RegexDomain)d ).isEmptyList() ) {
+//                    return false;
+//                }
+//            } else if (d instanceof ManyDomain ) {
+//                if ( ( (ManyDomain)d ).domainForEach )
+//            } else {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
+
+    /**
+     * Combine the two domains.  If a domain is a RegexDomain, the seq list menber
+     * will join with the other domain to form a new seq list for the new RegexDomain returned.
+     *
+     * @param d1 the first domain to be joied
+     * @param d2 the second domain to be joied
+     * @param <TT> the type of list item that the RegexDomain matches against
+     * @return a RegexDomain joining the domains at the level of the r.seq for any RegexDomain argument, r.
+     */
+    public static <TT> RegexDomain<TT> concat(Domain<?> d1, Domain<?> d2) {
+        return concat(d1, d2, null);
+
+    }
+
+    /**
+     * Combine the two domains.  If a domain is a RegexDomain, the seq list menber
+     * will join with the other domain to form a new seq list for the new RegexDomain returned.
+     *
+     * @param d1 the first domain to be joied
+     * @param d2 the second domain to be joied
+     * @param cls the list item Class that the RegexDomain matches against
+     * @param <TT> the type of list item that the RegexDomain matches against
+     * @return a RegexDomain joining the domains at the level of the r.seq for any RegexDomain argument, r.
+     */
+    public static <TT> RegexDomain<TT> concat(Domain<?> d1, Domain<?> d2, Class<TT> cls) {
+        // TODO -- Check cls or remove the parameter.
+        if ( d1 == null && d2 == null ) return null;
+        List<Domain<?>> seq1 = null;
+        List<Domain<?>> seq2 = null;
+        if ( d1 != null ) {
+            if ( d1 instanceof RegexDomain ) {
+                seq1 = ( (RegexDomain<?>)d1 ).seq;
+            } else {
+                seq1 = Utils.newList(d1);
+            }
+        }
+        if ( d2 != null ) {
+            if ( d2 instanceof RegexDomain ) {
+                seq2 = ( (RegexDomain<?>)d2 ).seq;
+            } else {
+                seq2 = Utils.newList(d2);
+            }
+        }
+        if ( seq1 == null ) return new RegexDomain<TT>( seq2 );
+        if ( seq2 == null ) return new RegexDomain<TT>( seq1 );
+        RegexDomain<TT> r = new RegexDomain<TT>( seq1 );
+        r.seq.addAll( seq2 );
+        return r;
     }
 
     @Override public <T> T evaluate( Class<T> cls, boolean propagate ) {
@@ -569,7 +1435,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
      * object or if there are multiple objects wrapped.
      */
     @Override public List<T> getValue( boolean propagate ) {
-        return null;
+        return toValueList( this );
     }
 
     /**
@@ -599,6 +1465,13 @@ public class RegexDomain<T> implements Domain<List<T>> {
      */
     @Override public boolean hasMultipleValues() {
         return false;
+    }
+
+    @Override public String toString() {
+        String s = MoreToString.Helper.toString(seq,false,true,null,
+                                               null,"[",",","]",
+                                                true);
+        return s;
     }
 
     public static void main( String args[] ) {
@@ -674,20 +1547,21 @@ public class RegexDomain<T> implements Domain<List<T>> {
     // var x : Int
     // var y : Int
     // var z : Int
-    // req x in [1..5]
-    // req y in [1..5]
+    // req x in [1..3]
+    // req y in [7..10]
     // req z in [7..9]
     // req x + y = z  // <-- restrict to {true}
+    // req x * y > z  // <-- restrict to {true}
 
     // restrict x + y's domain to z's domain [7..9]
     // how does this restrict x?
-    // restrict x to [7..9] - [1..5]
-    // x is retricted to [2..8]~[1..5] = [2..5]
+    // restrict x to [7..9] - [3..4]
+    // x is retricted to [3..6]~[1..5] = [3..5]
     // how does this restrict y?
-    // restrict y to [7..9] - [1..5]
-    // y is retricted to [2..8]~[1..5] = [2..5]
+    // restrict y to [7..9] - [3..5]
+    // y is retricted to [2..6]~[3..4] = [3..4]
 
-    // restrict z's domain to x+y's domain = [4..10]
+    // restrict z's domain to x+y's domain = [6..9]
     // restrict z' domain to [7..9]
 
 

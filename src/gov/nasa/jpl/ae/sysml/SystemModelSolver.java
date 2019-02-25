@@ -262,6 +262,10 @@ public class SystemModelSolver extends HasIdImpl implements Solver, Satisfiable,
     return solver != null;
   }
 
+  @Override public boolean hasMultipleValues() {
+    return false;
+  }
+
   @Override
   public void setValue( Solver value ) {
     solver = value;

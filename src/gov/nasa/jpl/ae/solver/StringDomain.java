@@ -331,12 +331,23 @@ public class StringDomain extends AbstractRangeDomain<String> {
 //	            this.lowerBound = upperBound;
 //	            this.upperBound = lowerBound;
 //            } else {
-                this.lowerBound = lowerBound;
-                this.upperBound = upperBound;
+        boolean changed = false;
+        if ( !equals( this.lowerBound, lowerBound ) ) {
+            this.lowerBound = lowerBound;
+            changed = true;
+        }
+        if ( !equals( this.upperBound, upperBound ) ) {
+            this.upperBound = upperBound;
+            changed = true;
+        }
+
 //            }
+        if ( !changed && (!lowerIncluded || !upperIncluded) && (!equals(lowerBound, upperBound) || (!lowerIncluded && !upperIncluded)) ) {
+            changed = true;
+        }
             lowerIncluded = true;
             upperIncluded = true;
-            return true;
+            return changed;
 //        }
 //        return super.setBounds( lowerBound, upperBound );
     }

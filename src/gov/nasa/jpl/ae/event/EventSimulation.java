@@ -230,10 +230,17 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         }
         Timepoint startTime = event.getStartTime();
         if ( startTime == null || startTime.getValueNoPropagate() == null ) continue;
+        if ( startTime.getDate().after( Timepoint.getHorizon() ) ) {
+          continue;
+        }
+        if ( startTime == null || startTime.getValueNoPropagate() == null ) continue;
         String startDate = startTime.toTimestamp( dateFormat, cal );
         if ( startDate == null ) continue;
         Timepoint endTime = event.getEndTime();
         if ( endTime == null || endTime.getValueNoPropagate() == null ) continue;
+        if ( endTime.getDate().after( Timepoint.getHorizon() ) ) {
+          endTime.setValue( Timepoint.getHorizon() );
+        }
         String endDate = endTime.toTimestamp( dateFormat, cal );
         if ( endDate == null ) continue;
         // Don't want to end the file with a newline because of a bug in TMS/MPSWeb.

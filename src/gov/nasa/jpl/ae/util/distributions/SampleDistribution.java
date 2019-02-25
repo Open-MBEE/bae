@@ -293,6 +293,17 @@ public class SampleDistribution<T> extends AbstractDistribution<T> {
         return type;
     }
 
+    /**
+     * Set the value of the object that is wrapped by this object.
+     *
+     * @param value the new value to be wrapped
+     */
+    @Override public void setValue( T value ) {
+        this.samples.clear();
+        this.combinedValues.clear();
+        this.samples.add( value, new SimpleSample<T>( value, 1.0 ) );
+    }
+
     public void toFile( String fileName ) {
         StringBuilder sb =new StringBuilder();
         if ( recordCombinedValues ) {

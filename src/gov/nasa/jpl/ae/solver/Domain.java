@@ -52,9 +52,9 @@ public interface Domain< T > extends Cloneable, HasId<Integer>, Wraps< T >, Eval
   public boolean restrictToValue( T v );
 
   /**
-   * Restrict the object's domain to largest subset that is included by the
+   * Restrict this domain to largest subset that is included by the
    * input domain. This will be the empty domain if there is no intersection
-   * between the object's prior domain and the input domain.
+   * between this domain and the input domain.
    * 
    * @param domain
    * @return whether the domain of any object changed as a result of this call
