@@ -1327,6 +1327,24 @@ public class Functions {
     }
 
     @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      if ( !argumentsAreString( this.returnValue ) ) {
+        return super.calculateDomain( propagate, seen );
+      }
+      return calculateDomainForStrings( propagate, seen );
+    }
+
+    public Domain<?> calculateDomainForStrings( boolean propagate, Set<HasDomain> seen ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object arg = arguments.get( 0 );
+      Object otherArg = arguments.get( 1 );
+      Domain<?> d1 = DomainHelper.getDomain( arg );
+      Domain<?> d2 = DomainHelper.getDomain( otherArg );
+      RegexDomainString rds = new RegexDomainString(Utils.newList(d1, d2));
+      return rds;
+    }
+
+    @Override
     public // < T1 extends Comparable< ? super T1 > >
     FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
       if ( arguments == null || arguments.size() != 2 ) return null;
@@ -1600,7 +1618,7 @@ public class Functions {
   public static Domain calculateStringDomain( Binary<String, String> minusPrefixOrSuffix,
                                               boolean propagate, Set<HasDomain> seen ) {
     if ( minusPrefixOrSuffix.getArguments().size() != 2 ) {
-      return StringDomain.defaultDomain;
+      return RegexDomainString.defaultDomain;
     }
     Object a1 = minusPrefixOrSuffix.getArgument( 0 );
     Object a2 = minusPrefixOrSuffix.getArgument( 1 );
@@ -1613,7 +1631,7 @@ public class Functions {
 //                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
 //                 .isInfinity( d2.magnitude() )
             ) {
-      return StringDomain.defaultDomain;
+      return RegexDomainString.defaultDomain;
     }
 
 
@@ -1623,17 +1641,37 @@ public class Functions {
     RegexDomainString rd2 = null;
     if ( d1 instanceof StringDomain ) {
       rd1 = new RegexDomainString( (StringDomain)d1 );
-    } // TODO - else
+    } else if ( d1 instanceof SingleValueDomain ) {
+      rd1 = new RegexDomainString( "" + d1.getValue( false ) );
+    } else if ( d1 instanceof RegexDomainString ) {
+      rd1 = (RegexDomainString)d1;
+    }
     if ( d2 instanceof StringDomain ) {
       rd2 = new RegexDomainString( (StringDomain)d2 );
-    } // TODO - else
-    //RegexDomainString d3 = null;
+    } else if ( d2 instanceof SingleValueDomain ) {
+      rd2 = new RegexDomainString( "" + d2.getValue( false ) );
+    } else if ( d2 instanceof RegexDomainString ) {
+      rd2 = (RegexDomainString)d2;
+    }
+
+    if ( rd1 == null ) {
+      Debug.error( true, true,
+                   "Could not get RegexDomainString for " + a1 );
+    }
+    if ( rd1 == null ) {
+      Debug.error( true, true,
+                   "Could not get RegexDomainString for " + a1 );
+    }
+    if ( rd1 == null || rd2 == null ) {
+      return null;
+    }
+
 
 
     boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
     RegexDomain.OrDomain<Character> d3;
     if ( isPrefix ) {
-      d3 = RegexDomain.minusPrefix( rd1.charListDomain, rd2.charListDomain );
+      d3 = RegexDomain.minusPrefix( rd1.charListDomain, rd2.charListDomain, null );
     } else{
       d3 = RegexDomain.minusSuffix( rd1.charListDomain, rd2.charListDomain );
     }

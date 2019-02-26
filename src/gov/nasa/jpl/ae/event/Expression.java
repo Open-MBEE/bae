@@ -882,6 +882,9 @@ public class Expression< ResultType > extends HasIdImpl
     switch (form) {
     case Value:
 //    case Method:
+      if ( expression instanceof Domain ) {
+        return (Domain<ResultType>)expression;
+      }
       AbstractRangeDomain<ResultType> d = (AbstractRangeDomain< ResultType >)DomainHelper.makeRangeDomainFromValue(expression);
       if ( d != null ) {
         return d;

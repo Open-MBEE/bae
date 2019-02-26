@@ -4,6 +4,7 @@
 package gov.nasa.jpl.ae.event;
 
 import gov.nasa.jpl.ae.solver.Domain;
+import gov.nasa.jpl.ae.solver.RegexDomainString;
 import gov.nasa.jpl.ae.solver.StringDomain;
 
 /**
@@ -16,7 +17,7 @@ public class StringParameter extends Parameter<String> {
 	 * @param o 
 	 */
 	public StringParameter(String n, ParameterListener o) {
-		super(n, StringDomain.defaultDomain, o);
+		super( n, RegexDomainString.defaultDomain, o);
 	}
 	/**
 	 * @param n
@@ -33,7 +34,7 @@ public class StringParameter extends Parameter<String> {
 	 * @param o 
 	 */
 	public StringParameter(String n, String v, ParameterListener o) {
-		super(n, StringDomain.defaultDomain, v, o);
+		super(n, RegexDomainString.defaultDomain, v, o);
 	}
 
 	/**
