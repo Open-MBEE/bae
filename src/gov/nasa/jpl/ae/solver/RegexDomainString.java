@@ -293,7 +293,8 @@ public class RegexDomainString implements ComparableDomain<String> {
         RegexDomainString rds2 = new RegexDomainString( "hello" );
         boolean test1 = rds1.contains( "hello" );
         boolean test2 = rds2.contains( rds1 );
-        System.out.println("test1 = " + test1 + "; test2 = " + test2);
+        Domain x = RegexDomain.intersect(rds1.charListDomain, rds2.charListDomain, null);
+        System.out.println("test1 = " + test1 + "; test2 = " + test2 + "; intersect = " + x);
     }
 
 

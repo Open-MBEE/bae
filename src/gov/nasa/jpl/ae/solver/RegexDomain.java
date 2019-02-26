@@ -19,7 +19,7 @@ import static org.junit.Assert.assertTrue;
  * Other non-necessary things that we don't include: begin, end, multiplicity, groups
  * @param <T>
  */
-public class RegexDomain<T> implements Domain<List<T>> {
+public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
     public static class SimpleDomain<V> extends ObjectDomain<V> {
         public SimpleDomain() {
             super( (Class<V>)null );
@@ -844,7 +844,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
             Map<Domain, Domain> s = seen.get( domain1 );
             if ( s != null && s.containsKey( domain2 ) ) {
                 Domain result = s.get( domain2 );
-                return new SeenDomain(domain1, domain2, result);
+                return new SeenDomain(domain1, domain2, result.clone());
             }
         }
         TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(CompareUtils.GenericComparator.instance());
@@ -896,11 +896,14 @@ public class RegexDomain<T> implements Domain<List<T>> {
         }
 
         if ( head1 instanceof SimpleDomain && head2 instanceof SimpleDomain ) {
+            // If the heads are equal, then append head1 with the result of intersecting the tails.
             if ( Utils.valuesEqual( head1.getValue( false ), head2.getValue( false ) ) ) {
+                // concatenate head with intersection of tails
                 OrDomain result = doTail(head1, tail1, tail2, seen);
                 alternation.seq.addAll( result.seq );
                 return alternation;
             }
+            // No match means no intersection.
             OrDomain od = new OrDomain();
             tm.put(domain2, od);
             return od;
@@ -908,6 +911,7 @@ public class RegexDomain<T> implements Domain<List<T>> {
 
         if ( head1 instanceof SimpleDomain ) {
             // break symmetry, by only "working" on domain1
+            // swap arguments since we know that head2 is not a SimpleDomain
             RegexDomain newDomain2 = makeAndDomain(domain2);
             Domain i = intersect( newDomain2, domain1, seen );
             tm.put(domain2, i);
@@ -928,84 +932,46 @@ public class RegexDomain<T> implements Domain<List<T>> {
         }
 
         if ( head1 instanceof OrDomain ) {
-            OrDomain od1 = (OrDomain)head1;
-            for ( Object o : od1.seq ) {
-                if ( o instanceof Domain ) {
-                    Domain d = (Domain)o;
-                    RegexDomain newDomain1 = concat( d, tail1 );
-                    Domain i = intersect( newDomain1, domain2, seen );
+            OrDomain<?> od1 = (OrDomain)head1;
+            for ( Domain d : od1.seq ) {
+                RegexDomain newDomain1 = concat( d, tail1 );
+                Domain i = intersect( newDomain1, domain2, seen );
 //                    if ( i instanceof SeenDomain ) {
 //                        i = seen.get(newDomain1).get(domain2);
 //                    }
-                    if ( i != null && !i.isEmpty() ) {
-                        alternation.seq.add( i );
-                    }
-                } else {
-                    Debug.error(true, true,"RegexDomain.intersect(): unexpected non-domain! " + o);
+                if ( i != null && !i.isEmpty() ) {
+                    alternation.seq.add( i );
                 }
             }
         }
 
         if ( head1 instanceof ManyDomain ) {
-            // skip repeated content
-            ManyDomain md1 = (ManyDomain)head1;
-            Domain withoutRepeat = intersect( tail1, domain2, seen );
-//            if ( withoutRepeat instanceof SeenDomain ) {
-//                SeenDomain seenD = ( (SeenDomain)withoutRepeat );
-//                if ( seenD.seq.size() == 1 ) {
-//                    withoutRepeat = seenD.seq.get( 0 );
-//                }
-//            }
-            if ( withoutRepeat instanceof OrDomain && !withoutRepeat.isEmpty() ) {
-                OrDomain<?> od = (OrDomain)withoutRepeat;
-                for ( Domain o : od.seq ) {
-                    if ( o != null && !o.isEmpty() ) {
-                        alternation.seq.add( o );
-                    }
-                }
-            } else if ( withoutRepeat instanceof RegexDomain && !withoutRepeat.isEmpty() ) {
-                alternation.seq.add( withoutRepeat );
-            } else if ( withoutRepeat != null ) {
-                Debug.error(true, true,"RegexDomain.intersect() no case for domain: " + withoutRepeat);
+            // match head1 to nothing/empty list
+            OrDomain result = doTail(new RegexDomain(), tail1, domain2, seen);
+            if ( result != null && !result.isEmpty() ) {
+                alternation.seq.addAll( result.seq );
             }
 
-            // use at least once
+            // TODO -- assumes ManyDomain is .* instead of, for example, x* or (xy)*
+            if ( head2 instanceof ManyDomain ) {
+                // include .* in the intersection
+                result = doTail(head2, tail1, tail2, seen);
+                if ( result != null && !result.isEmpty() ) {
+                    alternation.seq.addAll( result.seq );
+                }
 
-
-
-            if ( withoutRepeat != null && !withoutRepeat.isEmpty() ) {
+                // match head2 to nothing/empty list
+                result = doTail(new RegexDomain(), domain1, tail2, seen);
+                if ( result != null && !result.isEmpty() ) {
+                    alternation.seq.addAll( result.seq );
+                }
+            } else {
+                // use at least once
+                ManyDomain md1 = (ManyDomain)head1;
                 RegexDomain newDomain1 = concat( md1.domainForEach, domain1 );
                 Domain withRepeat = intersect( newDomain1, domain2, seen );
-//                if ( withRepeat instanceof SeenDomain ) {
-//                    SeenDomain seenD = ( (SeenDomain)withRepeat );
-//                    if ( seenD.seq.size() == 1 ) {
-//                        withRepeat = seenD.seq.get( 0 );
-//                    }
-//                }
-                if ( withRepeat instanceof OrDomain && !withRepeat.isEmpty() ) {
-                    OrDomain<?> od = (OrDomain)withRepeat;
-                    for ( Domain o : od.seq ) {
-                        // if o is tagged with (domain1, domain2) then
-                        //   alternation.add(ManyDomain(o) + withoutRepeat);
-                        // else
-                        //   alternation.add(o)
-                        boolean tagged = false;
-                        if ( o instanceof SeenDomain ) {
-                            SeenDomain sd = (SeenDomain)o;
-                            if ( Utils.valuesEqual( sd.d1, domain1 ) && Utils
-                                    .valuesEqual( sd.d2, domain2 ) ) {
-                                tagged = true;
-                                ManyDomain mdo = new ManyDomain( sd );
-                                RegexDomain alt = concat( mdo, withoutRepeat );
-                                if ( alt != null && !alt.isEmpty() ) {
-                                    alternation.seq.add( alt );
-                                }
-                            }
-                        }
-                        if ( !tagged && o != null && !o.isEmpty() ) {
-                            alternation.seq.add( o );
-                        }
-                    }
+                if ( withRepeat != null && !withRepeat.isEmpty() ) {
+                    alternation.seq.add( withRepeat );
                 }
             }
         }
