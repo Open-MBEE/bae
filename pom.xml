@@ -123,11 +123,21 @@
     </plugins>
   </build>
   <dependencies>
-    <dependency>
+			    <dependency>
+					<groupId>gov.nasa.jpl.mbee.util</groupId>
+					<artifactId>mbee_util</artifactId>
+					<!--<version>${mbee.version}</version>-->
+					<version>1.0</version>
+					<scope>system</scope>
+					<type>jar</type>
+					<systemPath>${project.basedir}/../util/target/mbee_util-${mbee.version}.jar</systemPath>
+				</dependency>
+
+                <!--   <dependency>
         <groupId>gov.nasa.jpl.mbee.util</groupId>
         <artifactId>mbee_util</artifactId>
         <version>${mbee.version}</version>
-    </dependency>
+    </dependency>  -->
     <dependency>
         <groupId>gov.nasa.jpl.mbee.sysml</groupId>
         <artifactId>sysml</artifactId>
@@ -175,6 +185,15 @@
 		<version>1.8.0</version>
 		<systemPath>${java.home}/../lib/tools.jar</systemPath>
 	</dependency>
+
+      <!-- reflections matching util/pom.xml to get javassist -->
+      <dependency>
+          <groupId>org.reflections</groupId>
+
+          <artifactId>reflections</artifactId>
+          <version>0.9.11</version>
+      </dependency>
+
         <!-- <dependency>
     <groupId>com.panayotis</groupId>
     <artifactId>JavaPlot</artifactId>
