@@ -387,6 +387,23 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             return false;
         }
 
+        /**
+         * @return whether the domain contains no values (including null)
+         */
+        @Override public boolean isEmpty() {
+            // An empty list is not an empty domain.
+            if ( seq.size() == 0 ) return true;
+
+
+            for ( Domain d : seq ) {
+                if ( !d.isEmpty() ) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
         // TODO -- override toValueList() and hasRegex()???
 
         @Override public OrDomain<V> reverse() {
@@ -427,7 +444,39 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             return s;
         }
 
+
+
     }
+
+    public static Comparator comparator = new CompareUtils.GenericComparator() {
+        @Override public int compare( Object o1, Object o2 ) {
+            if ( o1 == o2 ) return 0;
+            if ( o1 == null ) return -1;
+            if ( o2 == null ) return -2;
+            String s1 = "" + o1;
+            String s2 = "" + o2;
+            int comp = s1.compareTo( s2 );
+            if ( comp == 0 && o1.getClass().equals( o2.getClass() ) ) {
+                return 0;
+            }
+            if ( comp != 0 ) {
+                return comp;
+            }
+
+            // comp must be 0 and classes must be different
+            if ( o1 instanceof AnyDomain ) return -1;   // if o2 is a RegexDomain, then Or < And
+            if ( o2 instanceof AnyDomain ) return 1;    // if o1 is a RegexDomain, then And > Or
+
+            if ( o1 instanceof OrDomain ) return -1;   // if o2 is a RegexDomain, then Or < And
+            if ( o2 instanceof OrDomain ) return 1;    // if o1 is a RegexDomain, then And > Or
+
+            if ( o1 instanceof RegexDomain && o2 instanceof RegexDomain ) {
+                comp = CompareUtils.compare( ( (RegexDomain)o1 ).seq, ( (RegexDomain)o2 ).seq );
+                if ( comp != 0 ) return comp;
+            }
+            return CompareUtils.compare(o1, o2, true, false);
+        }
+    };
 
     public List<Domain<?>> seq = new ArrayList<Domain<?>>();
 
@@ -477,7 +526,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         if ( seq.size() == 0 ) return false;
 
         for ( Domain d : seq ) {
-            if ( seq.isEmpty() ) {
+            if ( d.isEmpty() ) {
                 return true;
             }
         }
@@ -839,7 +888,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 
         // check for recursion
         if ( seen == null ) {
-            seen = new TreeMap< Domain, Map< Domain, Domain> >(CompareUtils.GenericComparator.instance());
+            seen = new TreeMap< Domain, Map< Domain, Domain> >(comparator);
         } else if ( seen.containsKey( domain1 ) ) {
             Map<Domain, Domain> s = seen.get( domain1 );
             if ( s != null && s.containsKey( domain2 ) ) {
@@ -847,7 +896,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 return new SeenDomain(domain1, domain2, result.clone());
             }
         }
-        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(CompareUtils.GenericComparator.instance());
+        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(comparator);
         tm.put(domain2, null);
         seen.put(domain1, tm);
 
@@ -858,6 +907,25 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         // FIXME? -- empty might mean empty list, which is something.
         if ( domain1.isEmpty() ) return alternation;
         if ( domain2.isEmpty() ) return alternation;
+
+        if ( isEmptyList( domain1 ) ) {
+            if ( isEmptyList( domain2 ) || hasEmptyList( domain2 ) ) {
+                return domain1.clone();
+            }
+            return alternation;
+        } else if ( isEmptyList( domain2 ) ) {
+            if ( isEmptyList( domain1 ) || hasEmptyList( domain1 ) ) {
+                return domain2.clone();
+            }
+            return alternation;
+        }
+
+        if ( isManyAny(domain1) ) {
+            return domain2.clone();
+        }
+        if ( isManyAny(domain2) ) {
+            return domain1.clone();
+        }
 
 //        // do easy stuff
 //        if ( !hasRegex( domain2 ) ) {
@@ -976,6 +1044,10 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             }
         }
 
+        Domain fa = flattenAnd( alternation );
+        if ( fa != null ) {
+            return fa;
+        }
         return alternation;
     }
 
@@ -1132,10 +1204,17 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             RegexDomain<?> nrd = new RegexDomain();
             for ( Domain sd : rd.seq ) {
                 Domain nsd = flattenAnd( sd );
-                if ( nsd instanceof RegexDomain ) {
+                if ( nsd instanceof OrDomain ) {
+                    if ( ((OrDomain)nsd).seq.size() == 1 ) {  // This may not be possible based on treatment of OrDomain above.
+                        nrd.seq.addAll( ( (OrDomain)nsd ).seq );
+                    } else {
+                        nrd.seq.add( nsd );
+                    }
+                } else if ( nsd instanceof RegexDomain ) {//&& ! ( nsd instanceof OrDomain ) ) {
                     nrd.seq.addAll( ( (RegexDomain)nsd ).seq );
+                } else {
+                    nrd.seq.add( nsd );
                 }
-                nrd.seq.add( nsd );
             }
             return nrd;
         }
@@ -1243,7 +1322,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 
         // check for recursion
         if ( seen == null ) {
-            seen = new TreeMap< Domain, Map< Domain, Domain> >(CompareUtils.GenericComparator.instance());
+            seen = new TreeMap< Domain, Map< Domain, Domain> >(comparator);
         } else if ( seen.containsKey( rd ) ) {
             Map<Domain, Domain> s = seen.get( rd );
             if ( s != null && s.containsKey( prefix ) ) {
@@ -1257,7 +1336,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 return alternation;
             }
         }
-        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(CompareUtils.GenericComparator.instance());
+        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(comparator);
         tm.put(prefix, null);
         seen.put(rd, tm);
 
@@ -1280,6 +1359,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             if ( isEmptyList( prefix ) ) {
                 alternation.seq.add(rd.clone());
             }
+            return alternation;
+        } else if ( isEmptyList( prefix ) ) {
+            alternation.seq.add(rd.clone());
             return alternation;
         }
 
@@ -1406,9 +1488,15 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 }
             }
         } else if ( hr instanceof RegexDomain ) {
-            Debug.error(true, true,"minusPrefix(): Unexpected RegexDomain as head of sequence: " +  hr );
+            RegexDomain<?> newRd = concat( (RegexDomain)hr, tr );
+            OrDomain<?> result = minusPrefix( newRd, prefix, seen );
+            return (OrDomain<TT>)result;
+            //Debug.error(true, true,"minusPrefix(): Unexpected RegexDomain as head of sequence: " +  hr );
         } else if ( hp instanceof RegexDomain ) {
-            Debug.error(true, true,"minusPrefix(): Unexpected RegexDomain as head of prefix: " +  hp );
+            RegexDomain<?> newPrefix = concat( (RegexDomain)hp, tp );
+            OrDomain<?> result = minusPrefix( rd, newPrefix, seen );
+            return (OrDomain<TT>)result;
+            //Debug.error(true, true,"minusPrefix(): Unexpected RegexDomain as head of prefix: " +  hp );
         } else {
             // else we're in a case we don't know how to handle, like groups. Whoops.
             Debug.error(true, true,"Unexpected arguments: minusPrefix(" + rd + ", " + prefix + ")" );
@@ -1452,6 +1540,89 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         return false;
     }
 
+    public static boolean isAny( Domain d ) {
+        if ( d == null ) return false;
+        if ( d instanceof SimpleDomain ) {
+            return false;
+        }
+        if ( d instanceof AnyDomain ) {
+            return true;
+        }
+        if ( d instanceof ManyDomain ) {
+            return false;
+        }
+        if ( d instanceof OrDomain ) {
+            OrDomain<?> od = (OrDomain<?>)d;
+            boolean foundAny = false;
+            for ( Domain dd : od.seq ) {
+                if ( isAny( dd ) ) {
+                    foundAny = true;
+                    continue;
+                }
+                if ( dd.isEmpty() ) continue;
+                if ( dd instanceof SimpleDomain ) continue;
+                return false;
+            }
+            return foundAny;
+        }
+        if ( d instanceof RegexDomain ) {
+            // A RegexDomain is a domain of lists, not items.
+            return false;
+        }
+        return false;
+
+    }
+
+    public static boolean isManyAny( Domain d ) {
+        if ( d == null ) return false;
+        if ( d instanceof SimpleDomain ) {
+            return false;
+        }
+        if ( d instanceof AnyDomain ) {
+            return false;
+        }
+        if ( d instanceof ManyDomain ) {
+            if ( isAny( ( (ManyDomain)d ).domainForEach ) ) {
+                return true;
+            }
+            // Many ManyAnys is a ManyAny
+            if ( isManyAny( ( (ManyDomain)d ).domainForEach ) ) {
+                return true;
+            }
+            return false;
+        }
+        if ( d instanceof OrDomain ) {
+            // The alternatives are a ManyAny if there's at least one ManyAny
+            // since the rest are subsets of ManyAny.
+            OrDomain<?> od = (OrDomain<?>)d;
+            for ( Domain dd : od.seq ) {
+                if ( isManyAny( dd ) ) {
+                    return true;
+                }
+                if ( dd.isEmpty() ) continue;
+                return false;
+            }
+            return false;
+        }
+        if ( d instanceof RegexDomain ) {
+            // The sequence is a ManyAny if there is at least one ManyAny, and the
+            // rest are Anys or empty lists.
+            boolean foundManyAny = false;
+            for ( Domain dd : ((RegexDomain<?>)d).seq ) {
+                if ( isManyAny( dd ) ) {
+                    foundManyAny = true;
+                    continue;
+                }
+                if ( isAny( dd ) ) continue;
+                if ( isEmptyList( dd ) ) continue;
+                return false;
+            }
+            return foundManyAny;
+        }
+        return false;
+    }
+
+
     // TODO -- You should really put this back in.
 //    public boolean isEmptyList() {
 //        if ( seq.isEmpty() ) return true;
@@ -1480,7 +1651,6 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      */
     public static <TT> RegexDomain<TT> concat(Domain<?> d1, Domain<?> d2) {
         return concat(d1, d2, null);
-
     }
 
     /**
@@ -1569,7 +1739,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      * @param value the new value to be wrapped
      */
     @Override public void setValue( List<T> value ) {
-
+        // TODO -- do something or error
     }
 
     /**
