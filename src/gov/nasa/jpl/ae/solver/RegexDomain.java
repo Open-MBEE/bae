@@ -1321,10 +1321,11 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         OrDomain<TT> alternation = new OrDomain<>();
 
         // check for recursion
+        Map<Domain, Domain> s = null;
         if ( seen == null ) {
             seen = new TreeMap< Domain, Map< Domain, Domain> >(comparator);
         } else if ( seen.containsKey( rd ) ) {
-            Map<Domain, Domain> s = seen.get( rd );
+            s = seen.get( rd );
             if ( s != null && s.containsKey( prefix ) ) {
                 Domain result = s.get( prefix );
                 if ( result == null || result instanceof OrDomain ) {
@@ -1334,11 +1335,16 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 //                SeenDomain sd = new SeenDomain( rd, prefix, result );
 //                alternation.seq.add( sd );
                 return alternation;
+            } else if ( s != null ) {
+                s.put(prefix, null);
             }
         }
-        TreeMap<Domain, Domain> tm = new TreeMap<Domain, Domain>(comparator);
-        tm.put(prefix, null);
-        seen.put(rd, tm);
+        if ( s == null ) {
+            TreeMap<Domain, Domain> tm =
+                    new TreeMap<Domain, Domain>( comparator );
+            tm.put( prefix, null );
+            seen.put( rd, tm );
+        }
 
 
         if ( prefix == null || isEmptyList(prefix) ) {
@@ -1356,7 +1362,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         if ( rd.isEmpty() ) return alternation;
 
         if ( isEmptyList(rd) ) {
-            if ( isEmptyList( prefix ) ) {
+            if ( hasEmptyList( prefix ) ) {
                 alternation.seq.add(rd.clone());
             }
             return alternation;
@@ -1367,13 +1373,12 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 
         // head and tail of rd
         Domain<?> hr = rd instanceof OrDomain ? rd : rd.seq.get( 0 );
-        RegexDomain<TT> tr = null;
-        tr = rd instanceof OrDomain ? null :
-             new RegexDomain<>( rd.seq.subList( 1, rd.seq.size() ) );
+        RegexDomain<TT> tr = rd instanceof OrDomain ? new RegexDomain<>() :
+                             new RegexDomain<>( rd.seq.subList( 1, rd.seq.size() ) );
 
         // head and tail of prefix
         Domain<?> hp = prefix;
-        Domain<?> tp = null;
+        Domain<?> tp = new RegexDomain<>();
         RegexDomain<TT> prd = null;
         if ( prefix instanceof RegexDomain && !(prefix instanceof OrDomain) ) {
             prd = (RegexDomain<TT>)prefix;
@@ -1456,6 +1461,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 } else {
                     regexPrefix = new RegexDomain<>( Utils.newList( prefix ) );
                 }
+                // Suffixes of the prefix are computed by removing hr (.*) as a prefix from the prefix.
                 OrDomain<TT> suffixes = minusPrefix( regexPrefix, hr, seen );
                 for ( Domain<?> suffix : suffixes.seq ) {
                     OrDomain<TT> alts = minusPrefix( tr, suffix, seen );
@@ -1476,7 +1482,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             if ( suffixes != null ) {
                 for ( Domain<?> suffix : suffixes.seq ) {
                     RegexDomain<TT> regexSuffix = null;
-                    if ( prefix instanceof RegexDomain ) {
+                    if ( suffix instanceof RegexDomain ) {
                         regexSuffix = (RegexDomain<TT>)suffix;
                     } else {
                         regexSuffix = new RegexDomain<>( Utils.newList( suffix ) );
