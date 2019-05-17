@@ -1337,7 +1337,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 //                alternation.seq.add( sd );
                 return alternation;
             } else if ( s != null ) {
-                s.put(prefix, alternation);
+                s.put(prefix, alternation);  // this just initializes an entry; alternation is likely () here.
             }
         }
         if ( s == null ) {
@@ -1445,6 +1445,8 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 //   and leave .*[something] at the end
                 alternation.seq.add( rd );
             } else {
+                // minusPrefix(.*x, y) = OR(.*x, minusPrefix(.*x, suffixes(y)))
+                alternation.seq.add(rd); // removing y from .*x can be .*x
                 RegexDomain<TT> regexPrefix = null;
                 if ( prefix instanceof RegexDomain ) {
                     regexPrefix = (RegexDomain<TT>)prefix;
@@ -1787,6 +1789,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         assertTrue( rd.contains( intList1 ));
         assertTrue( !rd.contains( intList2 ));
 
+        RegexDomain<Integer> rd1 = rd.clone();
+        RegexDomain<Integer> rd2 = rd.clone();
+
         rd.seq.add( new ManyDomain() );
         assertTrue( rd.contains( intList2 ) );
 
@@ -1823,6 +1828,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         rds2.charListDomain.seq.add(new ManyDomain());
         rds2.charListDomain.seq.add(new SimpleDomain('2'));
 
+//        OrDomain res = minusPrefix( rds1, rds2, null );
+//        System.out.println( "res = " + res );
+
         Parameter<String> p1 = new StringParameter("p1", rds1, null);
         Parameter<String> p2 = new StringParameter("p2", rds2, null);
 
@@ -1834,7 +1842,37 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 
         Domain d = eq.getDomain( true, null );
         System.out.println("" + d);
+        /*
+        {
+            RegexDomain<Integer> rdSelf = minusPrefix(rd, rd, null);
+            // rdSelf should be (emptystring) | .*2
+            assertTrue( rdSelf.contains( Utils.newList() ) );
+            assertTrue( rdSelf.contains( Utils.newList(2) ) );
+            assertTrue( rdSelf.contains( Utils.newList(1, 2) ) );
+            assertTrue( rdSelf.contains( Utils.newList(3, 2, 1, 2) ) );
 
+            ArrayList<Integer> intList1 = Utils.newList(3, 3, 4, 2 );
+            ArrayList<Integer> intList2 = Utils.newList(3, 3, 4, 2, 1 );
+
+            assertTrue( rd.contains( intList1 ));
+            assertTrue( !rd.contains( intList2 ));
+
+            rd.seq.add( new ManyDomain() );
+            assertTrue( rd.contains( intList2 ) );
+
+            rdSelf = minusPrefix(rd, rd, null);
+            // rdSelf should be .*
+            assertTrue( rdSelf.contains( Utils.newList() ) );
+            assertTrue( rdSelf.contains( Utils.newList(2) ) );
+            assertTrue( rdSelf.contains( Utils.newList(1, 2) ) );
+            assertTrue( rdSelf.contains( Utils.newList(3, 2, 1, 2) ) );
+            assertTrue( rdSelf.cont
+                        from David to Everyone:    3:19  PM
+            ains( Utils.newList(3, 2, 1) ) );
+            assertTrue( rdSelf.contains( Utils.newList(1, 2, 3, 4) ) );
+
+        }
+        */
 //        RegexDomainString rds3 = new RegexDomainString();
 //        rds3.seq.add(rds1);
 //        rds3.seq.add(rds2);
