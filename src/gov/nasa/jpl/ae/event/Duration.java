@@ -141,6 +141,12 @@ public class Duration extends LongParameter { // TODO -- LongParameter
     String s = fixYear(toFormattedString( millis, durationFormatForIdentifier ));
     return removeLeadingZeroValues( s );
   }
+  public static String toFormattedString( Parameter<Long> parameter ) {
+    if ( parameter == null || parameter.getValueNoPropagate() == null ) {
+      return null;
+    }
+    return toFormattedString( durationToMillis( parameter.getValueNoPropagate() ) );
+  }
   public static String toFormattedString( long millis ) {
     return fixYear(toFormattedString( millis, durationFormat ));
   }

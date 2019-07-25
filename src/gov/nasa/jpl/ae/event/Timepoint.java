@@ -47,7 +47,29 @@ public class Timepoint extends LongParameter implements TimeVariable {
   private static Timepoint horizonTimepoint = null;
   
   protected static final LongDomain defaultDomain = LongDomain.positiveDomain;
-                                               //= TimeDomain.horizonDomain;
+
+  /**
+   * Return a value that falls on a {@code boundaryIncrement} that is nearest
+   * (same time or earlier/later based on the input flag, {@code earlier}) to
+   * the input value, {@code t}.
+   *
+   * @param t
+   * @param boundaryIncrement
+   * @param earlier
+   * @return
+   */
+  public static long snapToIncrement( long t, long boundaryIncrement, boolean earlier) {
+    long offset = t % boundaryIncrement;
+    if ( offset > 0 ) {
+      if ( earlier ) {
+        t = t - offset;
+      } else {
+        t = t + boundaryIncrement - offset;
+      }
+    }
+    return t;
+  }
+  //= TimeDomain.horizonDomain;
   
   public long timeSinceMidnight() {
     if ( !isGrounded( false, null ) ) return 0;
@@ -296,6 +318,20 @@ public class Timepoint extends LongParameter implements TimeVariable {
   public static String toDoyTimestamp( long t ) {
     Calendar cal = gmtCalendar;
     return toTimestamp(t, TimeUtils.dayOfYearTimestampFormat, cal);
+  }
+  public static String toTimestamp( Parameter<Long> param ) {
+    if ( param == null || param.getValueNoPropagate() == null ) {
+      return null;
+    }
+    long t = param.getValueNoPropagate();
+    return toTimestamp(t);
+  }
+  public static String toDoyTimestamp( Parameter<Long> param ) {
+    if ( param == null || param.getValueNoPropagate() == null ) {
+      return null;
+    }
+    long t = param.getValueNoPropagate();
+    return toTimestamp(t);
   }
   // REVIEW -- TODO -- FIXME -- Does this assume milliseconds since the epoch?!
   public static String toTimestamp( long t, String dateFormat, Calendar cal) {

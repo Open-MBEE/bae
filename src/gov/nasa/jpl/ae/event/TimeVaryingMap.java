@@ -7981,11 +7981,28 @@ String n = owner instanceof HasName
     }
     return tvm;
   }
-  
+
+  /**
+   * Create a copy of the timeline modifying each time value key to fall on an
+   * n-minute boundary that is nearest (same time or earlier/later based on input
+   * flag) to the original key.
+   * @param minutes
+   * @param earlier
+   * @return
+   */
   public TimeVaryingMap<V> snapToMinuteIncrement( Long minutes, boolean earlier ) {
     return snapToTimeIncrement( Timepoint.minutes( minutes ), earlier );
   }
 
+  /**
+   * Create a copy of the timeline modifying each time value key to fall on a
+   * {@code timeIncrement} boundary that is nearest (same time or earlier/later
+   * based on the input flag, {@code earlier}) to the original key.
+   *
+   * @param timeIncrement
+   * @param earlier
+   * @return
+   */
   public TimeVaryingMap<V> snapToTimeIncrement( Long timeIncrement, boolean earlier ) {
     if ( timeIncrement == null || timeIncrement == 0L ) return null;
     //TimeVaryingMap<V> tvm = emptyClone();
@@ -7993,16 +8010,13 @@ String n = owner instanceof HasName
     TimeVaryingMap<V> tvm = new TimeVaryingMap<V>(this.name, this.type );
     for ( Map.Entry< Parameter<Long>, V > e : entrySet() ) {
       Long t = e.getKey().getValueNoPropagate();
-      Long offset = t % timeIncrement;
-      if ( offset > 0 ) {
-        if ( earlier ) {
-          t = t - offset;
-        } else {
-          t = t + timeIncrement - offset;
-        }
+      if ( t != null ) {
+        t = Timepoint.snapToIncrement( t, timeIncrement, earlier );
+        SimpleTimepoint k = new SimpleTimepoint( "", t, tvm );
+        tvm.put( k, e.getValue() );
+      } else {
+        Debug.error("Null key in TimeVaryingMap!! " + this );
       }
-      SimpleTimepoint k = new SimpleTimepoint( "", t, tvm );
-      tvm.put( k, e.getValue() );
     }
     return tvm;
   }
