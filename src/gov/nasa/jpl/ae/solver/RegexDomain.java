@@ -1789,8 +1789,8 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         assertTrue( rd.contains( intList1 ));
         assertTrue( !rd.contains( intList2 ));
 
-        RegexDomain<Integer> rd1 = rd.clone();
-        RegexDomain<Integer> rd2 = rd.clone();
+        //RegexDomain<Integer> rd1 = rd.clone();
+        //RegexDomain<Integer> rd2 = rd.clone();
 
         rd.seq.add( new ManyDomain() );
         assertTrue( rd.contains( intList2 ) );
@@ -1815,6 +1815,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         rd2.charListDomain.seq.add(new SimpleDomain('2'));
 
         OrDomain<Character> rd1minus2 = minusPrefix(rd1.charListDomain, rd2.charListDomain, null);
+        System.out.println("rd1.charListDomain = " + rd1.charListDomain);
+        System.out.println("rd2.charListDomain = " + rd2.charListDomain);
+        System.out.println("rd1minus2 = " + rd1minus2);
         assertEquals(1, rd1minus2.seq.size());
         assertEquals(new SimpleDomain<>('4'), rd1minus2.seq.get(0));
 
