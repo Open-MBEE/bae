@@ -1443,7 +1443,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                     alternation.seq.addAll( alts.seq );
                 }
             } else {
-                // minusPrefix(.*x, y) = OR(.*x, minusPrefix(.*x, suffixes(y)))
+                // minusPrefix(.*x, y) = OR(.*x, minusPrefix(x, suffixes(y)))
                 alternation.seq.add(rd); // removing y from .*x can be .*x
                 RegexDomain<TT> regexPrefix = null;
                 if ( prefix instanceof RegexDomain ) {
@@ -1807,7 +1807,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
 
         Parameter<String> p3 = new StringParameter("p3", (Domain)null, null);
 
-        ConstraintExpression eq = null; // TODO!!
+        ConstraintExpression eq = new ConstraintExpression( new Functions.EQ( p1, new Functions.Sum(p3, p2) ) ); // TODO!!
 
         eq.restrictDomain( new BooleanDomain( true, true ), false, null );
 
