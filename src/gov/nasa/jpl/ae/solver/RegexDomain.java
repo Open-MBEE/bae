@@ -12,6 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 import static javax.swing.text.html.HTML.Tag.TT;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -1429,8 +1430,6 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             // then using what's left of the prefix to match back against the result.
             if ( hp instanceof ManyDomain ) {
                 OrDomain<TT> alts = minusPrefix( tr, tp, seen );
-                // REVIEW -- we might need to add a .* to the front of each alt, since .* matches .*
-                // Example: a.*b.* vs. a.*bc should be a.*bc, not abc
                 if ( alts != null ) {
                     alternation.seq.addAll( alts.seq );
                 }
@@ -1442,6 +1441,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                 if ( alts != null ) {
                     alternation.seq.addAll( alts.seq );
                 }
+                // rd looks like .*[something], so .* can absorb all of prefix
+                //   and leave .*[something] at the end
+                alternation.seq.add( rd );
             } else {
                 // minusPrefix(.*x, y) = OR(.*x, minusPrefix(x, suffixes(y)))
                 alternation.seq.add(rd); // removing y from .*x can be .*x
@@ -1774,6 +1776,13 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         rd.seq.add(new SimpleDomain(2));
         //rd.seq.add(end);
 
+        RegexDomain<Integer> rdSelf = minusPrefix(rd, rd, null);
+        // rdSelf should be (emptystring) | .*2
+        assertTrue( rdSelf.contains( Utils.newList() ) );
+        assertTrue( rdSelf.contains( Utils.newList(2) ) );
+        assertTrue( rdSelf.contains( Utils.newList(1, 2) ) );
+        assertTrue( rdSelf.contains( Utils.newList(3, 2, 1, 2) ) );
+
         ArrayList<Integer> intList1 = Utils.newList(3, 3, 4, 2 );
         ArrayList<Integer> intList2 = Utils.newList(3, 3, 4, 2, 1 );
 
@@ -1786,8 +1795,28 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         rd.seq.add( new ManyDomain() );
         assertTrue( rd.contains( intList2 ) );
 
-        OrDomain<Integer> res = minusPrefix( rd1, rd2, null );
-        System.out.println( "res = " + res );
+        rdSelf = minusPrefix(rd, rd, null);
+        // rdSelf should be .*
+        assertTrue( rdSelf.contains( Utils.newList() ) );
+        assertTrue( rdSelf.contains( Utils.newList(2) ) );
+        assertTrue( rdSelf.contains( Utils.newList(1, 2) ) );
+        assertTrue( rdSelf.contains( Utils.newList(3, 2, 1, 2) ) );
+        assertTrue( rdSelf.contains( Utils.newList(3, 2, 1) ) );
+        assertTrue( rdSelf.contains( Utils.newList(1, 2, 3, 4) ) );
+
+        RegexDomainString rd1 = new RegexDomainString(Utils.newList());
+        rd1.charListDomain.seq.add(new SimpleDomain('3'));
+        rd1.charListDomain.seq.add(new ManyDomain());
+        rd1.charListDomain.seq.add(new SimpleDomain('2'));
+        rd1.charListDomain.seq.add(new SimpleDomain('4'));
+
+        RegexDomainString rd2 = new RegexDomainString(Utils.newList());
+        rd2.charListDomain.seq.add(new ManyDomain());
+        rd2.charListDomain.seq.add(new SimpleDomain('2'));
+
+        OrDomain<Character> rd1minus2 = minusPrefix(rd1.charListDomain, rd2.charListDomain, null);
+        assertEquals(1, rd1minus2.seq.size());
+        assertEquals(new SimpleDomain<>('4'), rd1minus2.seq.get(0));
 
         RegexDomainString rds1 = new RegexDomainString(Utils.newList());
         rds1.charListDomain.seq.add(new SimpleDomain('3'));
