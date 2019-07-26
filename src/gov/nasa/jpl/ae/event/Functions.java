@@ -103,6 +103,9 @@ public class Functions {
     /**
      * Invert the function with respect to a range/return value and a given
      * argument.
+     * This is called an inverse image as opposed to an inverse function,
+     * which only returns a single value in the domain of the argument and does
+     * not exist for many functions, e.g. f(x) = x^2.
      * <p>
      * If g is the inverse of f, then <br>
      * g(f(x)) = x.<br>
@@ -131,6 +134,9 @@ public class Functions {
      *         same), in which case the inverse may not be a single value. For
      *         example, if f(x)=x^2, then the inverse is {sqrt(x), -sqrt(x)}.
      *
+     * @todo We should constrain the FunctionCall returned to, itself, return a domain.
+     * @todo We could add a generic parameter to Call and return `FunctionCall<Domain<T>>`.
+     * @todo In addition, the `arg` parameter could be of type T.
      */
     public FunctionCall inverse( Object returnValue, Object arg ) { // Variable<?>
                                                                     // variable
@@ -4300,6 +4306,12 @@ public class Functions {
     T r1 = Expression.evaluateDeep(o1, null, false, false);
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof List && ( (List)r1 ).size() == 1 ) {
+      r1 = (T)((List)r1).get( 0 );
+    }
+    if ( r2 instanceof List && ( (List)r2 ).size() == 1 ) {
+      r2 = (TT)((List)r2).get( 0 );
+    }
     return minusSuffix( r1.toString(), r2.toString() );
   }
 
@@ -4312,6 +4324,12 @@ public class Functions {
     T r1 = Expression.evaluateDeep(o1, null, false, false);
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof List && ( (List)r1 ).size() == 1 ) {
+      r1 = (T)((List)r1).get( 0 );
+    }
+    if ( r2 instanceof List && ( (List)r2 ).size() == 1 ) {
+      r2 = (TT)((List)r2).get( 0 );
+    }
     return minusPrefix( r1.toString(), r2.toString() );
   }
 
@@ -8232,6 +8250,20 @@ public class Functions {
       } catch ( InstantiationException e ) {
         // TODO Auto-generated catch block
         e.printStackTrace();
+      }
+
+      // HACK!!!
+      // The default inverse function wraps a single value in a List because
+      // the caller may want the set of possible values since the interface
+      // implements inverse images.  The interface should be updated to pass
+      // a domain to avoid possible misinterpretation of the List.
+      // In the meantime, we try to avoid misinterpretation here by pulling a
+      // single object out of the List.  This could be a dangerous assumption
+      // since the result could be the list itself as the only value.  But,
+      // as of this writing, the cases where an image (set of values) is
+      // returned mostly shows up in a Domain instead of a Collection.
+      if ( result instanceof List && ( (List)result ).size() == 1 ) {
+        result = ( (List)result ).get( 0 );
       }
 
       if(!Expression.valuesEqual(variableParam, subExprArg, Parameter.class)) {
