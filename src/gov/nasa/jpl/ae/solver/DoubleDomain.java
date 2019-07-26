@@ -70,7 +70,12 @@ public class DoubleDomain extends AbstractRangeDomain< Double > {
 
   @Override
   public long magnitude() {
-    if ( lowerBound == null || upperBound == null ) return 0;
+    if ( lowerBound == null || upperBound == null ) {
+      if ( lowerBound == null && upperBound == null ) {
+        return nullInDomain ? 1 : 0;
+      }
+      return 0;
+    }
     if ( lowerBound.equals( upperBound ) ) {
       if ( isLowerBoundIncluded() || isUpperBoundIncluded() ) return 1;
       return 0;
@@ -83,7 +88,13 @@ public class DoubleDomain extends AbstractRangeDomain< Double > {
    */
   @Override
   public long size() {
-    if ( lowerBound == null || upperBound == null ) return 0;
+    if ( lowerBound == null || upperBound == null ) {
+      if ( lowerBound == null && upperBound == null ) {
+        return nullInDomain ? 1 : 0;
+      }
+      return 0;
+    }
+
     if ( lowerBound.equals( upperBound ) ) return 0;
     Double diff = upperBound - lowerBound;
     // TODO -- HACK -- FIXME -- we should be returning a double, not a long!
@@ -114,10 +125,20 @@ public class DoubleDomain extends AbstractRangeDomain< Double > {
     if ( this.isEmpty() ) {
       return null;
     }
+    if ( size() == 1 ) {
+      return getValue( false );
+    }
+
+    Double ub = getUpperBound();
+    Double lb = getLowerBound();
+    if ( ub == null || lb == null ) {
+      Debug.error( true, false, "Trying to pick random value with null bound for DoubleDomain: " + this);
+      return null;
+    }
     double r1 = Random.global.nextDouble();
     double r2 = Random.global.nextDouble();
     double middle = getMiddleValue();
-    double half = getUpperBound() - middle;
+    double half = ub - middle;
     if ( r1 < 0.5 ) {
       return middle - r2 * half;
     }

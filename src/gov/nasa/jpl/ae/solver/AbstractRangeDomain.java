@@ -1164,6 +1164,7 @@ public abstract class AbstractRangeDomain< T > extends HasIdImpl
    */
   public boolean setBounds( T lowerBound, T upperBound ) {
     if ( nullInDomain && lowerBound == null && upperBound == null &&
+         (this.lowerBound != null || this.upperBound != null ) &&
          ( less( this.lowerBound, this.upperBound ) ||
            ( equals( this.lowerBound, this.upperBound ) &&
              ( lowerIncluded || upperIncluded ) ) ) ) {
