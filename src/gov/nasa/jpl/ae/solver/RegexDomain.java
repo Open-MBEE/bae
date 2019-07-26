@@ -454,8 +454,8 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             if ( o1 == o2 ) return 0;
             if ( o1 == null ) return -1;
             if ( o2 == null ) return -2;
-            String s1 = "" + o1;
-            String s2 = "" + o2;
+            String s1 = o1.toString();
+            String s2 = o2.toString();
             int comp = s1.compareTo( s2 );
             if ( comp == 0 && o1.getClass().equals( o2.getClass() ) ) {
                 return 0;
@@ -877,7 +877,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      * input domain. This will be the empty domain if there is no intersection
      * between this domain and the input domain.
      *
-     * @param domain
+     * @param domainTree1
+     * @param domainTree2
+     * @param seen
      * @return whether the domain of any object changed as a result of this call
      */
     public static Domain intersect( RegexDomain domainTree1, Domain domainTree2,
@@ -1050,6 +1052,102 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             return fa;
         }
         return alternation;
+    }
+
+    /**
+     * <p>Make the regular expression simpler without changing the language
+     *    it defines.</p>
+     * <p></p>
+     * <h3>Simplification Rules:</h3>
+     * <p>
+     *     This function employs a greedy algorithm by attempting to match
+     *     each pattern below, substituting where possible.  If any changes
+     *     are made, it repeats applying the rules until none of the rules
+     *     apply.
+     * </p>
+     * <p>
+     *     Below, <code>a</code>, <code>b</code>, and <code>c</code> represent
+     *     any regular expression. <code>x</code> and <code>y</code> represent
+     *     single symbols, and <code>()</code> represents an empty sequence.
+     * </p><ol>
+     * <li><code>
+     *     a*a* -> a*
+     * </code></li>
+     * <li><code>
+     *     a|a -> a
+     * </code></li>
+     * <li><code>
+     *     a|a* -> a*
+     * </code></li>
+     * <li><code>
+     *     a|.* -> .*
+     * </code></li>
+     * <li><code>
+     *     x|. -> .
+     * </code></li>
+     * <li><code>
+     *     a*a -> aa*
+     * </code></li>
+     * <li><code>
+     *     aa*|a* -> a*
+     * </code></li>
+     * <li><code>
+     *     a() -> a
+     * </code></li>
+     * <li><code>
+     *     ()a -> a
+     * </code></li>
+     * <li><code>
+     *    ()|aa* -> a*
+     * </code></li>
+     * <li><code>
+     *    (()|a)* -> a*
+     * </code></li>
+     * <li><code>
+     *     (ab)*a -> a(ba)*
+     * </code></li>
+     * <li><code>
+     *    (a*b)*a* -> (a|b)*
+     * </code></li>
+     * <li><code>
+     *    a*(ba*)* -> (a|b)*
+     * </code></li>
+     * <li><code>
+     *    abcab -> (ab)c(ab)
+     * </code></li>
+     * <li><code>
+     *    (a(bc)) -> (abc)
+     * </code></li>
+     * </ol>
+     * <p>
+     *     The last two rules are to try to avoid looking at the n^2/2
+     *     subsequences for every rule and just do it for these rules.
+     *     These two rules fight each other, so it might be best to
+     *     only apply the last when <code>bc</code> does not show up
+     *     anywhere else.  Remember that these rules are heuristics,
+     *     and we do not guarantee missing something obvious.  That's
+     *     because the problem is PSPACE hard, meaning that exploring
+     *     every possible case for simplification is intractable.
+     * </p>
+     * @param r the expression to simplify
+     * @return a simplified <code>RegexDomain</code> equivalent to <code>r</code> or <code>r</code>
+     */
+    public static RegexDomain simplify(RegexDomain r) {
+
+        RegexDomain s = r.clone();
+        s.simplify();
+        return s;
+    }
+
+    /**
+     * <p>Make the regular expression simpler without changing the language
+     *    it defines.</p>
+     * @see <code>public static RegexDomain simplify(RegexDomain r)</code> for details
+     *
+     * @return whether or not the representation changed
+     */
+    public boolean simplify() {
+        return false;
     }
 
     public static RegexDomain makeAndDomain( Domain domain ) {
