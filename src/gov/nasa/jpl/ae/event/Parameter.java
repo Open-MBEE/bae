@@ -10,20 +10,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.ae.util.LamportClock;
 import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
-import gov.nasa.jpl.ae.solver.RangeDomain;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Variable;
 
 /**
  *
@@ -631,6 +621,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
     if (Parameter.allowPickValue ){
       T newValue = pickRandomValue();
+      // HACK -- Just doing this because pickRandomValue() is turned off for ClassDomain. It should be turned back on.
+      if ( newValue == null && domain != null && value == null && !domain.isNullInDomain() && domain instanceof ClassDomain ) {
+        newValue  = ( (ClassDomain<T>)domain ).constructObject();
+      }
       if ( newValue != null ) {
         setValue( newValue );
         return true;
