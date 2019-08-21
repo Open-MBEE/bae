@@ -562,6 +562,12 @@ public class RegexDomainString implements ComparableDomain<String> {
     }
 
     @Override public String toString() {
+        // REVIEW -- If charListDomain is not a subclass of RegexDomain,
+        // then it is a sequence, so should we just print a simple string
+        // (instead of an array with brackets)?
+        //if ( charListDomain.getClass().equals( RegexDomain.class ) ) {
+            // If the regex domain is a sequence,
+        //}
         return charListDomain.toString();
     }
 }
