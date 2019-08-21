@@ -889,7 +889,7 @@ public class EventXmlToJava {
       }
       if ( p.type != null ) {
         p.type = p.type.replaceFirst(".class$","");
-        if ( p.name.endsWith("Time") && p.type.endsWith("Timepoint") ) {
+        if ( "Time".equals( p.type ) || "Timepoint".equals( p.type ) || (p.name.endsWith("Time") && p.type.endsWith("Timepoint")) ) {
           p.type = "Long";
         }
       }
