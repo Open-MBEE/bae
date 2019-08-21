@@ -848,7 +848,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
               Object oldDurExpr = args[ args.length - 1 ];
               if ( !Expression.valuesEqual( oldDurExpr, durationExpr ) ) {
-                // FIXME -- put inside if (Debug.isOn())
+                if ( Debug.isOn() ) {
                 try {
                   if ( Math.abs( ( (Long)Expression.evaluate( oldDurExpr,
                                                               Long.class,
@@ -863,8 +863,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                 } catch ( ClassCastException | IllegalAccessException
                           | InvocationTargetException
                           | InstantiationException e ) {
-                  // TODO Auto-generated catch block
                   e.printStackTrace();
+                }
                 }
                 printFromToTime( "duration", oldDurExpr, durationExpr );
                 // Swap in new argument.
