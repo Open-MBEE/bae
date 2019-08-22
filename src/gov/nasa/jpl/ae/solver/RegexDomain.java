@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
  * Other non-necessary things that we don't include: begin, end, multiplicity, groups
  * @param <T>
  */
-public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
+public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simplifiable {
     public static class SimpleDomain<V> extends ObjectDomain<V> {
         public SimpleDomain() {
             super( (Class<V>)null );
@@ -87,7 +87,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         }
     }
 
-    protected static class ManyDomain<V> extends HasIdImpl implements Domain<List<V>> {
+    protected static class ManyDomain<V> extends HasIdImpl implements Domain<List<V>>, Simplifiable {
         public static final ManyDomain<Object> defaultDomain = new ManyDomain<Object>(Object.class);
         IntegerDomain multiplicity = new IntegerDomain( 0,Integer.MAX_VALUE );
         Domain<V> domainForEach = null;
@@ -324,6 +324,23 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
                    ( domainForEach == null || domainForEach.hasMultipleValues() );
         }
 
+        /**
+         * <ol>
+         * <li><code>
+         *    (()|a)* -> a*
+         * </code></li>
+         * <li><code>
+         *     a** -> a*
+         * </code></li>
+         * </ol>
+         *
+         * @return whether the representation changed
+         */
+        public boolean simplifyForPatterns() {
+            // TODO
+            return false;
+        }
+
         @Override public String toString() {
             String dfes = domainForEach.toString();
             if ( dfes.length() == 1 ) {
@@ -331,6 +348,38 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             }
             return "(" + dfes + ")*";
         }
+
+        /**
+         * Attempt to simplify.
+         *
+         * @param deep whether to recursively simplify contained objects
+         * @param seen a list of objects already visited to avoid infinite recursion
+         * @return whether or not the object changed as a result of simplification
+         */
+        @Override public boolean simplify( boolean deep,
+                                           Set<Simplifiable> seen ) {
+            return RegexDomain.simplify(this, deep, seen );
+        }
+
+        /**
+         *
+         * @param deep whether to recursively simplify contained objects
+         * @param seen a list of objects already visited to avoid infinite recursion
+         * @return
+         */
+        @Override public boolean simplifyOnePass( boolean deep, Set<Simplifiable> seen ) {
+            boolean changedDomainForEach = false;
+            boolean changedForPatterns = false;
+            if ( deep ) {
+                if ( domainForEach instanceof Simplifiable ) {
+                    changedDomainForEach = ( (Simplifiable)domainForEach ).simplify( deep, seen );
+                }
+            }
+            changedForPatterns = simplifyForPatterns();
+            return changedDomainForEach || changedForPatterns;
+        }
+
+
     }
 
 //    static final SimpleDomain begin = new SimpleDomain();
@@ -445,6 +494,79 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
             return s;
         }
 
+        /**
+         * Transformation patterns:
+         * <p>
+         * <ol>
+         * <li><code>
+         *     a|a -> a
+         * </code></li>
+         * <li><code>
+         *     a|a* -> a*
+         * </code></li>
+         * <li><code>
+         *     a|.* -> .*
+         * </code></li>
+         * <li><code>
+         *     x|. -> .
+         * </code></li>
+         * <li><code>
+         *     aa*|a* -> a*
+         * </code></li>
+         * <li><code>
+         *    ()|aa* -> a*
+         * </code></li>
+         * </ol>
+         * </p>
+         *
+         * @return whether the representation changed
+         */
+        @Override public boolean simplifyForPatterns() {
+            /**
+             *  Patterns without the html tags:
+             * a|a -> a
+             * a|a* -> a*
+             * a|.* -> .*
+             * x|. -> .
+             * aa*|a* -> a*
+             * ()|aa* -> a*
+             */
+            boolean changed = false;
+
+            List<Domain<?>> newSeq = new ArrayList<>();
+
+            // a|a -> a
+            boolean changedThisTime = false;
+            Domain last = null;
+            // TODO -- loop below incorrectly assumes that the last and d need to be next to each other, but the order doesn't matter.
+            for ( Domain d : seq ) {
+                if ( last != null && last.equals( d ) ) {
+                    changedThisTime = true;
+                } else {
+                    newSeq.add( d );
+                }
+                last = d;
+            }
+            if ( changedThisTime ) {
+                changed = true;
+                seq = newSeq;
+                changedThisTime = false;
+                last = null;
+            }
+            newSeq = new ArrayList<>();
+
+            /**
+             * TODO -- implement remaining transformation patterns below.
+             * a|a -> a
+             * a|a* -> a*
+             * a|.* -> .*
+             * x|. -> .
+             * aa*|a* -> a*
+             * ()|aa* -> a*
+             */
+
+            return changed;
+        }
 
 
     }
@@ -1149,7 +1271,8 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         return s;
     }
 
-    public int maxTriesToSimplify = 100;  // REVIEW -- make this static?  good: less memory per RegexDomain; bad: can't modify for each.
+    public static int maxTriesToSimplify = 100;  // REVIEW -- make this static?  good: less memory per RegexDomain; bad: can't modify for each.
+
     /**
      * <p>Make the regular expression simpler without changing the language
      *    it defines.</p>
@@ -1158,9 +1281,26 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      * @return whether or not the representation changed
      */
     public boolean simplify() {
+        return simplify( true, null );
+    }
+    /**
+     * <p>Make the regular expression simpler without changing the language
+     *    it defines.</p>
+     * @see <code>public static RegexDomain simplify(RegexDomain r)</code> for details
+     *
+     * @param deep whether to recursively simplify contained objects
+     * @param seen a list of objects already visited to avoid infinite recursion
+     * @return whether or not the representation changed
+     */
+    @Override public boolean simplify( boolean deep, Set<Simplifiable> seen ) {
+        return simplify( this, deep, seen );
+        // TODO -- may not need the static version of this method
+    }
+
+    public static boolean simplify( Simplifiable d, boolean deep, Set<Simplifiable> seen ) {
         boolean changed = false;
         for ( int i = 0; i < maxTriesToSimplify; ++i ) {
-            boolean changedThisTime = simplifyOnePass();
+            boolean changedThisTime = d.simplifyOnePass(deep, seen);
             if ( !changedThisTime ) {
                 break;
             }
@@ -1169,21 +1309,44 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         return changed;
     }
 
-    public boolean simplifyOnePass() {
-        if ( seq == null ) {
+    @Override public boolean simplifyOnePass( boolean deep, Set<Simplifiable> seen ) {
+        return simplifyOnePass( this, deep, seen );
+        // TODO -- may not need the static version of this now that it's in Simplifiable
+    }
+
+    public static boolean simplifyOnePass( Simplifiable s, boolean deep, Set<Simplifiable> seen ) {
+        Pair<Boolean, Set<Simplifiable>> pair = Utils.seen( s, true, seen );
+        if ( pair.first ) return false;
+        seen = pair.second;
+
+        RegexDomain<?> rd = ( s instanceof RegexDomain ) ? (RegexDomain)s : null;
+        if ( rd != null && rd.seq == null ) {
             return false;
         }
         boolean changed = false;
 
         // First, simplify the pieces
-        for ( Domain d : seq ) {
-            if ( d instanceof RegexDomain ) {
-                boolean changedElement = ( (RegexDomain)d ).simplify();
-                changed = changed || changedElement;
+        // TODO -- should this be executed only once and be pulled up into simplify() to stay out of the try loop?
+        //         If the pieces are reconstructed, then no.
+        if ( deep ) {
+            for ( Domain d : rd.seq ) {
+                if ( d instanceof Simplifiable ) {
+                    boolean changedElement =
+                            ( (Simplifiable)d ).simplify( deep, seen );
+                    changed = changed || changedElement;
+                }
             }
         }
 
         // Now, look for sequence patterns
+        boolean changedThisTime = rd.simplifyForPatterns();
+        changed = changed || changedThisTime;
+
+        return changed;
+    }
+
+    public boolean simplifyForPatterns() {
+        boolean changed = false;
 
         List<Domain<?>> newSeq = new ArrayList<>();
 
