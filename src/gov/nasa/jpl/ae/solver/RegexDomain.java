@@ -337,16 +337,29 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
          * @return whether the representation changed
          */
         public boolean simplifyForPatterns() {
-            // TODO
-            return false;
-        }
-
-        @Override public String toString() {
-            String dfes = domainForEach.toString();
-            if ( dfes.length() == 1 ) {
-                return dfes + "*";
+            // a** -> a*
+            if (domainForEach instanceof ManyDomain ) {
+                domainForEach = ( (ManyDomain<V>)domainForEach ).domainForEach;
+                return true;
             }
-            return "(" + dfes + ")*";
+
+            // (()|a)* -> a*
+            if (domainForEach instanceof OrDomain ) {
+                OrDomain<?> od = (OrDomain)domainForEach;
+                if (od.seq.size() == 2 && od.hasEmptyList()) {
+                    Domain first = od.seq.get( 0 );
+                    Domain second = od.seq.get( 1 );
+                    if ( isEmptyList(first) ) {
+                        domainForEach = second;
+                        return true;
+                    }
+                    if ( isEmptyList(second) ) {
+                        domainForEach = first;
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /**
@@ -375,8 +388,18 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
                     changedDomainForEach = ( (Simplifiable)domainForEach ).simplify( deep, seen );
                 }
             }
+            System.out.println( "before simplifyForPatterns(): " + this );
             changedForPatterns = simplifyForPatterns();
+            System.out.println( " after simplifyForPatterns(): " + this );
             return changedDomainForEach || changedForPatterns;
+        }
+
+        @Override public String toString() {
+            String dfes = domainForEach.toString();
+            if ( dfes.length() == 1 ) {
+                return dfes + "*";
+            }
+            return "(" + dfes + ")*";
         }
 
 
@@ -531,51 +554,100 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
              * aa*|a* -> a*
              * ()|aa* -> a*
              */
+
+            // All rules assume at least two distinct elements.
+            if ( seq.size() <= 1 ) {
+                return false;
+            }
+            // a|.* -> .*
+            Domain md = null;
+            for ( Domain d : seq ) {
+                if ( isManyAny( d ) ) {
+                    md = d;
+                    break;
+                }
+            }
+            if ( md != null ) {
+                seq.clear();
+                seq.add( md );
+                return true;
+            }
+
             boolean changed = false;
 
-            List<Domain<?>> newSeq = new ArrayList<>();
-
             // a|a -> a
+            TreeSet<Domain> set = new TreeSet<Domain>( comparator );
+            set.addAll( seq );
+            if ( set.size() < seq.size() ) {
+                seq = new ArrayList<>( (Collection)set );
+                changed = true;
+            }
+
+            // All rules assume at least two distinct elements.
+            if ( seq.size() <= 1 ) {
+                return changed;
+            }
+
             boolean changedThisTime = false;
-            Domain last = null;
-            // TODO -- loop below incorrectly assumes that the last and d need to be next to each other, but the order doesn't matter.
+
+            // a|a* -> a*
+            // Remove any domain which is also in a ManyDomain
             for ( Domain d : seq ) {
-                if ( last != null && last.equals( d ) ) {
-                    changedThisTime = true;
-                } else {
-                    newSeq.add( d );
+                if ( d instanceof ManyDomain ) {
+                    Domain<?> dfe = ( (ManyDomain)d ).domainForEach;
+                    // We know there are no duplicates after the last pattern
+                    // transformation, so there's at most one to remove.
+                    boolean changedThis = set.remove( dfe );
+                    if ( changedThis ) {
+                        changedThisTime = true;
+                        changed = true;
+                    }
                 }
-                last = d;
             }
             if ( changedThisTime ) {
+                seq = new ArrayList<>( (Collection)set );
                 changed = true;
-                seq = newSeq;
                 changedThisTime = false;
-                last = null;
             }
-            newSeq = new ArrayList<>();
+
+            // x|. -> .
+            boolean gotDot = false;
+            for ( Domain d : seq ) {  // TODO -- searching
+                if ( d instanceof AnyDomain ) {
+                    gotDot = true;
+                    break;
+                }
+            }
+            if (gotDot) {
+                // Remove any single elements that are a subset of .
+                for ( Domain d : seq ) {
+                    if ( d instanceof SimpleDomain ) {
+                        set.remove( d );
+                        changedThisTime = true;
+                    }
+                }
+                if ( changedThisTime ) {
+                    seq = new ArrayList<>( (Collection)set );
+                    changed = true;
+                    changedThisTime = false;
+                }
+            }
 
             /**
              * TODO -- implement remaining transformation patterns below.
-             * a|a -> a
-             * a|a* -> a*
-             * a|.* -> .*
-             * x|. -> .
              * aa*|a* -> a*
              * ()|aa* -> a*
              */
 
             return changed;
         }
-
-
     }
 
     public static Comparator comparator = new CompareUtils.GenericComparator() {
         @Override public int compare( Object o1, Object o2 ) {
             if ( o1 == o2 ) return 0;
             if ( o1 == null ) return -1;
-            if ( o2 == null ) return -2;
+            if ( o2 == null ) return 1;
             String s1 = o1.toString();
             String s2 = o2.toString();
             int comp = s1.compareTo( s2 );
@@ -1170,6 +1242,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
         }
 
         Domain fa = flattenAnd( alternation );
+        if ( fa instanceof Simplifiable ) {
+            ( (Simplifiable)fa ).simplify( true, null );
+        }
         if ( fa != null ) {
             return fa;
         }
@@ -1328,7 +1403,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
         // First, simplify the pieces
         // TODO -- should this be executed only once and be pulled up into simplify() to stay out of the try loop?
         //         If the pieces are reconstructed, then no.
-        if ( deep ) {
+        if ( deep && rd != null ) {
             for ( Domain d : rd.seq ) {
                 if ( d instanceof Simplifiable ) {
                     boolean changedElement =
@@ -1339,8 +1414,12 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
         }
 
         // Now, look for sequence patterns
-        boolean changedThisTime = rd.simplifyForPatterns();
-        changed = changed || changedThisTime;
+        if ( rd != null ) {
+            System.out.println( "before simplifyForPatterns(): " + s );
+            boolean changedThisTime = rd.simplifyForPatterns();
+            System.out.println( " after simplifyForPatterns(): " + s );
+            changed = changed || changedThisTime;
+        }
 
         return changed;
     }
@@ -1919,6 +1998,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
             Debug.error(true, true,"Unexpected arguments: minusPrefix(" + rd + ", " + prefix + ")" );
         }
 
+        alternation.simplify();
 
         return alternation;
     }
