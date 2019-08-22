@@ -1116,7 +1116,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      *    abcab -> (ab)c(ab)
      * </code></li>
      * <li><code>
-     *    (a(bc)) -> (abc)
+     *    a(bc) -> abc
      * </code></li>
      * </ol>
      * <p>
@@ -1128,6 +1128,16 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      *     and we do not guarantee missing something obvious.  That's
      *     because the problem is PSPACE hard, meaning that exploring
      *     every possible case for simplification is intractable.
+     * <p>
+     *     Some other rules.
+     * </p><ol>
+     * <li><code>
+     *     a** -> a*
+     * </code></li>
+     * <li><code>
+     *     (a) -> a
+     * </code></li>
+     * </ol>
      * </p>
      * @param r the expression to simplify
      * @return a simplified <code>RegexDomain</code> equivalent to <code>r</code> or <code>r</code>
@@ -1139,6 +1149,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
         return s;
     }
 
+    public int maxTriesToSimplify = 100;  // REVIEW -- make this static?  good: less memory per RegexDomain; bad: can't modify for each.
     /**
      * <p>Make the regular expression simpler without changing the language
      *    it defines.</p>
@@ -1147,7 +1158,155 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>> {
      * @return whether or not the representation changed
      */
     public boolean simplify() {
-        return false;
+        boolean changed = false;
+        for ( int i = 0; i < maxTriesToSimplify; ++i ) {
+            boolean changedThisTime = simplifyOnePass();
+            if ( !changedThisTime ) {
+                break;
+            }
+            changed = true;
+        }
+        return changed;
+    }
+
+    public boolean simplifyOnePass() {
+        if ( seq == null ) {
+            return false;
+        }
+        boolean changed = false;
+
+        // First, simplify the pieces
+        for ( Domain d : seq ) {
+            if ( d instanceof RegexDomain ) {
+                boolean changedElement = ( (RegexDomain)d ).simplify();
+                changed = changed || changedElement;
+            }
+        }
+
+        // Now, look for sequence patterns
+
+        List<Domain<?>> newSeq = new ArrayList<>();
+
+        // a() -> a, ()a -> a
+        boolean changedThisTime = false;
+        for ( Domain d : seq ) {
+            if ( isEmptyList( d ) ) {
+                if ( seq.size() > 1 ) {
+                    changedThisTime = true;
+                }
+            } else {
+                newSeq.add( d );
+            }
+        }
+        if ( changedThisTime ) {
+            changed = true;
+            seq = newSeq;
+            changedThisTime = false;
+        }
+        newSeq = new ArrayList<>();
+
+        // a*a* -> a*
+        ManyDomain lastD = null;
+        for ( Domain d : seq ) {
+            if ( d instanceof ManyDomain ) {
+                ManyDomain md = (ManyDomain)d;
+                if ( lastD != null && md.domainForEach.equals( lastD.domainForEach ) ) {
+                    changedThisTime = true;
+                } else {
+                    newSeq.add( md );
+                }
+                lastD = md;
+            } else {
+                lastD = null;
+                newSeq.add( d );
+            }
+        }
+        if ( changedThisTime ) {
+            changed = true;
+            seq = newSeq;
+            changedThisTime = false;
+        }
+        lastD = null;
+        newSeq = new ArrayList<>();
+
+
+        // a*a -> aa*
+        for ( Domain d : seq ) {
+            if ( lastD != null && lastD.domainForEach.equals( d ) ) {
+                changedThisTime = true;
+                newSeq.add( d );
+            } else if ( d instanceof ManyDomain ) {
+                if ( lastD != null ) {
+                    newSeq.add( lastD );
+                }
+                lastD = (ManyDomain)d;
+            } else if ( lastD != null ) {
+                newSeq.add( lastD );
+                newSeq.add( d );
+                lastD = null;
+            } else {
+                newSeq.add( d );
+            }
+        }
+        if ( lastD != null ) {
+            newSeq.add( lastD );
+        }
+        if ( changedThisTime ) {
+            changed = true;
+            seq = newSeq;
+            changedThisTime = false;
+        }
+        lastD = null;
+        newSeq = new ArrayList<>();
+
+
+        // (ab)*a -> a(ba)*
+        for ( Domain d : seq ) {
+            if ( lastD != null ) {
+                if ( lastD.domainForEach instanceof RegexDomain &&
+                     !( d instanceof OrDomain ) &&
+                     ((RegexDomain)lastD.domainForEach).seq.size() > 1 &&
+                     d.equals( ((RegexDomain)lastD.domainForEach).seq.get(0) ) ) {
+                    changedThisTime = true;
+                    newSeq.add( d );
+                    RegexDomain newDomainForEach = new RegexDomain();
+                    RegexDomain oldDomainForEach = (RegexDomain)lastD.domainForEach;
+                    int z = oldDomainForEach.seq.size();
+                    newDomainForEach.seq.addAll( oldDomainForEach.seq.subList( 1, z ) );
+                    newDomainForEach.seq.add( oldDomainForEach.seq.get(0) );
+                    lastD = new ManyDomain(newDomainForEach);
+                }
+            } else if ( d instanceof ManyDomain ) {
+                if ( lastD != null ) {
+                    newSeq.add( lastD );
+                }
+                lastD = (ManyDomain)d;
+            } else if ( lastD != null ) {
+                newSeq.add( lastD );
+                newSeq.add( d );
+                lastD = null;
+            } else {
+                newSeq.add( d );
+            }
+        }
+        if ( lastD != null ) {
+            newSeq.add( lastD );
+        }
+        if ( changedThisTime ) {
+            changed = true;
+            seq = newSeq;
+            changedThisTime = false;
+        }
+        lastD = null;
+        newSeq = new ArrayList<>();
+
+        // TODO -- implement remaining rules below
+        // (a*b)*a* -> (a|b)*
+        // a*(ba*)* -> (a|b)*
+        // abcab -> (ab)c(ab)
+        // a(bc) -> abc
+
+        return changed;
     }
 
     public static RegexDomain makeAndDomain( Domain domain ) {
