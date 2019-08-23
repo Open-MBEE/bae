@@ -178,6 +178,16 @@ public class RegexDomainString implements ComparableDomain<String> {
         Domain<TT> d = domain;
         if ( d instanceof RegexDomainString ) {
             d = (Domain<TT>)( (RegexDomainString)d ).charListDomain;
+        } else if ( d instanceof StringDomain ) {
+            StringDomain sd = (StringDomain)d;
+            if ( sd.size() == 1 ) {
+                d = (Domain<TT>)(new RegexDomainString( sd.getLowerBound() )).charListDomain;
+            } else if ( sd.size() > 1 ) {
+                String prefix = Utils.longestCommonPrefix( sd.getLowerBound(), sd.getUpperBound() );
+                RegexDomain rd = (RegexDomain)(new RegexDomainString( prefix )).charListDomain;
+                rd.seq.add( RegexDomain.ManyDomain.defaultDomain );
+                d = rd;
+            }
         }
         return charListDomain.restrictTo( d );
     }

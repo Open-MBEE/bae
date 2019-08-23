@@ -388,9 +388,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
                     changedDomainForEach = ( (Simplifiable)domainForEach ).simplify( deep, seen );
                 }
             }
-            System.out.println( "before simplifyForPatterns(): " + this );
+            //System.out.println( "before simplifyForPatterns(): " + this );
             changedForPatterns = simplifyForPatterns();
-            System.out.println( " after simplifyForPatterns(): " + this );
+            //System.out.println( " after simplifyForPatterns(): " + this );
             return changedDomainForEach || changedForPatterns;
         }
 
@@ -1415,9 +1415,9 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
 
         // Now, look for sequence patterns
         if ( rd != null ) {
-            System.out.println( "before simplifyForPatterns(): " + s );
+            //System.out.println( "before simplifyForPatterns(): " + s );
             boolean changedThisTime = rd.simplifyForPatterns();
-            System.out.println( " after simplifyForPatterns(): " + s );
+            //System.out.println( " after simplifyForPatterns(): " + s );
             changed = changed || changedThisTime;
         }
 
@@ -1653,18 +1653,28 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
      */
     public RegexDomain<T> reverse() {
         RegexDomain<T> rdr = this.clone();
-        Collections.reverse( rdr.seq );
-        // now reverse any nested lists
-        for ( Domain<?> d : rdr.seq ) {
-            if ( d instanceof RegexDomain ) {
-                ((RegexDomain)d).reverse();
-            }
-        }
+        rdr.reverseInPlace();
         return rdr;
     }
 
+    /**
+     * Reverse the order of the list of T elements in seq.
+     * @return a new RegexDomain with the elements reversed
+     */
+    public void reverseInPlace() {
+        boolean changed = false;
+        //RegexDomain<T> rdr = this.clone();
+        Collections.reverse( seq );
+        // now reverse any nested lists
+        for ( Domain<?> d : seq ) {
+            if ( d instanceof RegexDomain ) {
+                ((RegexDomain)d).reverseInPlace();
+            }
+        }
+    }
+
+
     public static <TT> OrDomain<TT> minusSuffix( RegexDomain<TT> rd, Domain<?> suffix ) {
-//    public static <TT> RegexDomain<TT> minusSuffix( RegexDomain<TT> rd, Domain<TT> suffix ) {
         // Reverse both args, pass to minusPrefix, reverse the result.
         RegexDomain<TT> rdr = rd.reverse();
         Domain<?> rSuffix = suffix;
@@ -1673,13 +1683,15 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
         }
         OrDomain<TT> result = minusPrefix( rdr, rSuffix, null );
         if ( result != null ) result = result.reverse();
-        return null;
+        return result;
     }
 
     @Override public boolean equals( Object obj ) {
         if ( obj instanceof RegexDomain ) {
-            // REVIEW -- could be smarter; for instance (xy)z should equals x(yz)
-            int comp = CompareUtils.compare( seq, ((RegexDomain)obj).seq );
+            Domain d1 = flattenAnd( this );
+            Domain d2 = flattenAnd( (RegexDomain)obj );
+            //int comp = CompareUtils.compare( seq, ((RegexDomain)obj).seq );
+            int comp = comparator.compare( d1, d2 );
             return comp == 0;
         }
         return super.equals( obj );

@@ -1643,32 +1643,45 @@ public class Functions {
 
     // Now do it the right way.
     RegexDomainString rd1 = null;
-
     RegexDomainString rd2 = null;
+    RegexDomain rdc1 = null;
+    RegexDomain rdc2 = null;
+
     if ( d1 instanceof StringDomain ) {
       rd1 = new RegexDomainString( (StringDomain)d1 );
     } else if ( d1 instanceof SingleValueDomain ) {
       rd1 = new RegexDomainString( "" + d1.getValue( false ) );
     } else if ( d1 instanceof RegexDomainString ) {
       rd1 = (RegexDomainString)d1;
+    } else if ( d1 instanceof RegexDomain ) {
+      rdc1 = (RegexDomain)d1;
     }
+    if ( rdc1 == null && rd1 != null ) {
+      rdc1 = rd1.charListDomain;
+    }
+
     if ( d2 instanceof StringDomain ) {
       rd2 = new RegexDomainString( (StringDomain)d2 );
     } else if ( d2 instanceof SingleValueDomain ) {
       rd2 = new RegexDomainString( "" + d2.getValue( false ) );
     } else if ( d2 instanceof RegexDomainString ) {
       rd2 = (RegexDomainString)d2;
+    } else if ( d2 instanceof RegexDomain ) {
+      rdc2 = (RegexDomain)d2;
+    }
+    if ( rdc2 == null && rd2 != null ) {
+      rdc2 = rd2.charListDomain;
     }
 
-    if ( rd1 == null ) {
+    if ( rdc1 == null ) {
       Debug.error( true, true,
-                   "Could not get RegexDomainString for " + a1 );
+                   "Could not get RegexDomain for " + a1 );
     }
-    if ( rd1 == null ) {
+    if ( rdc2 == null ) {
       Debug.error( true, true,
-                   "Could not get RegexDomainString for " + a1 );
+                   "Could not get RegexDomain for " + a2 );
     }
-    if ( rd1 == null || rd2 == null ) {
+    if ( rdc1 == null || rdc2 == null ) {
       return null;
     }
 
@@ -1677,11 +1690,12 @@ public class Functions {
     boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
     RegexDomain.OrDomain<Character> d3;
     if ( isPrefix ) {
-      d3 = RegexDomain.minusPrefix( rd1.charListDomain, rd2.charListDomain, null );
+      d3 = RegexDomain.minusPrefix( rdc1, rdc2, null );
     } else{
-      d3 = RegexDomain.minusSuffix( rd1.charListDomain, rd2.charListDomain );
+      d3 = RegexDomain.minusSuffix( rdc1, rdc2 );
     }
 
+    System.out.println("calculateStringDomain(" + minusPrefixOrSuffix + ") = " + d3);
     return d3;
   }
 
