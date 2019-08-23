@@ -1909,7 +1909,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
             for ( Object d : ((OrDomain)hr).seq ) { // Why does the compiler not let me declare d as a Domain????!
                 if ( d == null ) continue;
                 if ( d instanceof Domain ) {
-                    OrDomain<TT> a = minusPrefix( concat( (Domain)d, tr ), tp, seen );
+                    OrDomain<TT> a = minusPrefix( concat( (Domain)d, tr ), prefix, seen );
                     if ( a != null ) {
                         alternation.seq.addAll( a.seq );
                     }
