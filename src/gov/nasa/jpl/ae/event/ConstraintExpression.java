@@ -533,10 +533,10 @@ public class ConstraintExpression extends Expression< Boolean >
       return null;
     }
     List<Pair<Parameter<?>, Object>> deps = null;
-    Functions.And andFcn = (Functions.And)e.expression;
-    if ( andFcn.getArguments() != null ) {// &&
+    Call andOrFcn = (Call)e.expression;
+    if ( andOrFcn.getArguments() != null ) {// &&
          // ( !mustBeFalse || potential || andFcn.getArguments().size() == 1 ) ) {
-      for ( Object a : andFcn.getArguments() ) {
+      for ( Object a : andOrFcn.getArguments() ) {
         Domain domain = DomainHelper.getDomain( a );
         if ( mustBeFalse || mustBeTrue ) {
           if ( !domain.contains( mustBeTrue ) ) {
