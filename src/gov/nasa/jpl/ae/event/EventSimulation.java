@@ -698,10 +698,17 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         if ( value instanceof Double ) {
           value = String.format( "%.2f", value );
         }
-        
+
+        if ( variable instanceof Executor ) {
+          ( (Executor)variable ).execute( nextEventSimTime,
+                                          name, shortClassName, longClassName,
+                                          ( value == null ? "null" : value.toString() ) );
+        }
+
         // unleash the executors!
         for ( Executor exec : executors ) {
-          exec.execute( nextEventSimTime, name, shortClassName, longClassName,
+          exec.execute( nextEventSimTime,
+                        name, shortClassName, longClassName,
                         ( value == null ? "null" : value.toString() ) );
         }
         
