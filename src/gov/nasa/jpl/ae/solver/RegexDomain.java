@@ -693,6 +693,19 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
     }
 
     /**
+     *
+     * @param d
+     * @return true if d is one of the regex domain classes, otherwise false
+     */
+    public static boolean isDomainRegex(Domain d) {
+        if ( d instanceof RegexDomain ) return true;
+        if ( d instanceof SimpleDomain ) return true;
+        if ( d instanceof AnyDomain ) return true;
+        if ( d instanceof ManyDomain ) return true;
+        return false;
+    }
+
+    /**
      * @return the number of elements in the domain. If the domain is infinite,
      * Long.MAX_VALUE (which is to be interpreted as infinity).<p>
      */
@@ -916,6 +929,18 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
         return null;
     }
 
+    /**
+     *
+     * Return whether the domain is an Or, Many, or Any domain or a non-Or
+     * RegexDomain with at least one element that is (or contains) one of these
+     * three.  This is to distinguish simple RegexDomain sequences that do not
+     * have any of these complex elements.
+     *
+     * @param d the domain to test
+     * @return false iff the domain is not one of the regex domains or if it is
+     * a RegexDomain with a sequence of elements for each of which hasRegex() is
+     * false.
+     */
     public static boolean hasRegex( Domain<?> d ) {
         if ( d instanceof OrDomain ) {
             return true;
@@ -1924,7 +1949,7 @@ public class RegexDomain<T> extends HasIdImpl implements Domain<List<T>>, Simpli
             for ( Object d : ((OrDomain)hp).seq ) { // Why does the compiler not let me declare d as a Domain????!
                 if ( d == null ) continue;
                 if ( d instanceof Domain ) {
-                    OrDomain<TT> a = minusPrefix( tr, concat( (Domain)d, tp ), seen );
+                    OrDomain<TT> a = minusPrefix( rd, concat( (Domain)d, tp ), seen );
                     if ( a != null ) {
                         alternation.seq.addAll( a.seq );
                     }

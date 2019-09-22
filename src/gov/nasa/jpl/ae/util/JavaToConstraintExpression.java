@@ -19,29 +19,7 @@ import gov.nasa.jpl.mbee.util.Utils;
 import gov.nasa.jpl.mbee.util.Wraps;
 import japa.parser.ASTParser;
 import japa.parser.ParseException;
-import japa.parser.ast.expr.ArrayCreationExpr;
-import japa.parser.ast.expr.AssignExpr;
-import japa.parser.ast.expr.BinaryExpr;
-import japa.parser.ast.expr.BooleanLiteralExpr;
-import japa.parser.ast.expr.CastExpr;
-import japa.parser.ast.expr.CharLiteralExpr;
-import japa.parser.ast.expr.ClassExpr;
-import japa.parser.ast.expr.ConditionalExpr;
-import japa.parser.ast.expr.DoubleLiteralExpr;
-import japa.parser.ast.expr.EnclosedExpr;
-import japa.parser.ast.expr.Expression;
-import japa.parser.ast.expr.FieldAccessExpr;
-import japa.parser.ast.expr.IntegerLiteralExpr;
-import japa.parser.ast.expr.LiteralExpr;
-import japa.parser.ast.expr.LongLiteralExpr;
-import japa.parser.ast.expr.MethodCallExpr;
-import japa.parser.ast.expr.NameExpr;
-import japa.parser.ast.expr.NullLiteralExpr;
-import japa.parser.ast.expr.ObjectCreationExpr;
-import japa.parser.ast.expr.StringLiteralExpr;
-import japa.parser.ast.expr.ThisExpr;
-import japa.parser.ast.expr.UnaryExpr;
-import japa.parser.ast.expr.VariableDeclarationExpr;
+import japa.parser.ast.expr.*;
 import japa.parser.ast.stmt.AssertStmt;
 import japa.parser.ast.stmt.BlockStmt;
 import japa.parser.ast.stmt.CatchClause;
@@ -576,6 +554,22 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
                                                        returnType );
     return ctorCall;
   }
+  public static ConstructorCall getIsInstanceOfConstructorCall() {
+    Class< Functions.IsInstanceOf > cls = Functions.IsInstanceOf.class;
+    ConstructorCall ctorCall =
+            new ConstructorCall( null, cls, new Object[] { emptyExpression,
+                                                                  emptyExpression },
+                                 Boolean.class );
+    return ctorCall;
+  }
+  public static ConstructorCall getCastConstructorCall() {
+    Class< Functions.Cast > cls = Functions.Cast.class;
+    ConstructorCall ctorCall =
+            new ConstructorCall( null, cls, new Object[] { emptyExpression,
+                                                                  emptyExpression },
+                                 Object.class );
+    return ctorCall;
+  }
 
   public static ConstructorCall getArgMinMaxConstructorCall(String fName, int numArgs, Class<?> returnType) {
     Class< ? > cls = null;
@@ -825,14 +819,29 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
             astToAeExpr( ( (EnclosedExpr)expr ).getInner(), type,
                          convertFcnCallArgsToExprs, lookOutsideClassDataForTypes,
                          complainIfDeclNotFound);
-    /*** CastExpr ***/
+      /*** CastExpr ***/
     } else if ( expr.getClass() == CastExpr.class ) {
       CastExpr ce = (CastExpr)expr;
-      middle =
-          astToAeExpr( ce.getExpr(), type,
-                             convertFcnCallArgsToExprs, lookOutsideClassDataForTypes,
-                                 complainIfDeclNotFound);
-    /*** NameExpr ***/
+      middle = "new Functions.Cast(" +
+               astToAeExpr( ce.getExpr(), true, lookOutsideClassDataForTypes, complainIfDeclNotFound ) + ", " +
+               ce.getType().toString() + ".class ) ";
+      if ( evaluateCall ) {
+        middle = "Expression.evaluate(" + middle + ", null, true)";
+      }
+//      middle =
+//              astToAeExpr( ce.getExpr(), type,
+//                           convertFcnCallArgsToExprs, lookOutsideClassDataForTypes,
+//                           complainIfDeclNotFound);
+    /*** InstanceOfExpr ***/
+    } else if ( expr.getClass() == InstanceOfExpr.class ) {
+      InstanceOfExpr ioe = (InstanceOfExpr)expr;
+      middle = "new Functions.IsInstanceOf(" +
+               astToAeExpr( ioe.getExpr(), true, lookOutsideClassDataForTypes, complainIfDeclNotFound ) + ", " +
+               ioe.getType().toString() + ".class ) ";
+      if ( evaluateCall ) {
+        middle = "Expression.evaluate(" + middle + ", null, true)";
+      }
+      /*** NameExpr ***/
     } else if ( expr.getClass() == NameExpr.class ) {
       middle = nameExprToAe( (NameExpr)expr, true, evaluateCall, getParameterValue, true );
       if ( middle != null && middle.equals("time") ) {
@@ -1147,14 +1156,62 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
       /*** CastExpr ***/
       } else if ( expr.getClass() == CastExpr.class ) {
         CastExpr ce = (CastExpr)expr;
+//        Object o =
+//            astToAeExpression( ce.getExpr(), type,
+//                               convertFcnCallArgsToExprs, lookOutsideClassDataForTypes,
+//                               complainIfDeclNotFound);
+//        aeExpr =
+//            (gov.nasa.jpl.ae.event.Expression< ? >)( ( o instanceof gov.nasa.jpl.ae.event.Expression )
+//                                                 ? o
+//                                                 : new gov.nasa.jpl.ae.event.Expression( o ) );
         Object o =
-            astToAeExpression( ce.getExpr(), type,
-                               convertFcnCallArgsToExprs, lookOutsideClassDataForTypes,
-                               complainIfDeclNotFound);
-        aeExpr =
-            (gov.nasa.jpl.ae.event.Expression< ? >)( ( o instanceof gov.nasa.jpl.ae.event.Expression )
-                                                 ? o
-                                                 : new gov.nasa.jpl.ae.event.Expression( o ) );
+                astToAeExpression( ce.getExpr(),
+                                   true, lookOutsideClassDataForTypes,
+                                   complainIfDeclNotFound);
+        String cStr = JavaToConstraintExpression.typeToClass( ce.getType().toString() );
+        String c = getClassData().getClassNameWithScope( cStr );
+        if ( c != null ) cStr = c;
+        ConstructorCall call = getCastConstructorCall();
+        Debug.errorOnNull( true, "A Functions class must exist for every Java binary operator", call );
+        Vector< Object > args = new Vector< Object >();
+        args.add( o );
+        args.add( new gov.nasa.jpl.ae.event.Expression<String>( cStr ) );
+        call.setArguments( args );
+        if ( evaluateCall ) {
+          try {
+            aeExpr = new gov.nasa.jpl.ae.event.Expression( call.evaluate( true ) );
+          } catch ( IllegalAccessException e ) {
+          } catch ( InvocationTargetException e ) {
+          } catch ( InstantiationException e ) {
+          }
+        } else {
+          aeExpr = new gov.nasa.jpl.ae.event.Expression( call );
+        }
+      } else if ( expr.getClass() == InstanceOfExpr.class ) {
+        InstanceOfExpr ioe = (InstanceOfExpr)expr;
+        Object o =
+                astToAeExpression( ioe.getExpr(),
+                                   true, lookOutsideClassDataForTypes,
+                                   complainIfDeclNotFound);
+        String cStr = JavaToConstraintExpression.typeToClass( ioe.getType().toString() );
+        String c = getClassData().getClassNameWithScope( cStr );
+        if ( c != null ) cStr = c;
+        ConstructorCall call = getIsInstanceOfConstructorCall();
+        Debug.errorOnNull( true, "A Functions class must exist for every Java binary operator", call );
+        Vector< Object > args = new Vector< Object >();
+        args.add( o );
+        args.add( new gov.nasa.jpl.ae.event.Expression<String>( cStr ) );
+        call.setArguments( args );
+        if ( evaluateCall ) {
+          try {
+            aeExpr = new gov.nasa.jpl.ae.event.Expression( call.evaluate( true ) );
+          } catch ( IllegalAccessException e ) {
+          } catch ( InvocationTargetException e ) {
+          } catch ( InstantiationException e ) {
+          }
+        } else {
+          aeExpr = new gov.nasa.jpl.ae.event.Expression( call );
+        }
       /*** NameExpr ***/
       } else if ( expr.getClass() == NameExpr.class ) {
         aeExpr = nameExprToAeExpression( (NameExpr)expr, true, evaluateCall, false, getParameterValue, true, false );
@@ -1444,6 +1501,8 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
         if ( ce.getType() != null ) {
           result = "" + ce.getType();
         }
+      } else if ( expr.getClass() == InstanceOfExpr.class ) {
+        result = "Boolean";
       } else if ( expr.getClass() == NameExpr.class ) {
         name = ( (NameExpr)expr ).getName();
         if ( name != null && name.equals("time") ) {
@@ -1673,8 +1732,19 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
     // cases (not just when scope is FieldAccessExpr and NameExpr) and passes
     // convertFcnCallArgsToExprs arg through.
     String aeString = null;
-    if ( fieldAccessExpr.getScope() != null
-         && ( fieldAccessExpr.getScope() instanceof FieldAccessExpr || fieldAccessExpr.getScope() instanceof NameExpr ) ) {
+    if ( fieldAccessExpr.getScope() == null
+         || ( !(fieldAccessExpr.getScope() instanceof FieldAccessExpr) && !(fieldAccessExpr.getScope() instanceof NameExpr) ) ) {
+      if ( fieldAccessExpr.getScope() instanceof ThisExpr ) {
+        aeString = fieldAccessExpr.toString();
+      } else {
+        String parentString = astToAeExpr(fieldAccessExpr.getScope(), true, lookOutsideClassDataForTypes, complainIfDeclNotFound);
+        aeString =
+                packageExpressionString( parentString, fieldAccessExpr,
+                                         wrapInFunction, evaluateCall,
+                                         getParameterValue, propagate );
+      }
+      return aeString;
+    }
       /* */
       // Maybe it's just a class or package name.
       Class< ? > cls =
@@ -1753,9 +1823,6 @@ public class JavaToConstraintExpression { // REVIEW -- Maybe inherit from ClassD
 //          aeString = "(" + aeString + ").evaluate(" + propagate + ")";
 //        }
       }
-    } else if ( fieldAccessExpr.getScope() instanceof ThisExpr ) {
-      aeString = fieldAccessExpr.toString();
-    }
     return aeString;
   }
   

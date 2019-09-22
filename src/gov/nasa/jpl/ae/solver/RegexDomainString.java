@@ -41,6 +41,8 @@ public class RegexDomainString implements ComparableDomain<String> {
                 rd1 = new RegexDomainString( "" + d.getValue( false ) );
             } else if ( d instanceof RegexDomainString ) {
                 rd1 = (RegexDomainString)d;
+            } else if ( RegexDomain.isDomainRegex( d ) ) {
+                rd1 = new RegexDomainString(d);
             }
             if ( rd1 != null ) {
                 preprocessedList.addAll( rd1.charListDomain.seq );
@@ -56,11 +58,16 @@ public class RegexDomainString implements ComparableDomain<String> {
             charListDomain = ((RegexDomainString)domain).charListDomain.clone();
             return;
         }
-        if ( domain instanceof RegexDomain ) {  // REVIEW -- is this ok to be OrDomain?
+        if ( domain instanceof RegexDomain &&
+             !(domain instanceof RegexDomain.OrDomain) ) {  // REVIEW -- is this ok to be OrDomain?
             charListDomain = (RegexDomain)domain;
             return;
         }
         charListDomain = new RegexDomain<>();
+        if ( RegexDomain.isDomainRegex( domain ) ) {
+            charListDomain.seq.add( domain );
+            return;
+        }
         if ( domain.magnitude() == 1 ) {
             charListDomain.seq = toCharDomains( "" + domain.getValue( true ) );
         } else { // TODO -- if it's not really *, we should do something difft.

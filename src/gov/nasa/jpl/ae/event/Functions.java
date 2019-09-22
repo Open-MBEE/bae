@@ -605,6 +605,9 @@ public class Functions {
            || ( condo.contains( true ) && condo.contains( false ) ) ) {
         if ( d2 == null ) {
           if ( o2 == null && d3 != null ) {
+            // REVIEW -- Is this really how we want to interpret this?
+            // REVIEW -- If the argument is uninitialized, shouldn't it be the
+            // REVIEW -- ClassDomain of the parameter, T?
             d3.setNullInDomain( true );
           }
           return d3;
@@ -615,6 +618,31 @@ public class Functions {
           }
           return d2;
         }
+
+        // Combine regex and string domains
+        if ( d2 instanceof RegexDomainString || d3 instanceof RegexDomainString ||
+             RegexDomain.isDomainRegex( d2 ) || RegexDomain.isDomainRegex( d3 ) ||
+             ( d2 instanceof StringDomain && d3 instanceof StringDomain ) ) {
+          Domain dd2 = d2;
+          Domain dd3 = d3;
+          if ( d2 instanceof StringDomain ) {
+            StringDomain sd2 = (StringDomain)d2;
+            dd2 = new RegexDomainString( sd2 );
+          }
+          if ( dd2 instanceof RegexDomainString ) {
+            dd2 = ( (RegexDomainString)dd2 ).charListDomain;
+          }
+          if ( d3 instanceof StringDomain ) {
+            StringDomain sd3 = (StringDomain)d3;
+            dd3 = new RegexDomain.SimpleDomain( sd3.getValue( false ) );
+          }
+          if ( dd3 instanceof RegexDomainString ) {
+            dd3 = ( (RegexDomainString)dd3 ).charListDomain;
+          }
+          Domain od = new RegexDomain.OrDomain(Utils.newList(dd2, dd3));
+          return od;
+        }
+
         MultiDomain< T > md = new MultiDomain< T >( (Class< T >)getType(),
                                                     (Set< Domain< T > >)Utils.newSet( (Domain< T >)d2,
                                                                                       (Domain< T >)d3 ),
@@ -1040,6 +1068,96 @@ public class Functions {
       e.printStackTrace();
     }
     return thenT;
+  }
+
+  protected static Class getClassFromArgument( Object o )
+          throws IllegalAccessException, InstantiationException,
+                 InvocationTargetException {
+    Object r = ( o == null ? null : Expression.evaluateDeep( o, null, false, false ) );
+    Class<?> cls = Expression.evaluate( o, Class.class, true, false );
+    if ( cls == null ) {
+      if ( r instanceof String ) {
+        cls = ClassUtils.getClassForName( ( (String)r ).replaceAll( ".class$", "" ),
+                                          null, new String[]{}, true );
+      }
+    }
+    return cls;
+  }
+
+  public static Object isInstanceOf( Expression< ? > o1,
+                                     Expression< ? > o2 ) throws IllegalAccessException,
+                                                                 InvocationTargetException,
+                                                                 InstantiationException {
+    if ( o1 == null && o2 == null ) return null;
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Class cls = getClassFromArgument( o2 );
+    if ( cls == null ) {
+      return null;
+    }
+    Object result = isInstanceOf( r1, cls );
+    if ( Utils.isTrue( result ) ) {
+      return result;
+    }
+    Object result2 = isInstanceOf( r1, cls );
+    if ( Utils.isTrue( result2 ) ) {
+      return result2;
+    }
+    return result;
+  }
+
+  public static Object
+      isInstanceOf( Object o, Class<?> cls) throws IllegalAccessException,
+                                                   InvocationTargetException,
+                                                   InstantiationException {
+    // TODO -- handle timelines and distributions
+    if ( cls == null ) return null;
+    if ( o == null ) return false;
+    return cls.isInstance( o );
+  }
+
+  public static Object cast( Expression< ? > o1,
+                             Expression< ? > o2 ) throws IllegalAccessException,
+                                                         InvocationTargetException,
+                                                         InstantiationException {
+    if ( o1 == null && o2 == null ) return null;
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Object r2 = ( o2 == null ? null : Expression.evaluateDeep( o2, null, false, false ) );
+    Class<?> cls = null;
+    Object oo = ClassUtils.getClassForName( "" + o2, null, new String[]{}, true);
+    if ( oo instanceof Class ) {
+      cls = (Class)oo;
+    }
+    if ( cls == null ) {
+      if ( r2 instanceof String ) {
+        cls = ClassUtils.getClassForName( ( (String)r2 ).replaceAll( ".class$", "" ),
+                                          null, new String[]{}, true );
+      } else if ( r2 instanceof Class ) {
+        cls = (Class)r2;
+      }
+      if ( cls == null ) {
+        return null;
+      }
+    }
+    Object result = cast( r1, cls );
+    if ( result != null ) {
+      return result;
+    }
+    if ( o1 != r1 ) {
+      result = isInstanceOf( o1, cls );
+    }
+    return result;
+  }
+
+  public static Object
+      cast( Object o, Class<?> cls) throws IllegalAccessException,
+                                           InvocationTargetException,
+                                           InstantiationException {
+    // TODO -- handle timelines and distributions
+    if ( cls == null || o == null ) return null;
+
+    if ( o == null ) return false;
+    Object result = Expression.evaluate( o, cls, false, false );
+    return result;
   }
 
   public static class ArgMin< R, T > extends SuggestiveFunctionCall
@@ -3090,6 +3208,7 @@ public class Functions {
 //    System.out.println("getMember(" + ClassUtils.getName( object ) +
 //                       ", \"" + memberName + "\") = " +
 //                       MoreToString.Helper.toString(v2, true, false, null) );
+    // TODO handle timeline and distribution cases
     return v2;
   }
 
@@ -7514,6 +7633,118 @@ public class Functions {
    * 
    */
 
+
+  public static class IsInstanceOf extends BooleanBinary< Object > {
+
+    public IsInstanceOf( Expression<Object> o1, Expression<Object> o2 ) {
+      super( o1, o2, "isInstanceOf", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf( Object o1, Object o2 ) {
+      super( o1, o2, "isInstanceOf", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf( IsInstanceOf a ) {
+      super( a );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf clone() {
+      return new IsInstanceOf( this );
+    }
+
+    // TODO -- add the inverse and other functions!
+
+    protected Class getClassToCheck() {
+      if ( arguments.size() < 2 ) return null;
+      try {
+        return getClassFromArgument( arguments.get(1) );
+      } catch ( Throwable e ) {
+      }
+      return null;
+    }
+
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      // TODO -- If the class argument is a variable instead of a
+      if (arguments.size() < 2) return null;
+      Object obj = arguments.get( 0 );
+      Object classArg = arguments.get( 1 );
+      Domain<?> cd = DomainHelper.getDomain( classArg );
+      Domain<?> d = DomainHelper.getDomain( obj );
+      Object o = null;
+      Class cls = null;
+      if ( cd != null && cd.magnitude() == 1 ) {
+        Object clsObj = cd.getValue( false );
+        if ( clsObj instanceof Class ) {
+          cls = (Class)clsObj;
+        }
+      } else if ( cd.magnitude() > 1 ) {
+        // TODO
+        Debug.error(true, false, "IsInstanceOf.calculateDomain() does not handle class arguments whose domains are size greater than 1: " + cd);
+        return BooleanDomain.defaultDomain;
+      }
+      if ( cls == null ) {
+        cls = getClassToCheck();
+      }
+      if ( d != null && d.magnitude() == 1 ) {
+        o = d.getValue( false );
+      } else if ( d instanceof ClassDomain ) {
+        Object objClassObj = d.getType();
+        if ( objClassObj instanceof Class ) {
+          if ( cls.isAssignableFrom( (Class)objClassObj ) ) {
+            return BooleanDomain.trueDomain;
+          } else if ( ( (Class)objClassObj ).isAssignableFrom( cls ) ) {
+            return BooleanDomain.defaultDomain;
+          } else {
+            return BooleanDomain.falseDomain;
+          }
+        } else {
+          Debug.error(true, false, "IsInstanceOf.calculateDomain(): failed to get class of ClassDomain: " + d);
+          return BooleanDomain.defaultDomain;
+        }
+      }
+      if ( cls != null && o != null ) {
+        Object r = null;
+        try {
+          r = isInstanceOf( o, cls );
+        } catch ( Throwable e ) {
+        }
+        if ( Utils.isTrue( r ) ) return BooleanDomain.trueDomain;
+        if ( Utils.isFalse( r ) ) return BooleanDomain.falseDomain;
+      }
+      return BooleanDomain.defaultDomain;
+    }
+  }
+
+  public static class Cast extends Binary< Object, Object > {
+
+    public Cast( Expression<Object> o1, Expression<Object> o2 ) {
+      super( o1, o2, "cast", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Cast( Object o1, Object o2 ) {
+      super( o1, o2, "cast", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Cast( Cast a ) {
+      super( a );
+      setMonotonic( false );
+    }
+
+    public Cast clone() {
+      return new Cast( this );
+    }
+
+    // TODO -- add the inverse and other functions!
+
+  }
+
+
   // TimeVaryingMap functions
 
   public static < T > TimeVaryingMap< Boolean >
@@ -8601,4 +8832,5 @@ public class Functions {
 
     // TODO -- Add tests for overflow!!
   }
+
 }
