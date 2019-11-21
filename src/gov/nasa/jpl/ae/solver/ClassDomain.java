@@ -8,6 +8,7 @@ import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.Groundable;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.mbee.util.Utils;
 
@@ -197,7 +198,15 @@ public class ClassDomain< T > implements Domain< T > {
       if (o != null) {
         return (T)o;
       } else {
-        return (T)getType().newInstance();
+        if ( getType() != null ) {
+          if ( ClassUtils.getConstructorForArgs( getType(), new Object[]{} ) != null ) {
+            return (T)getType().newInstance();
+          } else {
+            Debug.error( true, false, "Warning! No default constructor for " + getType().getCanonicalName() ) ;
+          }
+        } else {
+          Debug.error( true, false, "Warning! No type for calling default constructor in ClassDomain: " + this );
+        }
       }
     } catch ( InstantiationException e ) {
       e.printStackTrace();

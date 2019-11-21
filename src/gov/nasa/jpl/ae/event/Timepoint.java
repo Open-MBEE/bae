@@ -7,6 +7,7 @@ import gov.nasa.jpl.ae.solver.TimeVariable;
 import gov.nasa.jpl.mbee.util.CompareUtils;
 import gov.nasa.jpl.mbee.util.TimeUtils;
 import gov.nasa.jpl.mbee.util.TimeUtils.Units;
+import gov.nasa.jpl.mbee.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.text.DateFormat;
@@ -264,7 +265,8 @@ public class Timepoint extends LongParameter implements TimeVariable {
 
 	public Date getDate() {
 	  if ( !isGrounded( false, null ) ) return null;
-	  Date d = new Date( (long)(conversionFactor( TimeUtils.Units.milliseconds )
+      long epMillis = getEpoch().getTime();
+	  Date d = new Date( epMillis + (long)(conversionFactor( TimeUtils.Units.milliseconds )
 	                            * getValue(false)) );
 	  return d;
 	}
@@ -377,7 +379,9 @@ public class Timepoint extends LongParameter implements TimeVariable {
       horizonTimepoint = 
           new Timepoint( "", getHorizonDuration(), ParameterListener.instance );
     }
-    if ( horizonTimepoint.getValueNoPropagate() == null ) {
+    if ( horizonTimepoint.getValueNoPropagate() == null ||
+         !Utils.valuesEqual(horizonTimepoint.getValueNoPropagate(),
+                            getHorizonDuration() ) ) {
       horizonTimepoint.setValue( getHorizonDuration() );
     }
     return horizonTimepoint;

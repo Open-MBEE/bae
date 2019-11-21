@@ -1312,6 +1312,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
   @Override
   public boolean isStale() {
     if ( alwaysNotStale ) {
+      //System.out.println(this + ".isStale() = false 0");
       return false;
     }
     if ( stale ) {
@@ -1324,6 +1325,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 //      } catch (InvocationTargetException e) {
 //      } catch (InstantiationException e) {
 //      }
+      //System.out.println(this + ".isStale() = true 1");
       return true;
     }
     if ( evaluatedArguments != null ) {
@@ -1331,12 +1333,14 @@ public abstract class Call extends HasIdImpl implements HasParameters,
         if ( arg instanceof LazyUpdate )  {
           if ( ( (LazyUpdate)arg ).isStale() ) {
             setStale( true );
+            //System.out.println(this + ".isStale() = true 2, arg = " + arg);
             return true;
           }
         }
         UsesClock usesClock = getUsesClock( arg );
         if ( usesClock != null && usesClock.getLastUpdated() > getLastUpdated() ) {
           setStale( true );
+          //System.out.println(this + ".isStale() = true 3, arg = " + arg);
           return true;
         }
 //        if ( arg instanceof Parameter ) {
@@ -1356,6 +1360,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
     boolean argsStale = areArgsStale();
     if ( argsStale ) {
+      //System.out.println(this + ".isStale() = true 4");
       return true;
     }
 
@@ -1366,6 +1371,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
         if ( usesClock != null && usesClock.getLastUpdated() > getLastUpdated() ) {
           setStale( true );
+          //System.out.println(this + ".isStale() = true 5, arg = " + arg);
           return true;
         }
       }
@@ -1374,10 +1380,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     for ( Parameter< ? > p : getParameters( false, null ) ) {
       if ( usingLamportClock && p.getLastUpdated() > getLastUpdated() ) {
         setStale( true );
+        //System.out.println(this + ".isStale() = true 6, p = " + p);
         return true;
       }
       if ( !usingLamportClock && p.isStale() && ( !( p.getValueNoPropagate() instanceof ParameterListenerImpl ) || !isGetMember() ) ) {
         setStale( true );
+        //System.out.println(this + ".isStale() = true 7, p = " + p);
         return true;
       }
       // No need to do this -- the parameter would be stale
@@ -1389,17 +1397,22 @@ public abstract class Call extends HasIdImpl implements HasParameters,
     if ( nestedCall != null ) {
       if ( nestedCall.isStale() ) {
         setStale( true );
+        //System.out.println(this + ".isStale() = true 8");
         return true;
       }
     }
     if ( object instanceof LazyUpdate && !isStatic() )  {
       if ( ( (LazyUpdate)object ).isStale() ) {
         setStale( true );
+        //System.out.println(this + ".isStale() = true 9");
         return true;
       }
     }
-    if ( possiblyStale( returnValue ) )
+    if ( possiblyStale( returnValue ) ) {
+      //System.out.println(this + ".isStale() = true 10, returnValue = " + returnValue);
       return true;
+    }
+    //System.out.println(this + ".isStale() = false 11");
     return false;
   }
 
@@ -1431,6 +1444,7 @@ public abstract class Call extends HasIdImpl implements HasParameters,
 
   public boolean areArgsStale() {
     if ( Utils.isNullOrEmpty(arguments ) ) {
+      //System.out.println(this + ".areArgsStale() = false 0");
       return false;
     }
     Boolean isGetMember = null;
@@ -1455,10 +1469,12 @@ public abstract class Call extends HasIdImpl implements HasParameters,
             }
           }
           setStale( true );
+          //System.out.println(this + ".areArgsStale() = true 1, arg = " + arg);
           return true;
         }
       }
     }
+    //System.out.println(this + ".areArgsStale() = false 2");
     return false;
   }
 

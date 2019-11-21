@@ -629,7 +629,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
     for ( Map.Entry< Long, Set< Pair< Object, Object > > > e1 : entrySet() ) {
       long nextEventSimTime = e1.getKey();
       for ( Pair< Object, Object > p : e1.getValue() ) {//.entrySet() ) {
-        
+        //System.out.println( "for loop: p = " + p );
         // Delay between events
         if (firstLoop) {
           firstLoop = false;
@@ -699,10 +699,19 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
           value = String.format( "%.2f", value );
         }
 
-        if ( variable instanceof Executor ) {
-          ( (Executor)variable ).execute( nextEventSimTime,
-                                          name, shortClassName, longClassName,
-                                          ( value == null ? "null" : value.toString() ) );
+        Executor exctr = null;
+        try {
+          exctr = Expression.evaluate( variable, Executor.class, false );
+        } catch ( IllegalAccessException ex ) {
+          ex.printStackTrace();
+        } catch ( InvocationTargetException ex ) {
+          ex.printStackTrace();
+        } catch ( InstantiationException ex ) {
+          ex.printStackTrace();
+        }
+        if ( exctr instanceof Executor ) {
+          exctr.execute( nextEventSimTime, name, shortClassName, longClassName,
+                         ( value == null ? "null" : value.toString() ) );
         }
 
         // unleash the executors!
@@ -1180,6 +1189,11 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         readStdoutPlotThread.join( 0 ); // millis (0=forever)
 //        readStderrPlotThread.reader.close();
 //        readStdoutPlotThread.reader.close();
+        for ( Executor exec : executors ) {
+          if ( exec != null && exec.getThread() != null ) {
+            exec.getThread().join(0);
+          }
+        }
       } catch ( InterruptedException e ) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -1296,7 +1310,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
     DurativeEvent event = new DurativeEvent( "horizon" );
     event.startTime.setValue( 0L );
     event.duration.setValue( Timepoint.getHorizonDuration() );
-    add( event );
+    add( (Event)event );
   }
 
   public int numEvents() {

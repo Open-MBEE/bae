@@ -325,9 +325,10 @@ public class FunctionCall extends Call {
 //      return null;
 //    }
     if ( hasTypeErrors( evaluatedArgs ) || objectHasTypeErrors( evaluatedObject ) ) {
-      if ( Debug.isOn() ) Debug.errln( "Warning! Tried calling " + this
-                                       + " with bad argument types! "
-                                       + MoreToString.Helper.toString( evaluatedArgs ) );
+      Debug.error( true, false,
+                   "Warning! Tried calling " + this +
+                   " with bad argument types! " +
+                   MoreToString.Helper.toString( evaluatedArgs ) );
       evaluationSucceeded = false;
       return null;
     }

@@ -415,7 +415,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         Debug.outln(" $$$$$$$$$$$$$$ $$$$$$$$$$$$$$$ DID NOT CALL TRANSLATE FOR " + this + "  $$$$$$$$$$$$$ $$$$$$$$$$$");
       }
     }
-    boolean changing = !valueEquals( val );
+    boolean changing = (val != null || this.value != null) && !valueEquals( val );
     if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                      + "): changing = " + changing );
     if ( changing ) {
@@ -453,6 +453,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 //                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
+
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
 

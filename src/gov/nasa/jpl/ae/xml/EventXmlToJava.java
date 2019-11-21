@@ -193,7 +193,7 @@ public class EventXmlToJava {
     return jsonString;
   }
   
-  public void init() throws ParserConfigurationException, SAXException, IOException {
+  public void init() throws SAXException, IOException {
 
     if ( Debug.isOn() ) Debug.outln( "random double to test repeatability = "
                  + Random.global.nextDouble() );
@@ -219,12 +219,7 @@ public class EventXmlToJava {
                                                            packageName );
     
     // Translate XML to a DOM Document.
-    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-    factory.setNamespaceAware( true );
-    DocumentBuilder builder;
-    // XPathExpression expr = null;
-    builder = factory.newDocumentBuilder();
-    xmlDocDOM = builder.parse( xmlFileName );
+    xmlDocDOM = XmlUtils.getDocument( xmlFileName );
 
     if ( !XmlUtils.validateXML( xmlFileName, xmlDocDOM ) ) {
       if ( Debug.isOn() ) Debug.outln( "Warning! XML file "

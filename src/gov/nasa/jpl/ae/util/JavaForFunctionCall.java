@@ -1272,7 +1272,7 @@ public class JavaForFunctionCall {
           }
           if (containsJavaPrimitive && restScala) {
             argTypes[ i ] = javaPrimitiveClass;
-          }
+          } // REVIEW -- do we neeed an else case to set argTypes[ i ]?
         } else {
           argTypes[ i ] =
               ClassUtils.getClassForName( argClassName,
@@ -1636,18 +1636,28 @@ public class JavaForFunctionCall {
           if ( complainIfNotFound ) {
             Debug.error( true, "Cannot create method! " + this );
           }
-        } else if ( isEffectFunction() ) {
-          setCall( new EffectFunction( expression, getMatchingMethod(),
+        } else {
+          Expression scopeExpression = expression;
+          if ( expression instanceof MethodCallExpr ) {
+            scopeExpression = ((MethodCallExpr)expression).getScope();
+          }
+          Object obj = exprXlator.astToAeExpression( scopeExpression,
+                                                     true,
+                                                     true,
+                                                     false );
+          if ( isEffectFunction() ) {
+            setCall( new EffectFunction( obj, getMatchingMethod(),
+                                         // (Method)methodExpr.evaluate( true ),
+                                         // (Object[])argumentArrayExpr.evaluate(
+                                         // true ) );
+                                         getArgs(), this.returnType ) );
+          } else {
+            setCall( new FunctionCall( obj, getMatchingMethod(),
                                        // (Method)methodExpr.evaluate( true ),
                                        // (Object[])argumentArrayExpr.evaluate(
                                        // true ) );
                                        getArgs(), this.returnType ) );
-        } else {
-          setCall( new FunctionCall( expression, getMatchingMethod(),
-                                     // (Method)methodExpr.evaluate( true ),
-                                     // (Object[])argumentArrayExpr.evaluate(
-                                     // true ) );
-                                     getArgs(), this.returnType ) );
+          }
         }
       }
     }

@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * 
@@ -38,6 +39,122 @@ public class Functions {
     if ( o instanceof Parameter ) return new Expression( (Parameter< ? >)o );
     if ( o instanceof Call ) return new Expression( (Call)o );
     return new Expression( o );
+  }
+
+  public static Predicate predicate(Expression e) {
+    System.out.println( "predicate("+e+")" );
+    Call c = null;
+    try {
+      c = (Call)e.evaluate( Call.class, true );
+    } catch (Throwable t) {
+      Debug.error(true, false, "WARNING: Trying to create a Predicate with (" + e + ") instead of a function call!");
+    }
+    if ( c != null ) {
+      return predicate( c );
+    }
+    // Evaluate ignoring o
+    Debug.error(true, false, "WARNING: Predicate ignores argument!");
+    return new Predicate() {
+      @Override public boolean test( Object o ) {
+        Boolean b = null;
+        try {
+          b = (Boolean)e.evaluate( Boolean.class, true );
+        } catch (Throwable t) {}
+        if ( b != null ) return b;
+        Object x = e.evaluate( Boolean.class, true );
+        return Utils.isTrue( x );
+      }
+    };
+  }
+
+  public static Predicate predicate(Call c) {
+    return predicate( c, -1 );
+  }
+
+  /**
+   * Create a java.util.function.Predicate for functional programming operations
+   * from a Call (presumably a FunctionCall that returns a boolean).  The Object
+   * passed to the predicate should be substituted for the Call's object if the
+   * argument index is 0.  If the argument index is i > 0, then the passed object
+   * should be substuted for the ith argument to the Call.  An argument index
+   * less than zero signifies that the argument index is unknown, in which case
+   * the class of the passed argument is used to guess the appropriate argument.
+   * If the
+   *
+   * @param c the Call to evaluate as the predicate
+   * @param argumentIndex the index of the Call where the test element should be
+   *                      passed; 0 for the object of the Call or i for the ith
+   *                      argument to the call.
+   * @return
+   */
+  public static Predicate predicate(Call c, final int argumentIndex) {
+    System.out.println( "predicate(" + c + ", " + argumentIndex + ")" );
+    return new Predicate() {
+      int argIndex = argumentIndex;
+      private void subarg( Object o ) {
+        if ( argIndex == 0 ) {
+          c.setObject( o );
+        } else if ( argIndex > 0 ) {
+          Vector<Object> args = c.getArguments();
+          if ( c.getArguments().size() >= argIndex ) {
+            args.set( argIndex - 1, o );
+          } else {
+            // Append o to the end of the arguments at the proper index, adding
+            // nulls for missing arguments. REVIEW -- what if it's var args
+            int i = args.size();
+            while ( i < argIndex ) {
+              args.add( null );
+            }
+            args.add(o);
+          }
+          c.setArguments( args );
+        } else {
+          // argIndex < 0 --> figure it out
+          if ( !c.isStatic() ) {
+            if ( c.getObjectType() == null || c.getObjectType().isInstance( o ) ) {
+              argIndex = 0;  // remember for the next time the predicate is evaluated
+            }
+          }
+          if ( argIndex < 0 ) {
+            int i = 0;
+            if ( i < c.getParameterTypes().length ) {
+              if ( c.getParameterTypes()[i] == null ||
+                   c.getParameterTypes()[i].isInstance( o ) ) {
+                if ( c.isVarArgs() && i == c.getParameterTypes().length - 1 &&
+                     c.getArguments().size() >= c.getParameterTypes().length ) {
+                  argIndex = c.getArguments().size() + 1;
+                } else {
+                  argIndex = i + 1;  // remember for the next time the predicate is evaluated
+                }
+              }
+            }
+          }
+          if ( argIndex >= 0 ) {
+            // Now that we've guessed the index, call again to do the substitution.
+            subarg( o );
+          } else {
+            Debug.error( true, true,
+                         "predicate(" + c + ") called with no place to substitute arguments for: " + o +
+                         "; evaluating without argument substitution." );
+          }
+        }
+      }
+      @Override public boolean test( Object o ) {
+        subarg( o );
+        Boolean b = null;
+        try {
+          b = (Boolean)new Expression( c ).evaluate( Boolean.class, true );
+        } catch (Throwable t) {}
+        if ( b != null ) return b;
+        Object res = null;
+        try {
+          res = c.evaluate( true );
+        } catch ( Throwable t ) {}
+        b = Utils.isTrue( res );
+        if ( b == null ) return false;
+        return b;
+      }
+    };
   }
 
   // Abstract n-ary functions
@@ -90,7 +207,7 @@ public class Functions {
                                         Set< HasDomain > seen ) {
       if ( !isMonotonic() ) {
         // Must be overridden
-        Debug.error( true, true,
+        Debug.error( true, false,
                      "FunctionCall.calculateDomain() must be overridden by "
                                  + this.getClass().getName() );
         return null;
@@ -3057,6 +3174,7 @@ public class Functions {
       } catch (InvocationTargetException e) {
       } catch (InstantiationException e) {
       }
+      if ( result == null ) return null;
       return DomainHelper.getDomain(result);
     }
 

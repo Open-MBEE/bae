@@ -278,9 +278,17 @@ public class DomainHelper {
       Domain<?> d = getDomain(oo);
       if ( d != null ) return (Domain< T >)d;
     }
-    AbstractRangeDomain<T> ard = (AbstractRangeDomain<T>)getDomainForClass( o.getClass() );
-    if ( ard != null ) {
-      ard.setBounds( o, o );
+    ComparableDomain<T> ard = (ComparableDomain<T>)getDomainForClass( o.getClass() );
+    if ( ard != null && ard instanceof AbstractRangeDomain) {
+      ((AbstractRangeDomain<T>)ard).setBounds( o, o );
+      return ard;
+    }
+    if ( ard instanceof RegexDomainString ) {
+      ard.setValue( (T)("" + o) );
+      return ard;
+    }
+    if ( ard instanceof RegexDomain ) {
+      ard.setValue( o );
       return ard;
     }
     return new SingleValueDomain<T>( o );
