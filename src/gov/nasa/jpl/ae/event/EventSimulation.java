@@ -702,12 +702,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         Executor exctr = null;
         try {
           exctr = Expression.evaluate( variable, Executor.class, false );
-        } catch ( IllegalAccessException ex ) {
-          ex.printStackTrace();
-        } catch ( InvocationTargetException ex ) {
-          ex.printStackTrace();
-        } catch ( InstantiationException ex ) {
-          ex.printStackTrace();
+        } catch ( Throwable ex ) {
         }
         if ( exctr instanceof Executor ) {
           exctr.execute( nextEventSimTime, name, shortClassName, longClassName,

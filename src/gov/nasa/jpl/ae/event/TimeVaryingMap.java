@@ -6676,7 +6676,7 @@ String n = owner instanceof HasName
             longValue = dKey.longValue();
           }
         } catch ( NumberFormatException ee ) {
-          Debug.error(true, "ERROR! Can't parse time value from \"" + value + "\"");
+          Debug.error(true, false, "ERROR! Can't parse time value from \"" + value + "\"");
         }
       }
     }
