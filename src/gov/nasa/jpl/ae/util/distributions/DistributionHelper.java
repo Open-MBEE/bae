@@ -1,6 +1,5 @@
 package gov.nasa.jpl.ae.util.distributions;
 
-import com.google.errorprone.annotations.Var;
 import gov.nasa.jpl.ae.event.*;
 import gov.nasa.jpl.ae.solver.Variable;
 import gov.nasa.jpl.mbee.util.*;

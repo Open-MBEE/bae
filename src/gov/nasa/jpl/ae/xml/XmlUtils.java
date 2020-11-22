@@ -1,62 +1,32 @@
 package gov.nasa.jpl.ae.xml;
 
 import javax.xml.XMLConstants;
-import javax.xml.stream.XMLEventReader;
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
-// import javax.xml.stream.XMLStreamException;
-// import javax.xml.stream.events.XMLEvent;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.StringReader;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.net.URL;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.Vector;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.Duration;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import junit.framework.Assert;
-// import javax.xml.xpath.XPathExpression;
-
-import org.hamcrest.core.IsNull;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-
-import gov.nasa.jpl.ae.event.DurativeEvent;
-import gov.nasa.jpl.ae.event.ElaborationRule;
-import gov.nasa.jpl.ae.event.Event;
-import gov.nasa.jpl.ae.event.EventInvocation;
-import gov.nasa.jpl.ae.event.Parameter;
 import gov.nasa.jpl.ae.event.Timepoint;
 import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.FileUtils;
@@ -110,6 +80,36 @@ public class XmlUtils {
   }
 
 */
+
+  /**
+   * Translate XML file to a DOM.
+   * @param fileName name of the XML file, including relative path
+   *                 (from working directory) or full path
+   * @return org.w3c.dom.Document
+   */
+  public static Document getDocument(String fileName) {
+    // Translate XML to a DOM Document.
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setNamespaceAware( true );
+    DocumentBuilder builder = null;
+    try {
+      builder = factory.newDocumentBuilder();
+    } catch ( ParserConfigurationException e ) {
+      e.printStackTrace();
+    }
+    if (builder == null) {
+      return null;
+    }
+    Document xmlDocDOM = null;
+    try {
+      xmlDocDOM = builder.parse( fileName );
+    } catch ( SAXException e ) {
+      e.printStackTrace();
+    } catch ( IOException e ) {
+      e.printStackTrace();
+    }
+    return xmlDocDOM;
+  }
 
   public static long getDurationInSeconds( String durStr ) {
     if ( Utils.isNullOrEmpty( durStr ) ) return -1;

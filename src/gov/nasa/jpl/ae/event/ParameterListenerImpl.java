@@ -1190,7 +1190,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected boolean tryToSatisfy( boolean deep, Set< Satisfiable > seen ) {
     boolean satisfied = false;
     foundInconsistency = false;
-    ground( deep, null );
+    //ground( deep, null );
     if ( Debug.isOn() ) Debug.outln( this.getClass().getName()
                                      + " satisfy loop called ground() " );
 
@@ -1387,13 +1387,13 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
   protected Boolean isSimpleVar( Variable< ? > key ) {
     Object v = key.getValue( false );
     if ( v != null ) {
-      if ( ClassUtils.isPrimitive( v ) ) {
+      if ( ClassUtils.isPrimitive( v ) || v instanceof String ) {
         return Boolean.TRUE;
       }
     } else {
       v = key.getType();
       if ( v != null ) {
-        if ( ClassUtils.isPrimitive( v ) ) {
+        if ( ClassUtils.isPrimitive( v ) || v.equals( String.class ) ) {
           return Boolean.TRUE;
         }
       } else {

@@ -230,10 +230,17 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         }
         Timepoint startTime = event.getStartTime();
         if ( startTime == null || startTime.getValueNoPropagate() == null ) continue;
+        if ( startTime.getDate().after( Timepoint.getHorizon() ) ) {
+          continue;
+        }
+        if ( startTime == null || startTime.getValueNoPropagate() == null ) continue;
         String startDate = startTime.toTimestamp( dateFormat, cal );
         if ( startDate == null ) continue;
         Timepoint endTime = event.getEndTime();
         if ( endTime == null || endTime.getValueNoPropagate() == null ) continue;
+        if ( endTime.getDate().after( Timepoint.getHorizon() ) ) {
+          endTime.setValue( Timepoint.getHorizon() );
+        }
         String endDate = endTime.toTimestamp( dateFormat, cal );
         if ( endDate == null ) continue;
         // Don't want to end the file with a newline because of a bug in TMS/MPSWeb.
@@ -622,7 +629,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
     for ( Map.Entry< Long, Set< Pair< Object, Object > > > e1 : entrySet() ) {
       long nextEventSimTime = e1.getKey();
       for ( Pair< Object, Object > p : e1.getValue() ) {//.entrySet() ) {
-        
+        //System.out.println( "for loop: p = " + p );
         // Delay between events
         if (firstLoop) {
           firstLoop = false;
@@ -691,10 +698,21 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         if ( value instanceof Double ) {
           value = String.format( "%.2f", value );
         }
-        
+
+        Executor exctr = null;
+        try {
+          exctr = Expression.evaluate( variable, Executor.class, false );
+        } catch ( Throwable ex ) {
+        }
+        if ( exctr instanceof Executor ) {
+          exctr.execute( nextEventSimTime, name, shortClassName, longClassName,
+                         ( value == null ? "null" : value.toString() ) );
+        }
+
         // unleash the executors!
         for ( Executor exec : executors ) {
-          exec.execute( nextEventSimTime, name, shortClassName, longClassName,
+          exec.execute( nextEventSimTime,
+                        name, shortClassName, longClassName,
                         ( value == null ? "null" : value.toString() ) );
         }
         
@@ -1166,6 +1184,11 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
         readStdoutPlotThread.join( 0 ); // millis (0=forever)
 //        readStderrPlotThread.reader.close();
 //        readStdoutPlotThread.reader.close();
+        for ( Executor exec : executors ) {
+          if ( exec != null && exec.getThread() != null ) {
+            exec.getThread().join(0);
+          }
+        }
       } catch ( InterruptedException e ) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -1282,7 +1305,7 @@ public class EventSimulation extends java.util.TreeMap< Long, Set< Pair< Object,
     DurativeEvent event = new DurativeEvent( "horizon" );
     event.startTime.setValue( 0L );
     event.duration.setValue( Timepoint.getHorizonDuration() );
-    add( event );
+    add( (Event)event );
   }
 
   public int numEvents() {

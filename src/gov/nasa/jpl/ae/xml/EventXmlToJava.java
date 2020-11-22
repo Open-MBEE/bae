@@ -193,7 +193,7 @@ public class EventXmlToJava {
     return jsonString;
   }
   
-  public void init() throws ParserConfigurationException, SAXException, IOException {
+  public void init() throws SAXException, IOException {
 
     if ( Debug.isOn() ) Debug.outln( "random double to test repeatability = "
                  + Random.global.nextDouble() );
@@ -219,12 +219,7 @@ public class EventXmlToJava {
                                                            packageName );
     
     // Translate XML to a DOM Document.
-    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-    factory.setNamespaceAware( true );
-    DocumentBuilder builder;
-    // XPathExpression expr = null;
-    builder = factory.newDocumentBuilder();
-    xmlDocDOM = builder.parse( xmlFileName );
+    xmlDocDOM = XmlUtils.getDocument( xmlFileName );
 
     if ( !XmlUtils.validateXML( xmlFileName, xmlDocDOM ) ) {
       if ( Debug.isOn() ) Debug.outln( "Warning! XML file "
@@ -889,7 +884,7 @@ public class EventXmlToJava {
       }
       if ( p.type != null ) {
         p.type = p.type.replaceFirst(".class$","");
-        if ( p.name.endsWith("Time") && p.type.endsWith("Timepoint") ) {
+        if ( "Time".equals( p.type ) || "Timepoint".equals( p.type ) || (p.name.endsWith("Time") && p.type.endsWith("Timepoint")) ) {
           p.type = "Long";
         }
       }
@@ -1970,11 +1965,11 @@ public class EventXmlToJava {
       StringBuffer stmtString = new StringBuffer();
       // REVIEW -- might need a dependency instead of an assignment,
       //   timeVarying <-- new Expresion(timeVaryingV) 
-      
+
       stmtString.append( "Object " + timeVaryingName + "V = " + jffc.getObject()
                          + ";\n" );
       stmtString.append( timeVaryingName + " = new Parameter(\""
-                         + timeVaryingName + "\", null, null, this);\n" );
+                         + timeVaryingName + "\", new ClassDomain(TimeVarying.class), null, this);\n" );
       stmtString.append( "addDependency(" + timeVaryingName
                          + ", new Expression(" + timeVaryingName + "V));\n" );
       stmtString.append( effectName
@@ -1984,6 +1979,8 @@ public class EventXmlToJava {
                                                 + "([^A-Za-z0-9_])",
                                             "$1" + timeVaryingName + "$2" )
                          + " );" );
+
+      //stmtString.append( effectName + " = " + jffc.toNewFunctionCallString() + ":" );
       
       addStatements( initMembers.getBody(), stmtString.toString() );
 

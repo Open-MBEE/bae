@@ -227,4 +227,155 @@ public abstract class AbstractDistribution<T>
         return f;
     }
 
+
+    // Override methods in Wraps interface.
+
+    /**
+     * Return true if there is an object wrapped.  If getValue() returns null, this call distinguishes whether null is a
+     * valid value or not.  If multiple objects are wrapped, then getValue() may return null also in this case.
+     *
+     * @return true if there is a wrapped value
+     */
+    @Override public boolean hasValue() {
+        return !isEmpty();// && allValuesSame();
+    }
+
+    @Override public boolean hasMultipleValues() {
+        return size() > 1 && !allValuesSame();
+    }
+
+    public boolean allValuesSame() {
+        return probability( getValue( false ) ) == 1.0;
+    }
+
+    /**
+     * @param className the name of {@code this} class (which should be the class
+     *                  redefining this method or a subclass) with generic parameters
+     * @return the name of the type for the object that would be wrapped by an
+     * object with a class name of {@code className}; this should be the
+     * type of the return value for {@link Wraps<>.getValue(boolean)}.
+     */
+    @Override public String getTypeNameForClassName( String className ) {
+        // There should only be one generic parameter of type V
+        return ClassUtils.parameterPartOfName( className, false );
+    }
+
+    /**
+     * @return the primitive class corresponding to the object wrapped by this
+     * object (possibly in several layers)
+     */
+    @Override public Class<?> getPrimitiveType() {
+        Class< ? > c = null;
+        Class< ? > t = getType();
+        if ( t != null ) {
+            c = ClassUtils.primitiveForClass( t );
+            //V v = getFirstValue();
+            if ( c == null ) {
+                T v = getValue( false );
+                if ( c == null && v != null
+                     && Wraps.class.isInstance( v ) ) {// isAssignableFrom( getType() ) ) {
+                    c = ( (Wraps< ? >)v ).getPrimitiveType();
+                }
+            }
+        }
+        return c;
+    }
+
+    public boolean isEmpty() {
+        if ( supportUpperBound() != null || supportLowerBound() != null ||
+             mean() != null ) {
+            return false;
+        }
+        return true;
+    }
+
+    protected static Set<Class> discreteClassSet =
+            Utils.newSet( Long.class, long.class, Integer.class, int.class,
+                          Boolean.class, boolean.class, String.class );
+
+    public boolean isDiscrete() {
+        return discreteClassSet.contains( getType() );
+    }
+
+    public long size() {
+        if ( supportUpperBound() != null && supportLowerBound() != null ) {
+            if ( supportUpperBound().equals(supportLowerBound()) ) {
+                return 1;
+            }
+            if ( isDiscrete() ) {
+                long s = ((Double)(supportUpperBound() - supportLowerBound())).longValue();
+                return s;
+            } else {
+                return Long.MAX_VALUE;
+            }
+        }
+        Number m = mean();
+        Double v = m == null ? null : variance();
+        if ( m != null && v != null ) {
+            if ( v == 0.0 ) {
+                return 1;
+            }
+            if ( isDiscrete() ) {
+                long s = ((Double)(supportUpperBound() - supportLowerBound())).longValue();
+                return s;
+            } else {
+                return Long.MAX_VALUE;
+            }
+        }
+        return -1; // unknown
+    }
+
+    public T firstValue() {
+        Number d = supportLowerBound();
+        if ( d == null ) {
+            d = mean();
+        }
+        if ( d == null ) {
+            d = supportUpperBound();
+        }
+        if ( d != null ) {
+            Pair<Boolean, T>
+                    p = ClassUtils.coerce(d, getType(), false);
+            if ( p != null && p.first != null && p.first ) {
+                return p.second;
+            }
+        }
+        return null;
+    }
+
+    public boolean allValuesEqual() {
+        if ( size() == 1 ) return true;
+        return false;
+    }
+
+    /**
+     * @param propagate whether or not to propagate dependencies in order to determine
+     *                  what object is wrapped
+     * @return the object that is wrapped by this object
+     */
+    @Override public T getValue( boolean propagate ) {
+        Number m = mean();
+        Double v = variance();
+        if ( m != null && v != null && v == 0.0 ) {
+            return (T)m;
+        }
+        if ( isEmpty() ) return null;
+        T value = firstValue();
+        if ( size() > 1 ) {
+            if (!this.allValuesEqual()) {
+                Debug.error(false, false, "Warning! Calling getValue() on TimeVaryingMap with multiple values.  Returning null for " + this );
+                return null;
+            }
+        }
+        return value;
+    }
+
+//    /**
+//     * Set the value of the object that is wrapped by this object.
+//     *
+//     * @param value the new value to be wrapped
+//     */
+//    @Override public void setValue( T value ) {
+//        //
+//    }
 }

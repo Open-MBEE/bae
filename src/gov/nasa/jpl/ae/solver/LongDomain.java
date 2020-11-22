@@ -4,6 +4,7 @@
 package gov.nasa.jpl.ae.solver;
 
 import gov.nasa.jpl.ae.util.Math;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Random;
 
 /**
@@ -16,95 +17,107 @@ public class LongDomain extends AbstractFiniteRangeDomain< Long > {
   public static final long typeMinValue = Long.MIN_VALUE;
 
   //public static LongDomain domain = new LongDomain();  // REVIEW -- why is this not defaultDomain?
-	public static final LongDomain positiveDomain =
-			new LongDomain(0, typeMaxValue);
+  public static final LongDomain positiveDomain =
+      new LongDomain(0, typeMaxValue);
   public static final LongDomain defaultDomain = new LongDomain();  // REVIEW -- make this final?
 
-	public LongDomain() {
+  public LongDomain() {
     super(typeMinValue, typeMaxValue);
-	}
-	
-	public LongDomain(long minValue, long maxValue) {
-	  super(minValue, maxValue);
-	}
+  }
+  
+  public LongDomain(long minValue, long maxValue) {
+    super(minValue, maxValue);
+  }
 
-	public LongDomain( RangeDomain< Long > domain ) {
-	  super( domain );
+  public LongDomain( RangeDomain< Long > domain ) {
+    super( domain );
   }
 
   /* (non-Javadoc)
-	 * @see event.Domain#isInfinite()
-	 */
-	@Override
-	public boolean isInfinite() {
-		return false;
-	}
+   * @see event.Domain#isInfinite()
+   */
+  @Override
+  public boolean isInfinite() {
+    return false;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#size()
-	 */
-	@Override
-	public long size() {
+  /* (non-Javadoc)
+   * @see event.Domain#size()
+   */
+  @Override 
+  public long size() {
     if ( lowerBound == null || upperBound == null ) return 0;
     if ( lowerBound.equals( upperBound ) ) return 1;
     return Math.plus( (long)upperBound, (long)-lowerBound );
-	}
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#getLowerBound()
-	 */
-	@Override
-	public Long getLowerBound() {
-		return lowerBound;
-	}
+  /* (non-Javadoc)
+   * @see event.Domain#getLowerBound()
+   */
+  @Override
+  public Long getLowerBound() {
+    return lowerBound;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#getUpperBound()
-	 */
-	@Override
-	public Long getUpperBound() {
-		return upperBound;
-	}
+  /* (non-Javadoc)
+   * @see event.Domain#getUpperBound()
+   */
+  @Override
+  public Long getUpperBound() {
+    return upperBound;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#pickRandomValue()
-	 */
-	@Override
-	public Long pickRandomValue() {
+  /* (non-Javadoc)
+   * @see event.Domain#pickRandomValue()
+   */
+  @Override 
+  public Long pickRandomValue() {
     if ( this.isEmpty() ) {
       return null;
     }
-		//return (long) Math.abs( getLowerBound() + Math.random() * size() );
+    if ( size() == 1 ) {
+        return getValue( false );
+    }
+
+    Long ub = getUpperBound();
+    Long lb = getLowerBound();
+    if ( ub == null || lb == null ) {
+      Debug.error( true, false, "Trying to pick random value with null bound for LongDomain: " + this);
+      return null;
+    }
+
     // a bunch of tricks to avoid overflow
     double r1 = Random.global.nextDouble();
     double r2 = Random.global.nextDouble();
     double middle = getMiddleValue();
-    double half = getUpperBound() - middle;
+    double half = middle;
+    half = ub - middle;
     long r = 0;
     // Have to use max and min since middle is not exactly in the middle
     // REVIEW -- does this skew the distribution?
     if ( r1 < 0.5 ) {
-      r = max(getLowerBound(), (long)(middle - r2 * half));
+      r = max(lb, (long)(middle - r2 * half));
     } else {
-      r = min(getUpperBound(), (long)( middle + r2 * half ));
+      r = min(ub, (long)( middle + r2 * half ));
     }
+    // REVIEW -- if null is in domain, should it not have an equal chance to be picked?
     return r;
-	}
+  }
 
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.solver.AbstractRangeDomain#pickRandomValueLessThan(java.lang.Object)
    */
   @Override
-	public Long pickRandomValueLessThan( Long maxVal ) {
-	   long u = getUpperBound();
-	   setUpperBound( maxVal );
-	   long p = pickRandomValue();
-	   setUpperBound( u );
-	   return p;
-	 }
+  public Long pickRandomValueLessThan( Long maxVal ) {
+     long u = getUpperBound();
+     setUpperBound( maxVal );
+     long p = pickRandomValue();
+     setUpperBound( u );
+     return p;
+   }
 
-	
-	private Long getMiddleValue() {
+  
+  private Long getMiddleValue() {
     // TODO -- should interpret null as zero 
     if ( lowerBound == null || upperBound == null ) return (long)0;
     
@@ -112,9 +125,9 @@ public class LongDomain extends AbstractFiniteRangeDomain< Long > {
   }
 
   @Override
-	public String toString() {
-		return "[" + getLowerBound() + " " + getUpperBound() + "]";
-	}
+  public String toString() {
+    return "[" + getLowerBound() + " " + getUpperBound() + "]";
+  }
 
   @Override
   public boolean contains( Long t ) {
@@ -147,11 +160,6 @@ public class LongDomain extends AbstractFiniteRangeDomain< Long > {
     if ( t2 == null ) return false;
     return t1 < t2;
   }
-
-//  @Override
-//  public boolean equals( Long t1, Long t2 ) {
-//    return t1 >= t2;
-//  }
 
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.solver.AbstractFiniteRangeDomain#greaterEquals(java.lang.Comparable, java.lang.Comparable)

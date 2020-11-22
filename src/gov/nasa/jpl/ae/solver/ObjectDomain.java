@@ -120,6 +120,10 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
     return !isEmpty();
   }
 
+  @Override public boolean hasMultipleValues() {
+    return size() > 1;
+  }
+
   /* (non-Javadoc)
    * @see gov.nasa.jpl.mbee.util.Wraps#setValue(java.lang.Object)
    */
@@ -141,8 +145,8 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
   
   @Override
   public boolean contains(Object t) {
-    if (isEmpty()) {
-      return isNullInDomain();  // FIXME -- shouldn't we add "&& t == null?"
+    if ( t == null ) {
+      return isNullInDomain();
     }
     return super.contains( t );
   }
@@ -152,7 +156,7 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
    */
   @Override
   public int size() {
-    return super.size();
+    return super.size() + ( nullInDomain && !super.contains( null ) ? 1 : 0 );
   }
 
   @Override
@@ -249,7 +253,7 @@ public class ObjectDomain< T > extends LinkedHashSet<T> implements Domain< T > {
    */
   @Override
   public boolean isNullInDomain() {
-    return nullInDomain;
+    return nullInDomain || super.contains( null );
   }
 
   @Override

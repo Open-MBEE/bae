@@ -212,7 +212,12 @@ public class Dependency< T > extends HasIdImpl
       if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): parameter not satisfied: " );// + this );
     } else if ( false && deep && expression != null && !expression.isSatisfied(deep, null) ) {
       sat = false;
-      if ( Debug.isOn() ) Debug.outln( "Dependency.isSatisfied(): expression not satisfied: " );// + this );
+      if ( Debug.isOn() ) Debug.outln(
+              "Dependency.isSatisfied(): expression not satisfied: " );// + this );
+    } else if ( isStale() ) {
+      sat = false;
+      if ( Debug.isOn() ) Debug.outln(
+              "Dependency.isSatisfied(): stale" );
     } else {
       // Check to see if values are equal. In this case of a constructor, just
       // make sure that the value is an instance of the constructed type. Actually,
@@ -667,6 +672,7 @@ public class Dependency< T > extends HasIdImpl
   public boolean isStale() {
     boolean parameterStale = parameter.isStale();
     boolean expressionStale = expression.isStale();
+    //System.out.println( this + ".isStale(): parameterStale = " + parameterStale + ", expressionStale = " + parameterStale);
     return parameterStale || expressionStale;
   }
 

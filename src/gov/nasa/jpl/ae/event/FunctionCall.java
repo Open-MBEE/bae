@@ -325,9 +325,10 @@ public class FunctionCall extends Call {
 //      return null;
 //    }
     if ( hasTypeErrors( evaluatedArgs ) || objectHasTypeErrors( evaluatedObject ) ) {
-      if ( Debug.isOn() ) Debug.errln( "Warning! Tried calling " + this
-                                       + " with bad argument types! "
-                                       + MoreToString.Helper.toString( evaluatedArgs ) );
+      Debug.error( true, false,
+                   "Warning! Tried calling " + this +
+                   " with bad argument types! " +
+                   MoreToString.Helper.toString( evaluatedArgs ) );
       evaluationSucceeded = false;
       return null;
     }
@@ -423,7 +424,7 @@ public class FunctionCall extends Call {
     return returnType;
   }
 
-  public boolean rrrrr = false;
+  public boolean rrrrr = true;
 
 
   /* (non-Javadoc)
@@ -478,7 +479,11 @@ public class FunctionCall extends Call {
         if ( this.getMethod() != null && this.getMethod().getName()
                                              .equals( "newList" )
              && arguments.size() > 0 ) {
+          if ( arguments.size() == 1 ) {
+            return DomainHelper.getDomain(arguments.get( 0 ));
+          }
           monotonic = true;
+          ArrayList<Object> domains = new ArrayList<Object>();
           for ( Object a : arguments ) {
             try {
               fc = Expression.evaluate( a, FunctionCall.class, false );
@@ -486,8 +491,21 @@ public class FunctionCall extends Call {
             }
             if ( fc == null || !fc.isMonotonic() ) {
               monotonic = false;
-              break;
+              if ( domains == null ) break;
             }
+            if ( domains != null ) {
+              Domain d = DomainHelper.getDomain( a );
+              if ( d == null ) {
+                domains = null;
+                if ( !monotonic ) break;
+              } else {
+                domains.add( d );
+              }
+            }
+          }
+          if ( !monotonic && domains != null )  {
+            Domain<?> d = DomainHelper.combineDomains( domains, fc == null ? this : fc, true );
+            return d;
           }
         }
       }

@@ -124,11 +124,21 @@
     </plugins>
   </build>
   <dependencies>
+			    <dependency>
+					<groupId>gov.nasa.jpl.mbee.util</groupId>
+					<artifactId>mbee_util</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<type>jar</type>
+					<systemPath>${project.basedir}/../util/target/mbee_util-${mbee.version}.jar</systemPath>
+				</dependency>
+<!--
     <dependency>
         <groupId>gov.nasa.jpl.mbee.util</groupId>
         <artifactId>mbee_util</artifactId>
         <version>${mbee.version}</version>
     </dependency>
+-->
     <dependency>
         <groupId>gov.nasa.jpl.mbee.sysml</groupId>
         <artifactId>sysml</artifactId>
@@ -169,13 +179,22 @@
           <!--<version>1.8.0</version>-->
           <!--<systemPath>${project.basedir}/../classreloading/target/classreloading-1.0-SNAPSHOT.jar</systemPath>-->
       <!--</dependency>-->
-	<dependency>
+<!--	<dependency>
 		<groupId>com.sun</groupId>
 		<artifactId>tools</artifactId>
 		<scope>system</scope>
 		<version>1.8.0</version>
 		<systemPath>${java.home}/../lib/tools.jar</systemPath>
 	</dependency>
+-->
+      <!-- reflections matching util/pom.xml to get javassist -->
+      <dependency>
+          <groupId>org.reflections</groupId>
+
+          <artifactId>reflections</artifactId>
+          <version>0.9.11</version>
+      </dependency>
+
         <!-- <dependency>
     <groupId>com.panayotis</groupId>
     <artifactId>JavaPlot</artifactId>

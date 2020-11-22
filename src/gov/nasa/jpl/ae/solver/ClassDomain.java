@@ -8,6 +8,7 @@ import gov.nasa.jpl.ae.event.Functions;
 import gov.nasa.jpl.ae.event.Groundable;
 import gov.nasa.jpl.ae.util.DomainHelper;
 import gov.nasa.jpl.mbee.util.ClassUtils;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Random;
 import gov.nasa.jpl.mbee.util.Utils;
 
@@ -97,7 +98,13 @@ public class ClassDomain< T > implements Domain< T > {
    */
   @Override
   public boolean hasValue() {
-    return false;
+    return this.type != null || isNullInDomain();
+  }
+
+  @Override public boolean hasMultipleValues() {
+    return this.type != null &&
+           ( isNullInDomain() || this.type.isArray() ||
+             Utils.isNullOrEmpty( this.type.getFields() ) );
   }
 
   /* (non-Javadoc)
@@ -169,6 +176,7 @@ public class ClassDomain< T > implements Domain< T > {
    */
   @Override
   public T pickRandomValue() {
+    // HACK -- TODO -- figure out why this was commented out and put back in.
     return null;
     //return constructObject();
   }
@@ -190,7 +198,15 @@ public class ClassDomain< T > implements Domain< T > {
       if (o != null) {
         return (T)o;
       } else {
-        return (T)getType().newInstance();
+        if ( getType() != null ) {
+          if ( ClassUtils.getConstructorForArgs( getType(), new Object[]{} ) != null ) {
+            return (T)getType().newInstance();
+          } else {
+            Debug.error( true, false, "Warning! No default constructor for " + getType().getCanonicalName() ) ;
+          }
+        } else {
+          Debug.error( true, false, "Warning! No type for calling default constructor in ClassDomain: " + this );
+        }
       }
     } catch ( InstantiationException e ) {
       e.printStackTrace();

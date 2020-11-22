@@ -26,7 +26,7 @@ import gov.nasa.jpl.mbee.util.*;
  */
 public class DomainHelper {
 
-  public static <T> AbstractRangeDomain<T> getDomainForClass( Class<T> cls ) {
+  public static <T> ComparableDomain<T> getDomainForClass( Class<T> cls ) {
     if ( cls == null ) return null;
     if ( cls.equals( Boolean.class ) || cls.equals( boolean.class )) {
       return (AbstractRangeDomain< T >)new BooleanDomain();
@@ -44,33 +44,45 @@ public class DomainHelper {
 //      return (AbstractRangeDomain< T >)new FloatDomain();
 //    }
     if ( cls.equals( String.class ) ) {
-      return (AbstractRangeDomain< T >)new StringDomain();
+      return (ComparableDomain<T>)new RegexDomainString();
     }
     return null;
   }
 
   public static <T> AbstractRangeDomain<T> makeRangeDomainFromValue( T t ) {
     if ( t instanceof AbstractRangeDomain) return (AbstractRangeDomain<T>)t;
-    AbstractRangeDomain<T> d = (AbstractRangeDomain< T >)getDomainForClass( t.getClass() );
-    if ( d != null ) {
-      d.setLowerBound( t );
-      d.includeLowerBound();
-      d.setUpperBound( t );
-      d.includeUpperBound();
+    ComparableDomain<? extends Object> cd = getDomainForClass( t.getClass() );
+    if ( cd instanceof AbstractRangeDomain ) {
+      AbstractRangeDomain<T> d = (AbstractRangeDomain<T>)cd;
+      if ( d != null ) {
+        d.setLowerBound( t );
+        d.includeLowerBound();
+        d.setUpperBound( t );
+        d.includeUpperBound();
+      }
+      return d;
+    } else if ( t instanceof String ) {
+      return (AbstractRangeDomain<T>)new StringDomain((String)t, (String)t);
     }
-    return d;
+    return null;
   }
 
   public static <T> AbstractRangeDomain<T> makeRangeDomainFromValues( T t1, T t2 ) {
     if ( t1 instanceof AbstractRangeDomain && t1 == t2) return (AbstractRangeDomain<T>)t1;
-    AbstractRangeDomain<T> d = (AbstractRangeDomain< T >)getDomainForClass( t1.getClass() );
-    if ( d != null ) {
-      d.setLowerBound( t1 );
-      d.includeLowerBound();
-      d.setUpperBound( t2 );
-      d.includeUpperBound();
+    ComparableDomain<? extends Object> cd = getDomainForClass( t1.getClass() );
+    if ( cd instanceof AbstractRangeDomain ) {
+      AbstractRangeDomain<T> d = (AbstractRangeDomain<T>)cd;
+      if ( d != null ) {
+        d.setLowerBound( t1 );
+        d.includeLowerBound();
+        d.setUpperBound( t2 );
+        d.includeUpperBound();
+      }
+      return d;
+    } else if ( t1 instanceof String ) {
+      return (AbstractRangeDomain<T>)new StringDomain((String)t1, (String)t2);
     }
-    return d;
+    return null;
   }
 
   public static <T1, T2> AbstractRangeDomain<T2> changeRangeDomainType( ComparableDomain<T1> cd, Class<T2> type2) {
@@ -266,9 +278,17 @@ public class DomainHelper {
       Domain<?> d = getDomain(oo);
       if ( d != null ) return (Domain< T >)d;
     }
-    AbstractRangeDomain<T> ard = (AbstractRangeDomain<T>)getDomainForClass( o.getClass() );
-    if ( ard != null ) {
-      ard.setBounds( o, o );
+    ComparableDomain<T> ard = (ComparableDomain<T>)getDomainForClass( o.getClass() );
+    if ( ard != null && ard instanceof AbstractRangeDomain) {
+      ((AbstractRangeDomain<T>)ard).setBounds( o, o );
+      return ard;
+    }
+    if ( ard instanceof RegexDomainString ) {
+      ard.setValue( (T)("" + o) );
+      return ard;
+    }
+    if ( ard instanceof RegexDomain ) {
+      ard.setValue( o );
       return ard;
     }
     return new SingleValueDomain<T>( o );
@@ -392,7 +412,7 @@ public class DomainHelper {
 
 
   public static <T> ComparableDomain<T> getComparableDomain( Collection<?> results ) {
-    RangeDomain<T> domain = null;
+    ComparableDomain<T> domain = null;
     Class<T> domainType = null;
     if ( domain == null && !Utils.isNullOrEmpty( results )) {
       Class< T > dominantType =
@@ -479,7 +499,14 @@ public class DomainHelper {
         Debug.error( true, true,
                      "Error!  Trying to set upper and lower bound to null in combineDomains()." );
       } else {
-        domain.setBounds( lbt, ubt );
+        if ( domain instanceof RangeDomain ) {
+          ((RangeDomain)domain).setBounds( lbt, ubt );
+        } else if ( domain instanceof RegexDomainString ) {
+          domain.restrictTo( new StringDomain("" + lbt, "" + ubt) );
+        } else {
+          Debug.error( true, true,
+                       "Error!  Can't set bounds on ComparableDomain: " + domain );
+        }
       }
     } else {
       domain = null;
@@ -508,7 +535,7 @@ public class DomainHelper {
       return null;
     }
     
-    AbstractRangeDomain domain = 
+    ComparableDomain domain =
         domainType == null ? null : DomainHelper.getDomainForClass( domainType );
 //    if ( domain == null ) {
 //      Debug.error( "Could not create a RangeDomain in DomainHelper.combineDomains("

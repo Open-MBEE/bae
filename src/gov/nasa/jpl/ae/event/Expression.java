@@ -882,6 +882,9 @@ public class Expression< ResultType > extends HasIdImpl
     switch (form) {
     case Value:
 //    case Method:
+      if ( expression instanceof Domain ) {
+        return (Domain<ResultType>)expression;
+      }
       AbstractRangeDomain<ResultType> d = (AbstractRangeDomain< ResultType >)DomainHelper.makeRangeDomainFromValue(expression);
       if ( d != null ) {
         return d;
@@ -1331,12 +1334,18 @@ public class Expression< ResultType > extends HasIdImpl
    */
   @Override
   public boolean hasValue() {
-    if ( expression instanceof Wraps ) {
+    if ( expression instanceof Wraps && form != Form.Value ) {
       return ((Wraps) expression).hasValue();
     }
     return expression != null || form == Form.Value;
   }
 
+  @Override public boolean hasMultipleValues() {
+    if ( expression instanceof Wraps && form != Form.Value) {
+      return ((Wraps) expression).hasMultipleValues();
+    }
+    return false;  // REVIEW
+  }
 
   @Override
   public void setValue( ResultType value ) {

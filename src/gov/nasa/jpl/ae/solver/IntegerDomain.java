@@ -4,6 +4,7 @@
 package gov.nasa.jpl.ae.solver;
 
 import gov.nasa.jpl.ae.util.Math;
+import gov.nasa.jpl.mbee.util.Debug;
 import gov.nasa.jpl.mbee.util.Random;
 
 /**
@@ -16,95 +17,106 @@ public class IntegerDomain extends AbstractFiniteRangeDomain< Integer > {
   public static final int typeMinValue = Integer.MIN_VALUE;
 
   //public static IntegerDomain domain = new IntegerDomain();  // REVIEW -- why is this not defaultDomain?
-	public static IntegerDomain positiveDomain =
-			new IntegerDomain(0, typeMaxValue);
+  public static IntegerDomain positiveDomain =
+      new IntegerDomain(0, typeMaxValue);
   public static final IntegerDomain defaultDomain = new IntegerDomain();  // REVIEW -- make this final?
 
-	public IntegerDomain() {
+  public IntegerDomain() {
     super(typeMinValue, typeMaxValue);
-	}
-	
-	public IntegerDomain(int minValue, int maxValue) {
+  }
+  
+  public IntegerDomain(int minValue, int maxValue) {
     super(minValue, maxValue);
-	}
+  }
 
-	public IntegerDomain( RangeDomain< Integer > domain ) {
-	  super( domain );
+  public IntegerDomain( RangeDomain< Integer > domain ) {
+    super( domain );
   }
 
   /* (non-Javadoc)
-	 * @see event.Domain#isInfinite()
-	 */
-	@Override
-	public boolean isInfinite() {
-		return false;
-	}
+   * @see event.Domain#isInfinite()
+   */
+  @Override
+  public boolean isInfinite() {
+    return false;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#size()
-	 */
-	@Override
-	public long size() {
+  /* (non-Javadoc)
+   * @see event.Domain#size()
+   */
+  @Override
+  public long size() {
     if ( lowerBound == null || upperBound == null ) return 0;
     if ( lowerBound.equals( upperBound ) ) return 1;
     return Math.plus( (int)upperBound, (int)-lowerBound );
-	}
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#getLowerBound()
-	 */
-	@Override
-	public Integer getLowerBound() {
-		return lowerBound;
-	}
+  /* (non-Javadoc)
+   * @see event.Domain#getLowerBound()
+   */
+  @Override
+  public Integer getLowerBound() {
+    return lowerBound;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#getUpperBound()
-	 */
-	@Override
-	public Integer getUpperBound() {
-		return upperBound;
-	}
+  /* (non-Javadoc)
+   * @see event.Domain#getUpperBound()
+   */
+  @Override
+  public Integer getUpperBound() {
+    return upperBound;
+  }
 
-	/* (non-Javadoc)
-	 * @see event.Domain#pickRandomValue()
-	 */
-	@Override
-	public Integer pickRandomValue() {
+  /* (non-Javadoc)
+   * @see event.Domain#pickRandomValue()
+   */
+  @Override
+  public Integer pickRandomValue() {
     if ( this.isEmpty() ) {
       return null;
     }
-		//return (int) Math.abs( getLowerBound() + Math.random() * size() );
+    if ( size() == 1 ) {
+        return getValue( false );
+    }
+
+    Integer ub = getUpperBound();
+    Integer lb = getLowerBound();
+    if ( ub == null || lb == null ) {
+      Debug.error( true, false, "Trying to pick random value with null bound for LongDomain: " + this);
+      return null;
+    }
+
+    //return (int) Math.abs( getLowerBound() + Math.random() * size() );
     // a bunch of tricks to avoid overflow
     double r1 = Random.global.nextDouble();
     double r2 = Random.global.nextDouble();
     double middle = getMiddleValue();
-    double half = getUpperBound() - middle;
+    double half = ub - middle;
     int r = 0;
     // Have to use max and min since middle is not exactly in the middle
     // REVIEW -- does this skew the distribution?
     if ( r1 < 0.5 ) {
-      r = max(getLowerBound(), (int)(middle - r2 * half));
+      r = max(lb, (int)(middle - r2 * half));
     } else {
-    r = min(getUpperBound(), (int)(middle + r2 * half));
+      r = min(ub, (int)(middle + r2 * half));
     }
     return r;
-	}
+  }
 
   /* (non-Javadoc)
    * @see gov.nasa.jpl.ae.solver.AbstractRangeDomain#pickRandomValueLessThan(java.lang.Object)
    */
   @Override
-	public Integer pickRandomValueLessThan( Integer maxVal ) {
-	   int u = getUpperBound();
-	   setUpperBound( maxVal );
-	   int p = pickRandomValue();
-	   setUpperBound( u );
-	   return p;
-	 }
+  public Integer pickRandomValueLessThan( Integer maxVal ) {
+     int u = getUpperBound();
+     setUpperBound( maxVal );
+     int p = pickRandomValue();
+     setUpperBound( u );
+     return p;
+   }
 
-	
-	private Integer getMiddleValue() {
+  
+  private Integer getMiddleValue() {
     // TODO -- should interpret null as zero 
     if ( lowerBound == null || upperBound == null ) return 0;
     

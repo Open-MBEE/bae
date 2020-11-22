@@ -24,10 +24,7 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
     public EnumeratedDistribution(final T t)
         throws NotPositiveException, MathArithmeticException,
                NotFiniteNumberException, NotANumberException {
-        List<Pair<T,Double>> pmf = new ArrayList(
-            Collections.singleton( new Pair( t, 100.0 ) ) );
-        d = new org.apache.commons.math3.distribution.EnumeratedDistribution(
-            Distribution.random, pmf);
+        init( t );
     }
     public EnumeratedDistribution(final List<Pair<T, Double>> pmf)
             throws NotPositiveException, MathArithmeticException,
@@ -40,6 +37,13 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
                    NotFiniteNumberException, NotANumberException {
         d = new org.apache.commons.math3.distribution.EnumeratedDistribution(
                 Distribution.random, mapToPairList(pmf));
+    }
+
+    protected void init( final T t ) {
+        List<Pair<T,Double>> pmf = new ArrayList(
+                Collections.singleton( new Pair( t, 100.0 ) ) );
+        d = new org.apache.commons.math3.distribution.EnumeratedDistribution(
+                Distribution.random, pmf);
     }
 
     @Override public int compareTo( Object o ) {
@@ -118,11 +122,37 @@ public class EnumeratedDistribution<T> extends AbstractDistribution<T> {
         return type;
     }
 
+    /**
+     * Set the value of the object that is wrapped by this object.
+     *
+     * @param value the new value to be wrapped
+     */
+    @Override public void setValue( T value ) {
+        init( value );
+    }
+
+    @Override public boolean isEmpty() {
+        return d == null || d.getPmf() == null || d.getPmf().isEmpty();
+    }
+
+    @Override public T getValue( boolean propagate ) {
+        if ( isEmpty() ) return null;
+        if ( d.getPmf().size() > 1 ) {
+            return null;
+        }
+        return d.getPmf().get(0).getFirst();
+    }
+
     @Override public Double mean() {
         double total = 0.0;
         double totalWeight = 0.0;
         Double cv = null;
         for ( Pair<T,Double> p : d.getPmf() ) {
+            if ( p.getFirst() == null ||
+                 ( !ClassUtils.isNumber( p.getFirst().getClass() ) &&
+                   !( p.getFirst() instanceof Boolean ) ) ) {
+                continue;
+            }
             cv = DistributionHelper.combineValues( getType(),
                                                    new SimpleSample( p.getFirst(),
                                                                      p.getSecond() ),

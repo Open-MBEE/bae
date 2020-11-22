@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * 
@@ -38,6 +39,122 @@ public class Functions {
     if ( o instanceof Parameter ) return new Expression( (Parameter< ? >)o );
     if ( o instanceof Call ) return new Expression( (Call)o );
     return new Expression( o );
+  }
+
+  public static Predicate predicate(Expression e) {
+    System.out.println( "predicate("+e+")" );
+    Call c = null;
+    try {
+      c = (Call)e.evaluate( Call.class, true );
+    } catch (Throwable t) {
+      Debug.error(true, false, "WARNING: Trying to create a Predicate with (" + e + ") instead of a function call!");
+    }
+    if ( c != null ) {
+      return predicate( c );
+    }
+    // Evaluate ignoring o
+    Debug.error(true, false, "WARNING: Predicate ignores argument!");
+    return new Predicate() {
+      @Override public boolean test( Object o ) {
+        Boolean b = null;
+        try {
+          b = (Boolean)e.evaluate( Boolean.class, true );
+        } catch (Throwable t) {}
+        if ( b != null ) return b;
+        Object x = e.evaluate( Boolean.class, true );
+        return Utils.isTrue( x );
+      }
+    };
+  }
+
+  public static Predicate predicate(Call c) {
+    return predicate( c, -1 );
+  }
+
+  /**
+   * Create a java.util.function.Predicate for functional programming operations
+   * from a Call (presumably a FunctionCall that returns a boolean).  The Object
+   * passed to the predicate should be substituted for the Call's object if the
+   * argument index is 0.  If the argument index is i > 0, then the passed object
+   * should be substuted for the ith argument to the Call.  An argument index
+   * less than zero signifies that the argument index is unknown, in which case
+   * the class of the passed argument is used to guess the appropriate argument.
+   * If the
+   *
+   * @param c the Call to evaluate as the predicate
+   * @param argumentIndex the index of the Call where the test element should be
+   *                      passed; 0 for the object of the Call or i for the ith
+   *                      argument to the call.
+   * @return
+   */
+  public static Predicate predicate(Call c, final int argumentIndex) {
+    System.out.println( "predicate(" + c + ", " + argumentIndex + ")" );
+    return new Predicate() {
+      int argIndex = argumentIndex;
+      private void subarg( Object o ) {
+        if ( argIndex == 0 ) {
+          c.setObject( o );
+        } else if ( argIndex > 0 ) {
+          Vector<Object> args = c.getArguments();
+          if ( c.getArguments().size() >= argIndex ) {
+            args.set( argIndex - 1, o );
+          } else {
+            // Append o to the end of the arguments at the proper index, adding
+            // nulls for missing arguments. REVIEW -- what if it's var args
+            int i = args.size();
+            while ( i < argIndex ) {
+              args.add( null );
+            }
+            args.add(o);
+          }
+          c.setArguments( args );
+        } else {
+          // argIndex < 0 --> figure it out
+          if ( !c.isStatic() ) {
+            if ( c.getObjectType() == null || c.getObjectType().isInstance( o ) ) {
+              argIndex = 0;  // remember for the next time the predicate is evaluated
+            }
+          }
+          if ( argIndex < 0 ) {
+            int i = 0;
+            if ( i < c.getParameterTypes().length ) {
+              if ( c.getParameterTypes()[i] == null ||
+                   c.getParameterTypes()[i].isInstance( o ) ) {
+                if ( c.isVarArgs() && i == c.getParameterTypes().length - 1 &&
+                     c.getArguments().size() >= c.getParameterTypes().length ) {
+                  argIndex = c.getArguments().size() + 1;
+                } else {
+                  argIndex = i + 1;  // remember for the next time the predicate is evaluated
+                }
+              }
+            }
+          }
+          if ( argIndex >= 0 ) {
+            // Now that we've guessed the index, call again to do the substitution.
+            subarg( o );
+          } else {
+            Debug.error( true, true,
+                         "predicate(" + c + ") called with no place to substitute arguments for: " + o +
+                         "; evaluating without argument substitution." );
+          }
+        }
+      }
+      @Override public boolean test( Object o ) {
+        subarg( o );
+        Boolean b = null;
+        try {
+          b = (Boolean)new Expression( c ).evaluate( Boolean.class, true );
+        } catch (Throwable t) {}
+        if ( b != null ) return b;
+        Object res = null;
+        try {
+          res = c.evaluate( true );
+        } catch ( Throwable t ) {}
+        b = Utils.isTrue( res );
+        if ( b == null ) return false;
+        return b;
+      }
+    };
   }
 
   // Abstract n-ary functions
@@ -90,7 +207,7 @@ public class Functions {
                                         Set< HasDomain > seen ) {
       if ( !isMonotonic() ) {
         // Must be overridden
-        Debug.error( true, true,
+        Debug.error( true, false,
                      "FunctionCall.calculateDomain() must be overridden by "
                                  + this.getClass().getName() );
         return null;
@@ -103,6 +220,9 @@ public class Functions {
     /**
      * Invert the function with respect to a range/return value and a given
      * argument.
+     * This is called an inverse image as opposed to an inverse function,
+     * which only returns a single value in the domain of the argument and does
+     * not exist for many functions, e.g. f(x) = x^2.
      * <p>
      * If g is the inverse of f, then <br>
      * g(f(x)) = x.<br>
@@ -131,6 +251,9 @@ public class Functions {
      *         same), in which case the inverse may not be a single value. For
      *         example, if f(x)=x^2, then the inverse is {sqrt(x), -sqrt(x)}.
      *
+     * @todo We should constrain the FunctionCall returned to, itself, return a domain.
+     * @todo We could add a generic parameter to Call and return `FunctionCall<Domain<T>>`.
+     * @todo In addition, the `arg` parameter could be of type T.
      */
     public FunctionCall inverse( Object returnValue, Object arg ) { // Variable<?>
                                                                     // variable
@@ -345,19 +468,21 @@ public class Functions {
       Object o1 = this.arguments.get( 0 );
       Object o2 = this.arguments.get( 1 );
       boolean changed = false;
-      if ( o1 instanceof HasDomain && o2 instanceof HasDomain ) {
-        HasDomain hd1 = (HasDomain)o1;
-        HasDomain hd2 = (HasDomain)o2;
-        Domain d1 = inverseDomain( domain, o1 );
-        Pair< Domain< ? >, Boolean > p =
-            hd1.restrictDomain( d1, propagate, seen );
-        if ( p != null && Boolean.TRUE.equals(p.second) ) changed = true;
+      if ( o1 instanceof HasDomain || o2 instanceof HasDomain ) {
+        HasDomain hd1 = o1 instanceof HasDomain ? (HasDomain)o1 : null;
+        HasDomain hd2 = o2 instanceof HasDomain ? (HasDomain)o2 : null;
+        Pair<Domain<?>, Boolean> p = null;
+        if ( hd1 != null ) {
+          Domain d1 = inverseDomain( domain, o1 );
+          p = hd1.restrictDomain( d1, propagate, seen );
+          if ( p != null && Boolean.TRUE.equals( p.second ) ) changed = true;
+        }
         if ( p != null && p.first != null && p.first.isEmpty() ) {
           if ( this.domain != null ) {
             this.domain.clearValues();
           }
           // return new Pair( this.domain, changed );
-        } else {
+        } else if ( hd2 != null ) {
           Domain d2 = inverseDomain( domain, o2 );
           p = hd2.restrictDomain( d2, propagate, seen );
           if ( p != null && Boolean.TRUE.equals(p.second) ) {
@@ -597,6 +722,9 @@ public class Functions {
            || ( condo.contains( true ) && condo.contains( false ) ) ) {
         if ( d2 == null ) {
           if ( o2 == null && d3 != null ) {
+            // REVIEW -- Is this really how we want to interpret this?
+            // REVIEW -- If the argument is uninitialized, shouldn't it be the
+            // REVIEW -- ClassDomain of the parameter, T?
             d3.setNullInDomain( true );
           }
           return d3;
@@ -607,6 +735,31 @@ public class Functions {
           }
           return d2;
         }
+
+        // Combine regex and string domains
+        if ( d2 instanceof RegexDomainString || d3 instanceof RegexDomainString ||
+             RegexDomain.isDomainRegex( d2 ) || RegexDomain.isDomainRegex( d3 ) ||
+             ( d2 instanceof StringDomain && d3 instanceof StringDomain ) ) {
+          Domain dd2 = d2;
+          Domain dd3 = d3;
+          if ( d2 instanceof StringDomain ) {
+            StringDomain sd2 = (StringDomain)d2;
+            dd2 = new RegexDomainString( sd2 );
+          }
+          if ( dd2 instanceof RegexDomainString ) {
+            dd2 = ( (RegexDomainString)dd2 ).charListDomain;
+          }
+          if ( d3 instanceof StringDomain ) {
+            StringDomain sd3 = (StringDomain)d3;
+            dd3 = new RegexDomain.SimpleDomain( sd3.getValue( false ) );
+          }
+          if ( dd3 instanceof RegexDomainString ) {
+            dd3 = ( (RegexDomainString)dd3 ).charListDomain;
+          }
+          Domain od = new RegexDomain.OrDomain(Utils.newList(dd2, dd3));
+          return od;
+        }
+
         MultiDomain< T > md = new MultiDomain< T >( (Class< T >)getType(),
                                                     (Set< Domain< T > >)Utils.newSet( (Domain< T >)d2,
                                                                                       (Domain< T >)d3 ),
@@ -1034,6 +1187,96 @@ public class Functions {
     return thenT;
   }
 
+  protected static Class getClassFromArgument( Object o )
+          throws IllegalAccessException, InstantiationException,
+                 InvocationTargetException {
+    Object r = ( o == null ? null : Expression.evaluateDeep( o, null, false, false ) );
+    Class<?> cls = Expression.evaluate( o, Class.class, true, false );
+    if ( cls == null ) {
+      if ( r instanceof String ) {
+        cls = ClassUtils.getClassForName( ( (String)r ).replaceAll( ".class$", "" ),
+                                          null, new String[]{}, true );
+      }
+    }
+    return cls;
+  }
+
+  public static Object isInstanceOf( Expression< ? > o1,
+                                     Expression< ? > o2 ) throws IllegalAccessException,
+                                                                 InvocationTargetException,
+                                                                 InstantiationException {
+    if ( o1 == null && o2 == null ) return null;
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Class cls = getClassFromArgument( o2 );
+    if ( cls == null ) {
+      return null;
+    }
+    Object result = isInstanceOf( r1, cls );
+    if ( Utils.isTrue( result ) ) {
+      return result;
+    }
+    Object result2 = isInstanceOf( r1, cls );
+    if ( Utils.isTrue( result2 ) ) {
+      return result2;
+    }
+    return result;
+  }
+
+  public static Object
+      isInstanceOf( Object o, Class<?> cls) throws IllegalAccessException,
+                                                   InvocationTargetException,
+                                                   InstantiationException {
+    // TODO -- handle timelines and distributions
+    if ( cls == null ) return null;
+    if ( o == null ) return false;
+    return cls.isInstance( o );
+  }
+
+  public static Object cast( Expression< ? > o1,
+                             Expression< ? > o2 ) throws IllegalAccessException,
+                                                         InvocationTargetException,
+                                                         InstantiationException {
+    if ( o1 == null && o2 == null ) return null;
+    Object r1 = ( o1 == null ? null : Expression.evaluateDeep( o1, null, false, false ) );
+    Object r2 = ( o2 == null ? null : Expression.evaluateDeep( o2, null, false, false ) );
+    Class<?> cls = null;
+    Object oo = ClassUtils.getClassForName( "" + o2, null, new String[]{}, true);
+    if ( oo instanceof Class ) {
+      cls = (Class)oo;
+    }
+    if ( cls == null ) {
+      if ( r2 instanceof String ) {
+        cls = ClassUtils.getClassForName( ( (String)r2 ).replaceAll( ".class$", "" ),
+                                          null, new String[]{}, true );
+      } else if ( r2 instanceof Class ) {
+        cls = (Class)r2;
+      }
+      if ( cls == null ) {
+        return null;
+      }
+    }
+    Object result = cast( r1, cls );
+    if ( result != null ) {
+      return result;
+    }
+    if ( o1 != r1 ) {
+      result = isInstanceOf( o1, cls );
+    }
+    return result;
+  }
+
+  public static Object
+      cast( Object o, Class<?> cls) throws IllegalAccessException,
+                                           InvocationTargetException,
+                                           InstantiationException {
+    // TODO -- handle timelines and distributions
+    if ( cls == null || o == null ) return null;
+
+    if ( o == null ) return false;
+    Object result = Expression.evaluate( o, cls, false, false );
+    return result;
+  }
+
   public static class ArgMin< R, T > extends SuggestiveFunctionCall
                             implements Suggester {
     public ArgMin( Expression< R > argLabel1, Expression< T > arg1,
@@ -1291,20 +1534,18 @@ public class Functions {
       return new Sum< T, R >( this );
     }
 
-    @Override
-    public // < T1 extends Comparable< ? super T1 > >
-    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
-      if ( arguments == null || arguments.size() != 2 ) return null;
-      boolean isFirstArg = arg == arguments.get( 0 );
-      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
-      if ( returnValue == null || otherArg == null ) return null; // arg can be
-                                                                  // null!
+    protected boolean argumentsAreString(Object returnValue) {
+      if ( arguments == null || arguments.size() != 2 ) return false;
+
       Object deepReturnValue = returnValue;
+      Object arg = arguments.get( 0 );
+      Object otherArg = arguments.get( 1 );
       Object deepArg = arg;
       Object deepOtherArg = otherArg;
-      
+
       try {
-        deepReturnValue = Expression.evaluateDeep( returnValue, null, false, false );
+        deepReturnValue =
+                Expression.evaluateDeep( returnValue, null, false, false );
       } catch ( Throwable e ) {
         // fail quietly, revert to using the unevaluated form
       }
@@ -1318,8 +1559,42 @@ public class Functions {
       } catch ( Throwable e ) {
         // fail quietly, revert to using the unevaluated form
       }
-      
-      if (deepReturnValue instanceof String || deepArg instanceof String || deepOtherArg instanceof String) {
+
+      if ( deepReturnValue instanceof String || deepArg instanceof String
+           || deepOtherArg instanceof String ) {
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      if ( !argumentsAreString( this.returnValue ) ) {
+        return super.calculateDomain( propagate, seen );
+      }
+      return calculateDomainForStrings( propagate, seen );
+    }
+
+    public Domain<?> calculateDomainForStrings( boolean propagate, Set<HasDomain> seen ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      Object arg = arguments.get( 0 );
+      Object otherArg = arguments.get( 1 );
+      Domain<?> d1 = DomainHelper.getDomain( arg );
+      Domain<?> d2 = DomainHelper.getDomain( otherArg );
+      RegexDomainString rds = new RegexDomainString(Utils.newList(d1, d2));
+      return rds;
+    }
+
+    @Override
+    public // < T1 extends Comparable< ? super T1 > >
+    FunctionCall inverseSingleValue( Object returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
+      if ( returnValue == null || otherArg == null ) return null; // arg can be
+                                                                  // null!
+      boolean areString = argumentsAreString( returnValue );
+      if ( areString ) {
         if (isFirstArg) {
           return new MinusSuffix( returnValue, otherArg );
         } else {
@@ -1329,7 +1604,29 @@ public class Functions {
       
       return new Minus< T, T >( returnValue, otherArg );
     }
-    
+
+    @Override
+    public Domain<?> inverseDomain( Domain<?> returnValue, Object arg ) {
+      if ( arguments == null || arguments.size() != 2 ) return null;
+      boolean isFirstArg = arg == arguments.get( 0 );
+      Object otherArg = ( isFirstArg ? arguments.get( 1 ) : arguments.get( 0 ) );
+      if ( returnValue == null || otherArg == null ) return null; // arg can be null!
+
+      boolean areString = argumentsAreString( returnValue );
+      if ( !areString ) {
+        return super.inverseDomain( returnValue, arg );
+      }
+
+      Call call = null;
+      if (isFirstArg) {
+        call = new MinusSuffix( returnValue, otherArg );
+      } else {
+        call = new MinusPrefix( returnValue, otherArg );
+      }
+
+      return call.getDomain( true, null );
+    }
+
   }
 
   public static class Add< T, R > extends Sum< T, R > {
@@ -1562,7 +1859,7 @@ public class Functions {
   public static Domain calculateStringDomain( Binary<String, String> minusPrefixOrSuffix,
                                               boolean propagate, Set<HasDomain> seen ) {
     if ( minusPrefixOrSuffix.getArguments().size() != 2 ) {
-      return StringDomain.defaultDomain;
+      return RegexDomainString.defaultDomain;
     }
     Object a1 = minusPrefixOrSuffix.getArgument( 0 );
     Object a2 = minusPrefixOrSuffix.getArgument( 1 );
@@ -1575,71 +1872,66 @@ public class Functions {
 //                 .isInfinity( d1.magnitude() ) || gov.nasa.jpl.ae.util.Math
 //                 .isInfinity( d2.magnitude() )
             ) {
-      return StringDomain.defaultDomain;
-    }
-    AbstractRangeDomain<Object> rd1 = null;
-    AbstractRangeDomain<Object> rd2 = null;
-    if ( d1 instanceof AbstractRangeDomain ) {
-      rd1 = (AbstractRangeDomain<Object>)d1;
-    }
-    if ( d2 instanceof AbstractRangeDomain ) {
-      rd2 = (AbstractRangeDomain<Object>)d2;
-    }
-    StringDomain sd1 = null;
-    StringDomain sd2 = null;
-    if ( d1 instanceof StringDomain ) {
-      sd1 = (StringDomain)d1;
-    }
-    if ( d2 instanceof StringDomain ) {
-      sd2 = (StringDomain)d2;
+      return RegexDomainString.defaultDomain;
     }
 
-    boolean single1 = d1.magnitude() == 1;
-    boolean single2 = d2.magnitude() == 1;
-    boolean multiple1 = d1.magnitude() > 1 && !d1.isInfinite() && rd1 != null;
-    boolean multiple2 = d2.magnitude() > 1 && !d2.isInfinite();
+
+    // Now do it the right way.
+    RegexDomainString rd1 = null;
+    RegexDomainString rd2 = null;
+    RegexDomain rdc1 = null;
+    RegexDomain rdc2 = null;
+
+    if ( d1 instanceof StringDomain ) {
+      rd1 = new RegexDomainString( (StringDomain)d1 );
+    } else if ( d1 instanceof SingleValueDomain ) {
+      rd1 = new RegexDomainString( "" + d1.getValue( false ) );
+    } else if ( d1 instanceof RegexDomainString ) {
+      rd1 = (RegexDomainString)d1;
+    } else if ( d1 instanceof RegexDomain ) {
+      rdc1 = (RegexDomain)d1;
+    }
+    if ( rdc1 == null && rd1 != null ) {
+      rdc1 = rd1.charListDomain;
+    }
+
+    if ( d2 instanceof StringDomain ) {
+      rd2 = new RegexDomainString( (StringDomain)d2 );
+    } else if ( d2 instanceof SingleValueDomain ) {
+      rd2 = new RegexDomainString( "" + d2.getValue( false ) );
+    } else if ( d2 instanceof RegexDomainString ) {
+      rd2 = (RegexDomainString)d2;
+    } else if ( d2 instanceof RegexDomain ) {
+      rdc2 = (RegexDomain)d2;
+    }
+    if ( rdc2 == null && rd2 != null ) {
+      rdc2 = rd2.charListDomain;
+    }
+
+    if ( rdc1 == null ) {
+      Debug.error( true, true,
+                   "Could not get RegexDomain for " + a1 );
+    }
+    if ( rdc2 == null ) {
+      Debug.error( true, true,
+                   "Could not get RegexDomain for " + a2 );
+    }
+    if ( rdc1 == null || rdc2 == null ) {
+      return null;
+    }
+
+
 
     boolean isPrefix = minusPrefixOrSuffix instanceof MinusPrefix;
-    if ( single1 && single2 ) {
-      String s = null;
-      if  ( isPrefix ) {
-        s = minusPrefix( "" + d1.getValue( false ),
-                         "" + d2.getValue( false ) );
-      } else {
-        s = minusSuffix( "" + d1.getValue( false ),
-                         "" + d2.getValue( false ) );
-      }
-      return new StringDomain( s, s );
+    RegexDomain.OrDomain<Character> d3;
+    if ( isPrefix ) {
+      d3 = RegexDomain.minusPrefix( rdc1, rdc2, null );
+    } else{
+      d3 = RegexDomain.minusSuffix( rdc1, rdc2 );
     }
 
-    ArrayList<Object> domains = new ArrayList<>();
-    if ( sd2 != null && //sd2.treatAsPrefixOrSuffix() &&
-         rd1 != null ) {
-      ArrayList<String> dom1Values = new ArrayList<>();
-      if ( rd1.isInfinite() ) {
-        String dom1Val = "" + rd1.getLowerBound();
-        Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-        if ( dx != null ) domains.add( dx );
-        dom1Val = "" + rd1.getLowerBound();
-        dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-        if ( dx != null ) domains.add( dx );
-      } else {
-        for ( long n = 0; n < rd1.size(); ++n ) {
-          String dom1Val = "" + rd1.getNthValue( n );
-          Domain dx = prefixesAndSuffixes( dom1Val, sd2, isPrefix );
-          if ( dx != null ) domains.add( dx );
-        }
-      }
-      if ( !domains.isEmpty() ) {
-        SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
-        Domain<?> d = DomainHelper.combineDomains( domains, null, false );
-        return d;
-      }
-    }
-    SuggestiveFunctionCall fc = minusPrefixOrSuffix.clone();
-    Domain<?> d = DomainHelper.combineDomains( minusPrefixOrSuffix.arguments,
-                                               fc, false );
-    return d;
+    System.out.println("calculateStringDomain(" + minusPrefixOrSuffix + ") = " + d3);
+    return d3;
   }
 
 
@@ -2882,6 +3174,7 @@ public class Functions {
       } catch (InvocationTargetException e) {
       } catch (InstantiationException e) {
       }
+      if ( result == null ) return null;
       return DomainHelper.getDomain(result);
     }
 
@@ -3033,6 +3326,7 @@ public class Functions {
 //    System.out.println("getMember(" + ClassUtils.getName( object ) +
 //                       ", \"" + memberName + "\") = " +
 //                       MoreToString.Helper.toString(v2, true, false, null) );
+    // TODO handle timeline and distribution cases
     return v2;
   }
 
@@ -4214,7 +4508,7 @@ public class Functions {
   public static String minusSuffix( String s1, String s2 ) {
     if (s1.endsWith( s2 )) {
       String s =  s1.substring( 0, s1.length() - s2.length() );
-      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
+//      System.out.println("minusSuffix(" + s1 + ", " + s2 + ") = " + s);
       return s;
     } else {
       return s1;
@@ -4224,7 +4518,7 @@ public class Functions {
   public static String minusPrefix( String s1, String s2 ) {
     if (s1.startsWith( s2 )) {
       String s = s1.substring( s2.length() );
-      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
+//      System.out.println("minusPrefix(" + s1 + ", " + s2 + ") = " + s);
       return s;
     } else {
       return s1;
@@ -4263,6 +4557,12 @@ public class Functions {
     T r1 = Expression.evaluateDeep(o1, null, false, false);
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof List && ( (List)r1 ).size() == 1 ) {
+      r1 = (T)((List)r1).get( 0 );
+    }
+    if ( r2 instanceof List && ( (List)r2 ).size() == 1 ) {
+      r2 = (TT)((List)r2).get( 0 );
+    }
     return minusSuffix( r1.toString(), r2.toString() );
   }
 
@@ -4275,6 +4575,12 @@ public class Functions {
     T r1 = Expression.evaluateDeep(o1, null, false, false);
     TT r2 = Expression.evaluateDeep(o2, null, false, false);
     if ( r1 == null || r2 == null ) return null;
+    if ( r1 instanceof List && ( (List)r1 ).size() == 1 ) {
+      r1 = (T)((List)r1).get( 0 );
+    }
+    if ( r2 instanceof List && ( (List)r2 ).size() == 1 ) {
+      r2 = (TT)((List)r2).get( 0 );
+    }
     return minusPrefix( r1.toString(), r2.toString() );
   }
 
@@ -6314,7 +6620,10 @@ public class Functions {
                                                InvocationTargetException,
                                                InstantiationException {
     Object result = null;
-    if ( o1 == null || o2 == null ) result = null;
+    if ( o1 == null || o2 == null ) {
+      result = TimeVaryingMap.doesInequalityHold( o1, o2, i );
+      //result = null;
+    }
     else if ( o1 instanceof String || o2 instanceof String ) {
       Number n1 = toNumber( o1, true );
       Number n2 = toNumber( o2, true );
@@ -6340,10 +6649,17 @@ public class Functions {
       Distribution<?> d1 = null;
       Distribution<?> d2 = null;
 
+      Boolean b1 = null;
+      Boolean b2 = null;
+
       Object arg1 = null;
       Object arg2 = null;
 
       Pair< Object, TimeVaryingMap< ? > > p1 = numberOrTimelineOrDistribution( o1 );
+      if ( p1.first == null && p1.second == null ) {
+        Pair<Boolean, TimeVaryingMap<?>> pb1 = booleanOrTimeline( o1 );
+        if ( pb1 != null ) b1 = pb1.first;
+      }
       map1 = p1.second;
       if ( p1.first instanceof Distribution ) {
         d1 = (Distribution)p1.first;
@@ -6351,9 +6667,15 @@ public class Functions {
       } else if ( p1.first instanceof Number ) {
         r1 = (Number)p1.first;
         arg1 = map1 == null ? r1 : map1;
+      } else if ( b1 != null ) {
+        arg1 = b1;
       }
       if ( arg1 == null ) arg1 = o1;
       Pair< Object, TimeVaryingMap< ? > > p2 = numberOrTimelineOrDistribution( o2 );
+      if ( p2.first == null && p2.second == null ) {
+        Pair<Boolean, TimeVaryingMap<?>> pb2 = booleanOrTimeline( o2 );
+        if ( pb2 != null ) b2 = pb2.first;
+      }
       map2 = p2.second;
       if ( p2.first instanceof Distribution ) {
         d2 = (Distribution)p2.first;
@@ -6361,6 +6683,8 @@ public class Functions {
       } else if ( p2.first instanceof Number ) {
         r2 = (Number)p2.first;
         arg2 = map2 == null ? r2 : map2;
+      } else if ( b2 != null ) {
+        arg2 = b2;
       }
       if ( arg2 == null) arg2 = o2;
 
@@ -6375,8 +6699,26 @@ public class Functions {
           result = (V1)compare( arg1, map2, i );
         }
       }
+
+      // make boolean into number
+      if ( b1 != null || b2 != null ) {
+        // We assign 1 to true and 2 to false because Boolean domain has true < false.
+        if ( b1 != null && b2 != null ) {
+          arg1 = b1 ? 1 : 2;
+          arg2 = b2 ? 1 : 2;
+        } else {
+          // If only one of them is boolean, treat it like a bit: 0 for false, 1 for true.
+          if ( b1 != null ) {
+            arg1 = b1 ? 1 : 0;
+          }
+          if ( b2 != null ) {
+            arg2 = b2 ? 1 : 0;
+          }
+        }
+      }
+
       if ( result == null ) {
-        result = TimeVaryingMap.doesInequalityHold( r1, r2, i );
+        result = TimeVaryingMap.doesInequalityHold( arg1, arg2, i );
       }
     }
     if ( Debug.isOn() ) Debug.outln( o1 + " i " + o2 + " = " + result );
@@ -7409,6 +7751,118 @@ public class Functions {
    * 
    */
 
+
+  public static class IsInstanceOf extends BooleanBinary< Object > {
+
+    public IsInstanceOf( Expression<Object> o1, Expression<Object> o2 ) {
+      super( o1, o2, "isInstanceOf", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf( Object o1, Object o2 ) {
+      super( o1, o2, "isInstanceOf", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf( IsInstanceOf a ) {
+      super( a );
+      setMonotonic( false );
+    }
+
+    public IsInstanceOf clone() {
+      return new IsInstanceOf( this );
+    }
+
+    // TODO -- add the inverse and other functions!
+
+    protected Class getClassToCheck() {
+      if ( arguments.size() < 2 ) return null;
+      try {
+        return getClassFromArgument( arguments.get(1) );
+      } catch ( Throwable e ) {
+      }
+      return null;
+    }
+
+    @Override
+    public Domain<?> calculateDomain( boolean propagate, Set<HasDomain> seen ) {
+      // TODO -- If the class argument is a variable instead of a
+      if (arguments.size() < 2) return null;
+      Object obj = arguments.get( 0 );
+      Object classArg = arguments.get( 1 );
+      Domain<?> cd = DomainHelper.getDomain( classArg );
+      Domain<?> d = DomainHelper.getDomain( obj );
+      Object o = null;
+      Class cls = null;
+      if ( cd != null && cd.magnitude() == 1 ) {
+        Object clsObj = cd.getValue( false );
+        if ( clsObj instanceof Class ) {
+          cls = (Class)clsObj;
+        }
+      } else if ( cd.magnitude() > 1 ) {
+        // TODO
+        Debug.error(true, false, "IsInstanceOf.calculateDomain() does not handle class arguments whose domains are size greater than 1: " + cd);
+        return BooleanDomain.defaultDomain;
+      }
+      if ( cls == null ) {
+        cls = getClassToCheck();
+      }
+      if ( d != null && d.magnitude() == 1 ) {
+        o = d.getValue( false );
+      } else if ( d instanceof ClassDomain ) {
+        Object objClassObj = d.getType();
+        if ( objClassObj instanceof Class ) {
+          if ( cls.isAssignableFrom( (Class)objClassObj ) ) {
+            return BooleanDomain.trueDomain;
+          } else if ( ( (Class)objClassObj ).isAssignableFrom( cls ) ) {
+            return BooleanDomain.defaultDomain;
+          } else {
+            return BooleanDomain.falseDomain;
+          }
+        } else {
+          Debug.error(true, false, "IsInstanceOf.calculateDomain(): failed to get class of ClassDomain: " + d);
+          return BooleanDomain.defaultDomain;
+        }
+      }
+      if ( cls != null && o != null ) {
+        Object r = null;
+        try {
+          r = isInstanceOf( o, cls );
+        } catch ( Throwable e ) {
+        }
+        if ( Utils.isTrue( r ) ) return BooleanDomain.trueDomain;
+        if ( Utils.isFalse( r ) ) return BooleanDomain.falseDomain;
+      }
+      return BooleanDomain.defaultDomain;
+    }
+  }
+
+  public static class Cast extends Binary< Object, Object > {
+
+    public Cast( Expression<Object> o1, Expression<Object> o2 ) {
+      super( o1, o2, "cast", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Cast( Object o1, Object o2 ) {
+      super( o1, o2, "cast", "pickValueForward", "pickValueReverse" );
+      setMonotonic( false );
+    }
+
+    public Cast( Cast a ) {
+      super( a );
+      setMonotonic( false );
+    }
+
+    public Cast clone() {
+      return new Cast( this );
+    }
+
+    // TODO -- add the inverse and other functions!
+
+  }
+
+
   // TimeVaryingMap functions
 
   public static < T > TimeVaryingMap< Boolean >
@@ -8161,6 +8615,20 @@ public class Functions {
         e.printStackTrace();
       }
 
+      // HACK!!!
+      // The default inverse function wraps a single value in a List because
+      // the caller may want the set of possible values since the interface
+      // implements inverse images.  The interface should be updated to pass
+      // a domain to avoid possible misinterpretation of the List.
+      // In the meantime, we try to avoid misinterpretation here by pulling a
+      // single object out of the List.  This could be a dangerous assumption
+      // since the result could be the list itself as the only value.  But,
+      // as of this writing, the cases where an image (set of values) is
+      // returned mostly shows up in a Domain instead of a Collection.
+      if ( result instanceof List && ( (List)result ).size() == 1 ) {
+        result = ( (List)result ).get( 0 );
+      }
+
       if(!Expression.valuesEqual(variableParam, subExprArg, Parameter.class)) {
         Equals<T1> subExprFunction = new Equals<>(subExprArg, new Expression(result));
         return subExprFunction.pickValue(variable);
@@ -8168,8 +8636,8 @@ public class Functions {
 
       if ( result instanceof Collection ) {
         Collection< T1 > coll = (Collection< T1 >)result;
-        T1 t11 = get( coll, Random.global.nextInt( coll.size() ) );
-//        if ( t11 instanceof Domain ) {
+        T1 t11 = coll.isEmpty() ? null : get( coll, Random.global.nextInt( coll.size() ) );
+//        if ( t11 instanceof Domain ) {xs
 //          if ( !( Domain.class.isAssignableFrom( arg.getType() ) ) ) {
 //            return (T1)( (Domain)t11 ).getValue( true );
 //          }
@@ -8482,4 +8950,5 @@ public class Functions {
 
     // TODO -- Add tests for overflow!!
   }
+
 }

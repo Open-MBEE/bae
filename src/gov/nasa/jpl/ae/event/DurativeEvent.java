@@ -36,6 +36,7 @@ import junit.framework.Assert;
 
 public class DurativeEvent extends ParameterListenerImpl implements Event,
                            Cloneable, HasEvents, Groundable, Satisfiable,
+                           Executor,
                            // Comparable< Event >,
                            ParameterListener, HasTimeVaryingObjects {
 
@@ -848,7 +849,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
               }
               Object oldDurExpr = args[ args.length - 1 ];
               if ( !Expression.valuesEqual( oldDurExpr, durationExpr ) ) {
-                // FIXME -- put inside if (Debug.isOn())
+                if ( Debug.isOn() ) {
                 try {
                   if ( Math.abs( ( (Long)Expression.evaluate( oldDurExpr,
                                                               Long.class,
@@ -863,8 +864,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
                 } catch ( ClassCastException | IllegalAccessException
                           | InvocationTargetException
                           | InstantiationException e ) {
-                  // TODO Auto-generated catch block
                   e.printStackTrace();
+                }
                 }
                 printFromToTime( "duration", oldDurExpr, durationExpr );
                 // Swap in new argument.
@@ -1045,19 +1046,54 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       // for ( String field : fields ) {
       for ( int i = 0; i < fields.size(); ++i ) {
         String field = fields.get( i );
+
+        if ( field == null ) continue;
+
+        // Check for titles in a header
+        if ( !fieldMapInitialized ) {
+            if ( field.toLowerCase().contains( "start" ) ) {
+                fieldMap.put( "start", i );
+                continue;
+            }
+            if ( field.toLowerCase().contains( "end" ) ) {
+                fieldMap.put( "end", i );
+                continue;
+            }
+            if ( field.toLowerCase().contains( "duration" ) ) {
+                fieldMap.put( "duration", i );
+                continue;
+            }
+            if ( field.toLowerCase().contains( "type" ) ) {
+                fieldMap.put( "type", i );
+                continue;
+            }
+            if ( field.toLowerCase().contains( "name" ) ) {
+                fieldMap.put( "name", i );
+                continue;
+            }
+            // Look for "id" in the name, but since a lot of words have "id" in them,
+            // look for "id" as a separate word.
+            if ( field.toLowerCase().matches( "(^id$)|(^id[^a-z].*)|(.*[^a-z]id$)|(.*[^a-z]id[^a-z].*)" ) ) {
+                fieldMap.put( "id", i );
+                continue;
+            }
+        }
+
         // Try to match start or end time
         Date d = TimeUtils.dateFromTimestamp( field, gmtZone );
         if ( d != null ) {
-          if ( ( fieldMapInitialized && fieldMap.get( "start" ) == i )
+          if ( ( fieldMapInitialized && fieldMap.containsKey( "start" ) &&
+                 fieldMap.get( "start" ) == i )
                || ( !fieldMapInitialized && start == null ) ) {
             start = d;
-            if ( !fieldMapInitialized ) {
+            if ( !fieldMapInitialized || !fieldMap.containsKey( "start" ) ) {
               fieldMap.put( "start", i );
             }
-          } else if ( ( fieldMapInitialized && fieldMap.get( "end" ) == i )
+          } else if ( ( fieldMapInitialized && fieldMap.containsKey( "end" ) &&
+                        fieldMap.get( "end" ) == i )
                       || ( !fieldMapInitialized && end == null ) ) {
             end = d;
-            if ( !fieldMapInitialized ) {
+            if ( !fieldMapInitialized || !fieldMap.containsKey( "end" ) ) {
               fieldMap.put( "end", i );
             }
           }
@@ -1065,22 +1101,23 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         }
 
         // Try to match duration
-        if ( ( fieldMapInitialized && fieldMap.get( "duration" ) == i )
+        if ( ( fieldMapInitialized && fieldMap.containsKey( "duration" ) &&
+               fieldMap.get( "duration" ) == i )
              || ( !fieldMapInitialized && duration == null ) ) {
           duration = TimeUtils.toDurationInSeconds( field );
-          if ( !fieldMapInitialized ) {
+          if ( !fieldMapInitialized || !fieldMap.containsKey( "duration" ) ) {
             fieldMap.put( "duration", i );
           }
           if ( duration != null ) continue;
         }
 
         // Try to match name
-        if ( ( fieldMapInitialized && fieldMap.get( "name" ) == i )
+        if ( ( fieldMapInitialized && fieldMap.containsKey( "name" ) && fieldMap.get( "name" ) == i )
              || ( !fieldMapInitialized
                   && ( name == null
                        || ( !name.matches( ".*[A-Za-z].*" )
                             && field.matches( ".*[A-Za-z].*" ) ) ) ) ) {
-          if ( !fieldMapInitialized ) {
+          if ( !fieldMapInitialized || !fieldMap.containsKey( "name" ) ) {
             fieldMap.put( "name", i );
           }
           name = field;
@@ -1088,21 +1125,23 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
         }
 
         // Try to match type
-        if ( ( fieldMapInitialized && fieldMap.get( "type" ) == i )
+        if ( ( fieldMapInitialized && fieldMap.containsKey( "type" ) &&
+               fieldMap.get( "type" ) == i )
              || ( !fieldMapInitialized
                   && ( type == null || ( !type.matches( ".*[A-Za-z].*" )
                                          && field.matches( ".*[A-Za-z].*" ) ) )
                   && ClassUtils.getClassForName( field, (String)null,
                                                  (String)null,
                                                  false ) != null ) ) {
-          if ( !fieldMapInitialized ) {
+          if ( !fieldMapInitialized || !fieldMap.containsKey( "type" ) ) {
             fieldMap.put( "type", i );
           }
           type = field;
         }
 
         // Make sure start is before end.
-        if ( !fieldMapInitialized && end != null && end.before( start ) ) {
+        if ( !fieldMapInitialized && end != null && start != null &&
+             end.before( start ) ) {
           // swap start and end values
           Date tmp = start;
           start = end;
@@ -1113,13 +1152,31 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
           fieldMap.put( "end", tmpi );
         }
 
-        // Add elaboration
+      } // end for field in fields
+
+        // Add elaboration if not outside the horizon
         if ( start != null && ( end == null || end.after( Timepoint.epoch ) )
              && start.before( Timepoint.getHorizon() ) ) {
-          addElaborationRule( start, end, duration, type );
+            addElaborationRule( start, end, duration, name, type );
         }
 
-      } // end for field in fields
+        if ( !fieldMapInitialized ) {
+          // If the type wasn't found, use the name as the type.
+          if ( !fieldMap.containsKey( "type" ) ) {
+              if ( fieldMap.containsKey( "name" ) ) {
+                  fieldMap.put( "type", fieldMap.get( "name" ) );
+              } else if ( fieldMap.containsKey( "id" ) ) {
+                  fieldMap.put( "type", fieldMap.get( "id" ) );
+              }
+          }
+          // If the name wasn't found, use the id as the name.
+          if ( !fieldMap.containsKey( "name" ) ) {
+              if ( fieldMap.containsKey( "id" ) ) {
+                  fieldMap.put( "name", fieldMap.get( "id" ) );
+              }
+          }
+      }
+
     } // for line in lines
 
     if ( Debug.isOn() ) Debug.outln( "read map from file, " + fileName + ":\n"
@@ -1127,13 +1184,14 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
   }
 
   public boolean addElaborationRule( Date start, Date end, Double duration,
-                                     String typeName ) {
+                                     String name, String typeName ) {
     if ( start == null ) return false;
     // Compute duration if not given.
     if ( duration == null && end != null ) {
       duration = ( end.getTime() - start.getTime() ) / 1000.0;
     }
-    Expression< String > nameExpr = new Expression< String >( name );
+    Expression< String > nameExpr =
+            new Expression< String >( name == null ? this.name : name );
     Expression< Long > startExpr =
         new Expression< Long >( new Timepoint( start ), Long.class );
     // Duration dd = new Duration( name, durVal, durUnits, o );
@@ -1153,8 +1211,9 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     } else {
       eventClass = DurativeEvent.class;
     }
+    String eventName = eventClass == DurativeEvent.class ? typeName : "";
     this.addElaborationRule( new Expression< Boolean >( true ), null,
-                             DurativeEvent.class, "",
+                             eventClass, eventName,
                              new Expression< ? >[] { nameExpr, startExpr,
                                                      durationExpr } );
     return true;
@@ -1449,8 +1508,23 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
             sb.append( p.toString() );
         }
     }
+
+    // Print out the events following the parameters.
+    // TODO -- print out some context to be able to recreate the elaborations that contain the events.
+    Set<Event> events = getEvents( false, null );
+    if ( first ) first = false;
+    else sb.append( ", " );
+    sb.append( "events=Set{" );
+    boolean eventFirst = true;
+    for ( Event e : events ) {
+        if ( eventFirst ) eventFirst = false;
+        else sb.append( ", " );
+        sb.append(e.getName() + "@" + e.getId() );
+    }
+    sb.append( "}" );
+
+    // Add the close paren oon the list of attributes and return the string.
     sb.append( ")" );
-    //}
     return sb.toString();
   }
 
@@ -1532,6 +1606,8 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     Timer timer = new Timer();
     System.out.println( getName() + ".execute(): starting stop watch" );
     boolean satisfied = satisfy( true, null );
+    // Check if it's really satisfied.  TODO -- This shouldn't be necessary!!
+    if (satisfied) satisfied = isSatisfied( true, null );
     if ( Debug.isOn() ) Debug.outln( getName()
                                      + ".execute() called satisfy() --> "
                                      + satisfied );
@@ -1918,7 +1994,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     System.out.println( "Simulating " + events.size() + " events." );
     EventSimulation sim = new EventSimulation( events, 1.0e12 );
     sim.topEvent = this;
-    sim.add( this );
+    sim.add( (Event)this );
     settingTimeVaryingMapOwners = true;
 
     Map< String, Object > paramsAndTvms = getTimeVaryingObjectMap( true, null );
@@ -3816,4 +3892,13 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
     // return super.timeWhenFractionOfTotalDurationWithValue( variable, );
   }
 
+    @Override
+    public Boolean execute( Long time, String name, String shortClassName,
+                            String longClassName, String value ) {
+        return false;
+    }
+
+    @Override public Thread getThread() {
+        return null;
+    }
 }

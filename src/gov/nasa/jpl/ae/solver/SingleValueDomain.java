@@ -185,6 +185,10 @@ public class SingleValueDomain< T > extends HasIdImpl implements Domain< T > {
     return !isEmpty();
   }
 
+  @Override public boolean hasMultipleValues() {
+    return false;
+  }
+
   @Override
   public void setValue( T value ) {
     this.value = value;

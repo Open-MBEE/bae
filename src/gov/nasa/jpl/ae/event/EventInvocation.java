@@ -154,13 +154,15 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
   }
   private Event constructEvent(Parameter< Long> start, Parameter< Long> end) {
     Event event = null;
-    Pair< Constructor< ? >, Object[] > ctorAndArgs =
-        // makeConstructor();
-        ClassUtils.getConstructorForArgs( eventClass, arguments,
-                                     ( enclosingInstance == null ) ? null
-                                     : enclosingInstance.getValue(true) );
-    constructor = (Constructor< ? extends Event >)ctorAndArgs.first;
-    if ( ctorAndArgs == null || constructor == null ) {
+    ConstructorCall cc = new ConstructorCall( enclosingInstance, eventClass, arguments, eventClass );
+//    Pair< Constructor< ? >, Object[] > ctorAndArgs =
+//        // makeConstructor();
+//        ClassUtils.getConstructorForArgs( eventClass, arguments,
+//                                     ( enclosingInstance == null ) ? null
+//                                     : enclosingInstance.getValue(true) );
+//    constructor = ctorAndArgs == null ? null : (Constructor< ? extends Event >)ctorAndArgs.first;
+//    if ( constructor == null ) {
+      if ( cc.getConstructor() == null ) {
         try {
           event = eventClass.newInstance();
           if ( start != null ) {
@@ -171,28 +173,30 @@ public class EventInvocation extends HasIdImpl implements HasParameters, Compara
             event.getEndTime().setValue(end.getValue());
           }
         } catch ( IllegalAccessException e ) {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         } catch ( InstantiationException e ) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+         e.printStackTrace();
         }
         return event;
     }
     if ( Debug.isOn() ) Debug.outln("About to call newInstance on constructor=" + constructor + " with arguments=" + Utils.toString(arguments) );
     try {
-      return constructor.newInstance( (Object[])ctorAndArgs.second );
+      Object o = cc.evaluate( true );
+      if ( o instanceof Event ) {
+        return (Event)o;
+      }
+      o = Expression.evaluate( o, Event.class, true, false );
+      if ( o instanceof Event ) {
+        return (Event)o;
+      }
+      //return constructor.newInstance( (Object[])ctorAndArgs.second );
     } catch ( InstantiationException e ) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( IllegalAccessException e ) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( IllegalArgumentException e ) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     } catch ( InvocationTargetException e ) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     return null;

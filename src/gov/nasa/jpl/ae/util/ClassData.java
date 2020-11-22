@@ -828,9 +828,11 @@ ClassData {
     }
     if ( Utils.isNullOrEmpty( functionDeclMap ) ) {
       if ( classNameWithScope == null ) classNameWithScope = getClassNameWithScope( scope );
-      functionDeclMap = functionParamTable.get( classNameWithScope );
-      if ( Utils.isNullOrEmpty( functionDeclMap ) && getCurrentMethod() != null ) {
-        functionDeclMap = functionParamTable.get( classNameWithScope + "." + getCurrentMethod() );
+      if ( classNameWithScope != null ) {
+        functionDeclMap = functionParamTable.get( classNameWithScope );
+        if ( Utils.isNullOrEmpty( functionDeclMap ) && getCurrentMethod() != null ) {
+          functionDeclMap = functionParamTable.get( classNameWithScope + "." + getCurrentMethod() );
+        }
       }
     }
     if ( !Utils.isNullOrEmpty( functionDeclMap ) ) {

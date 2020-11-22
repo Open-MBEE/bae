@@ -10,20 +10,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import gov.nasa.jpl.ae.solver.AbstractRangeDomain;
-import gov.nasa.jpl.ae.solver.CollectionTree;
-import gov.nasa.jpl.ae.solver.Constraint;
-import gov.nasa.jpl.ae.solver.Domain;
-import gov.nasa.jpl.ae.solver.HasConstraints;
-import gov.nasa.jpl.ae.solver.HasDomain;
-import gov.nasa.jpl.ae.solver.HasIdImpl;
-import gov.nasa.jpl.ae.solver.ObjectDomain;
+import gov.nasa.jpl.ae.solver.*;
 import gov.nasa.jpl.ae.util.LamportClock;
 import gov.nasa.jpl.ae.util.UsesClock;
 import gov.nasa.jpl.mbee.util.*;
-import gov.nasa.jpl.ae.solver.RangeDomain;
-import gov.nasa.jpl.ae.solver.Satisfiable;
-import gov.nasa.jpl.ae.solver.Variable;
 
 /**
  *
@@ -274,6 +264,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return value != null || (domain != null && domain.isNullInDomain());
   }
 
+  @Override public boolean hasMultipleValues() {
+    return false;
+  }
+
   public T getValue() {
     if ( Debug.isOn() ) Debug.outln( "Parameter.getValue() start: " + this );
     if ( Debug.isOn() ) assert mayPropagate;
@@ -324,6 +318,12 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
   public <T1> boolean valueEquals( T1 otherValue ) {
     if ( this == otherValue ) return true;
+    if ( value == null && otherValue != null ) {
+      return false;
+    }
+    if ( true ) {
+      return Utils.valuesLooselyEqual( this, otherValue, true, false );
+    }
     if ( !hasValue() ) {
       if ( otherValue instanceof Wraps ) {
         return !((Wraps) otherValue).hasValue();
@@ -415,7 +415,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
         Debug.outln(" $$$$$$$$$$$$$$ $$$$$$$$$$$$$$$ DID NOT CALL TRANSLATE FOR " + this + "  $$$$$$$$$$$$$ $$$$$$$$$$$");
       }
     }
-    boolean changing = !valueEquals( val );
+    boolean changing = (val != null || this.value != null) && !valueEquals( val );
     if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
                                      + "): changing = " + changing );
     if ( changing ) {
@@ -453,6 +453,7 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 //                    " $$$$$$$$$$$$$$   " + this.name + "@" + this.id + ".setValue(" + valString + "): " + " -- previous value: " + MoreToString.Helper.toLongString(  this ) + "   $$$$$$$$$$$$$" );
       //}
       if ( Debug.isOn() ) {
+
         Debug.outln(" $$$$$$$$$$$$$$   setValue(" + val + "): " + this.toString( true, false, null ) + "   $$$$$$$$$$$$$");
       }
 
@@ -470,8 +471,13 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
       }
 
       if (printOnSetValue) {
+        if ( "SOC".equals(name) || "voltage".equals(name) )
         System.out.println( "Set value of Parameter " + getQualifiedName( null ) + 
-                            " from " + MoreToString.Helper.toShortString( oldValue ) + 
+                            " from " + MoreToString.Helper.toLongString( oldValue ) +
+                            " to " + MoreToString.Helper.toLongString( val ) );
+        else
+        System.out.println( "Set value of Parameter " + getQualifiedName( null ) +
+                            " from " + MoreToString.Helper.toShortString( oldValue ) +
                             " to " + MoreToString.Helper.toShortString( val ) );
       }
       if ( Debug.isOn() ) Debug.outln( "Parameter.setValue(" + valString
@@ -560,6 +566,8 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     return true;
   }
 
+  //public static boolean pickedValueMustBeInDomain = true;
+
   @Override
   public boolean pickValue() {
     if ( Random.global.nextBoolean() ) {
@@ -569,9 +577,11 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
     T value = pickRandomValue();
     if ( value != null ) {
       if ( !valueEquals( value ) ) {
-        if ( Debug.isOn() ) Debug.outln( "////////////////////   picking " + value + " for " + this );
-        setValue( value );
-        return true;
+        //if ( !pickedValueMustBeInDomain || domain == null || domain.contains( value ) ) {
+          if ( Debug.isOn() ) Debug.outln( "////////////////////   picking " + value + " for " + this );
+          setValue( value );
+          return true;
+        //}
       }
     }
     return false;
@@ -612,6 +622,10 @@ public class Parameter< T > extends HasIdImpl implements Cloneable, Groundable,
 
     if (Parameter.allowPickValue ){
       T newValue = pickRandomValue();
+      // HACK -- Just doing this because pickRandomValue() is turned off for ClassDomain. It should be turned back on.
+      if ( newValue == null && domain != null && value == null && !domain.isNullInDomain() && domain instanceof ClassDomain ) {
+        newValue  = ( (ClassDomain<T>)domain ).constructObject();
+      }
       if ( newValue != null ) {
         setValue( newValue );
         return true;
