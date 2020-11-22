@@ -20,7 +20,7 @@
         <mbee.version>2.3.6-SNAPSHOT</mbee.version>
   </properties>
   
-<!--     profiles for specific dependencies for developers or users
+<!--     profiles for specific dependencies for developers or users -->
     <profiles>
         <profile>
             <id>mms-dev</id>
@@ -31,7 +31,7 @@
                     <version>1.0</version>
                     <scope>system</scope>
                      <type>jar</type>
-                    <systemPath>${project.basedir}/../sysml/src/main/amp/web/WEB-INF/lib/sysml.jar</systemPath>
+                    <systemPath>${project.basedir}/../sysml/target/sysml-${mbee.version}.jar</systemPath>
                 </dependency>
                 <dependency>
                     <groupId>mbee_util</groupId>
@@ -39,7 +39,7 @@
                     <version>1.0</version>
                     <scope>system</scope>
                     <type>jar</type>
-                    <systemPath>${project.basedir}/src/main/amp/web/WEB-INF/lib/mbee_util.jar</systemPath>
+                    <systemPath>${project.basedir}/../util/target/mbee_util-${mbee.version}.jar</systemPath>
                 </dependency>
                 <dependency>
                     <groupId>klang</groupId>
@@ -47,14 +47,15 @@
                     <version>1.0</version>
                     <scope>system</scope>
                     <type>jar</type>
-                    <systemPath>${project.basedir}/src/main/amp/web/WEB-INF/lib/klang.jar</systemPath>
+                    <systemPath>${project.basedir}/../klang/target/klang-${mbee.version}.jar</systemPath>
                 </dependency>
             </dependencies>
             <properties>
                 <env.BUILD_NUMBER>1</env.BUILD_NUMBER>
             </properties>
         </profile>
- -->  
+     </profiles>
+ <!-- -->  
   
   
   <build>
