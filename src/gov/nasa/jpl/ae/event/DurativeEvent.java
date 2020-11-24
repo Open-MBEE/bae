@@ -1672,7 +1672,7 @@ public class DurativeEvent extends ParameterListenerImpl implements Event,
       }
 
       if(objectiveParamName == null || targetParamName == null) {
-          System.err.println("objective and target parameters unknown");
+          System.err.println("objective and target parameters unknown; optimize mode: " + mode);
           return;
       }
 

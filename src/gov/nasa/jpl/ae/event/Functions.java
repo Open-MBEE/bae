@@ -1222,7 +1222,7 @@ public class Functions {
     return result;
   }
 
-  public static Object
+  public static Boolean
       isInstanceOf( Object o, Class<?> cls) throws IllegalAccessException,
                                                    InvocationTargetException,
                                                    InstantiationException {
@@ -1260,7 +1260,10 @@ public class Functions {
       return result;
     }
     if ( o1 != r1 ) {
-      result = isInstanceOf( o1, cls );
+      Boolean b = isInstanceOf( o1, cls );
+      if (b != null && b.booleanValue() ) {
+        result = o1;
+      }
     }
     return result;
   }
@@ -4202,6 +4205,7 @@ public class Functions {
         Class< ? > cls1 = o1.getClass();
         Class< ? > cls2 = o2.getClass();
         // TOOD -- what if cls1 is not a Number?
+
         Object x =
             Expression.evaluate( result,
                                  ClassUtils.dominantTypeClass( cls1, cls2 ),

@@ -376,8 +376,10 @@ public class Timepoint extends LongParameter implements TimeVariable {
     // TODO REVIEW -- consider adding a dependency so that these parameters can
     // change during problem solving.
     if (horizonTimepoint == null ) {
-      horizonTimepoint = 
-          new Timepoint( "", getHorizonDuration(), ParameterListener.instance );
+      horizonTimepoint =
+              new Timepoint( "horizon",
+                             new LongDomain(getHorizonDuration(), getHorizonDuration()),
+                             ParameterListener.instance );
     }
     if ( horizonTimepoint.getValueNoPropagate() == null ||
          !Utils.valuesEqual(horizonTimepoint.getValueNoPropagate(),
@@ -438,6 +440,8 @@ public class Timepoint extends LongParameter implements TimeVariable {
       long millis = horizon.getTime() - getEpoch().getTime();
       horizonDuration = milliseconds( millis );
       System.out.println("Horizon duration = " + horizonDuration );
+      getHorizonTimepoint().getDomain().setValue(horizonDuration);
+      getHorizonTimepoint().setValue(horizonDuration);
     }
     return true;
   }
@@ -458,7 +462,10 @@ public class Timepoint extends LongParameter implements TimeVariable {
     horizonDuration = duration;
     System.out.println("Horizon duration set to " + horizonDuration + " " + units );
     TimeDomain.horizonDomain.setUpperBound( horizonDuration );
-    if ( horizonTimepoint != null ) horizonTimepoint.setValue(duration);
+    if ( horizonTimepoint != null ) {
+      horizonTimepoint.getDomain().setValue(duration);
+      horizonTimepoint.setValue(duration);
+    }
     if ( getHorizonTimepoint() != null ) {
       horizon = getHorizonTimepoint().getDate();
     } else {

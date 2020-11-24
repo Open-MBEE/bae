@@ -882,7 +882,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
           System.out.println( this.getClass().getName() + " satisfy loop round "
                               + ( numLoops + 1 ) );
         }
-        System.out.println( "" );
+        System.out.println();
       }
       if ( amTopEventToSimulate ) {
         DurativeEvent.newMode = false; // numLoops % 2 == 0;
@@ -908,7 +908,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
 
 
       // numberOfConstraints = this.getNumberOfConstraints( true, null );
-      long numResolvedConstraints =
+      long numResolvedConstraints =  // TODO -- get the constraints the same way it's done elsewhere
           this.getNumberOfResolvedConstraints( true, null );// solver.getNumberOfResolvedConstraints();
       double fractionResolved =
           numberOfConstraints == 0 ? 0 : ( (double)numResolvedConstraints )
@@ -2544,7 +2544,7 @@ public class ParameterListenerImpl extends HasIdImpl implements Cloneable,
     seen = pair.second;
     LinkedHashMap<Parameter, Object> assignment = new LinkedHashMap<>();
 
-    Set<Parameter<?>> params = getParameters( deep, seen );
+    Set<Parameter<?>> params = getParameters( deep, null );
     for ( Parameter p : params ) {
       assignment.put( p, p.getValue( false ) );
     }
