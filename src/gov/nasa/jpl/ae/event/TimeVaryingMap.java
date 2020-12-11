@@ -5368,6 +5368,14 @@ public class TimeVaryingMap< V > extends TreeMap< Parameter< Long >, V >
     Set< Parameter< Long > > keys =
         new TreeSet< Parameter< Long > >( Collections.reverseOrder() );
     keys.addAll( this.keySet() );
+    Pair<Boolean, TimeVaryingMap<?>> p = Functions.booleanOrTimeline(thenObj);
+    if ( p != null && p.second != null ) {
+      thenObj = p.second;
+    }
+    p = Functions.booleanOrTimeline(elseObj);
+    if ( p != null && p.second != null ) {
+      elseObj = p.second;
+    }
     if ( thenObj instanceof TimeVaryingMap ) {
       keys.addAll( ((TimeVaryingMap<?>)thenObj).keySet() );
     }
